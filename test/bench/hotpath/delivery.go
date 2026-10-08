@@ -10,8 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
@@ -197,32 +195,28 @@ type deliveryCensus struct {
 	ClientFiles, WALSegments int
 }
 
-// clientSpoolNameShape derives the base-name prefix and extension internal/ipc gives a CLIENT
-// spool file from a real ipc.SpoolWriter's own Path() — "client-" and ".ndjson" today
-// (internal/ipc/spool.go's newSpool builds the name as prefix + os.Getpid() + ext), neither of
-// which that package exports.
+// checkClientSpoolKind confirms that internal/ipc classifies a real ipc.SpoolWriter's own Path() as
+// a CLIENT spool (ipc.SpoolFileKindOf, the classifier the daemon's drain and `qompack doctor` use),
+// which is how the census then tells client spools from WAL segments.
 //
 // The census reads the daemon's WAL segments (wal-*.ndjson, in the SAME directory) as well, and
 // counts what it finds in either family the same way, but it still tells them apart: a client
 // spool is read to its last byte, while a WAL segment's unterminated tail is a line the ingest is
-// still writing (censusSpoolFile). Identifying client files POSITIVELY keeps that distinction from
-// resting on a prefix this program would have to spell itself, and a rename that broke it fails
-// the other way: the file is read as a WAL segment and its torn tail, if it had one, is skipped.
-func clientSpoolNameShape(ownSpoolPath string) (prefix, ext string, err error) {
-	base := filepath.Base(ownSpoolPath)
-	pid := strconv.Itoa(os.Getpid())
-	i := strings.LastIndex(base, pid)
-	if i <= 0 {
-		return "", "", fmt.Errorf(
-			"hotpath: cannot derive the client spool name shape: this process's own spool path %q does not embed its pid %s the way internal/ipc/spool.go builds it",
-			ownSpoolPath, pid)
+// still writing (censusSpoolFile). Identifying client files POSITIVELY, by internal/ipc's own
+// classifier, keeps that distinction from resting on a prefix this program would have to spell
+// itself. Until 0.3.1 the census derived a prefix and an extension from the writer's own name,
+// prefix + os.Getpid() + ext. A writer's name now also carries an id the writer draws
+// (client-<pid>-<writer id>.ndjson, internal/ipc/spool.go's newSpoolFor), which nothing derived from
+// the pid can reconstruct, and a 0.3.0 hook's client-<pid>.ndjson can still be in the directory. The
+// check stays loud: a writer whose own file internal/ipc does not call a client spool stops the
+// census before it reads anything, rather than letting every client file be read as a WAL segment.
+func checkClientSpoolKind(ownSpoolPath string) error {
+	if ipc.SpoolFileKindOf(filepath.Base(ownSpoolPath)) != ipc.SpoolFileClient {
+		return fmt.Errorf(
+			"hotpath: internal/ipc does not classify this process's own spool %q as a client spool, so the census cannot tell client spools from WAL segments",
+			ownSpoolPath)
 	}
-	prefix, ext = base[:i], base[i+len(pid):]
-	if prefix == "" || ext == "" {
-		return "", "", fmt.Errorf(
-			"hotpath: cannot derive the client spool name shape from %q (prefix=%q ext=%q)", base, prefix, ext)
-	}
-	return prefix, ext, nil
+	return nil
 }
 
 // censusDeliveries finds, by identity, every request of this harness's own sessions that is
@@ -264,8 +258,7 @@ func censusDeliveries(projectRoot, ownSpoolPath string, sessions map[core.Sessio
 func censusDeliveriesAround(projectRoot, ownSpoolPath string, sessions map[core.SessionID]bool,
 	afterSpool func(),
 ) (deliveryCensus, error) {
-	prefix, ext, err := clientSpoolNameShape(ownSpoolPath)
-	if err != nil {
+	if err := checkClientSpoolKind(ownSpoolPath); err != nil {
 		return deliveryCensus{}, err
 	}
 	spoolDir := paths.Of(projectRoot).Spool
@@ -278,7 +271,7 @@ func censusDeliveriesAround(projectRoot, ownSpoolPath string, sessions map[core.
 	for _, p := range files {
 		base := filepath.Base(p)
 		// ipc.SpoolFiles lists exactly two families: the hooks' client spools and the daemon's WAL.
-		client := strings.HasPrefix(base, prefix) && strings.HasSuffix(base, ext)
+		client := ipc.SpoolFileKindOf(base) == ipc.SpoolFileClient
 		if client {
 			c.ClientFiles++
 		} else {

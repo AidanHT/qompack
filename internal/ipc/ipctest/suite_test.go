@@ -46,9 +46,9 @@ func (fakeStubServer) Close() error                                   { return c
 //
 // It exists so RunSpoolWriterSuite's behaviour block is demonstrably satisfiable rather than an
 // executable specification nobody has ever run — an unrunnable spec is worth very little to SP-05,
-// who inherits it. It is NOT the real spool: SP-05's writes to
-// .qompack/spool/client-<pid>.ndjson, coordinates with the daemon's drain, and is the durability
-// boundary §2.4 describes. This one only has to be right about the framing.
+// who inherits it. It is NOT the real spool: SP-05's writes to its writer's own
+// .qompack/spool/client-<pid>-<writer id>.ndjson, coordinates with the daemon's drain, and is the
+// durability boundary §2.4 describes. This one only has to be right about the framing.
 type workingSpool struct{ path string }
 
 func (s *workingSpool) Append(req ipc.Request) error {

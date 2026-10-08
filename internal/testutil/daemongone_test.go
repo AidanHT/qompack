@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -110,8 +109,8 @@ func reapLockHolder(cmd *exec.Cmd) {
 }
 
 // stagedShutdown is one ShutdownDaemonUntilGone call running in the background against a staged
-// project root, with what the tests need to watch it: its client spool, where every attempt lands
-// because nothing listens, and its outcome once it returns.
+// project root, with what the tests need to watch it: the root's spool directory, where every attempt
+// lands in the call's own client spool because nothing listens, and its outcome once it returns.
 type stagedShutdown struct {
 	t     *testing.T
 	spool string
@@ -127,7 +126,7 @@ func startStagedShutdown(t *testing.T, root string, w ShutdownWait) *stagedShutd
 	require.NoError(t, err)
 	s := &stagedShutdown{
 		t:     t,
-		spool: filepath.Join(paths.Of(root).Spool, "client-"+strconv.Itoa(os.Getpid())+".ndjson"),
+		spool: paths.Of(root).Spool,
 		done:  make(chan struct{}),
 	}
 	go func() {
@@ -143,10 +142,20 @@ func startStagedShutdown(t *testing.T, root string, w ShutdownWait) *stagedShutd
 	return s
 }
 
-// attempts counts the admin.shutdown requests the call has made so far.
+// attempts counts the admin.shutdown requests the call has made so far: the lines in the root's
+// client spools, of which the call's own writer is the only one. Its file's name carries an id the
+// writer drew, so the count reads every client spool rather than reconstruct the name.
 func (s *stagedShutdown) attempts() int {
-	b, _ := paths.ReadFileShared(s.spool)
-	return strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
+	files, _ := ipc.SpoolFiles(s.spool)
+	n := 0
+	for _, f := range files {
+		if ipc.SpoolFileKindOf(filepath.Base(f)) != ipc.SpoolFileClient {
+			continue
+		}
+		b, _ := paths.ReadFileShared(f)
+		n += strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
+	}
+	return n
 }
 
 // awaitAttempts waits until the call has made at least n attempts, and fails the test if the call

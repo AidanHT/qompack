@@ -139,8 +139,12 @@ func TestV4_X13NormalizeFoldsOnlyThePerRunComponent(t *testing.T) {
 			"internal/daemon/ingest.go, walPath at seq > 0",
 		},
 		{
-			"client fallback spool", "spool/client-4242.ndjson", "spool/<client>",
-			"internal/ipc/spool.go, newSpool — written only when the ACK wait gave up",
+			"client fallback spool", "spool/client-4242-0123456789abcdef.ndjson", "spool/<client>",
+			"internal/ipc/spool.go, newSpoolFor — one writer's own file, written only when the ACK wait gave up",
+		},
+		{
+			"0.3.0 client fallback spool", "spool/client-4242.ndjson", "spool/<client>",
+			"internal/ipc/spool.go before 0.3.1, named by pid alone; an upgraded project can still hold one",
 		},
 		{
 			"client blob", "spool/blob-4242-0.bin", "spool/<blob>",
