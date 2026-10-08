@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -161,6 +164,75 @@ func TestPreCompactSettle_CountsALeasedArrivalOnlyTheJournalKnows(t *testing.T) 
 
 	requireReplayedLater(t, dd, tool.Nonce)
 }
+
+// TestPreCompactSettle_NamesALeasedReadMovingIntoItsLane: a worker that routes a job from the ring
+// into its lane (dispatchLanes.join) moves it out of the record of leased jobs no lane holds and into
+// the lane under one hold of the lanes' mutex, and a flush that hands it back to the WAL
+// (dispatchLanes.forget) moves it the other way under one hold. A settle that read the lane and the
+// record under two holds could read the lane before a join and the record after it, find the job in
+// neither, and count it from the journal by its lease alone, without its name. Here a goroutine moves
+// one leased Read back and forth while the settle reads where the session's captures are, and every
+// read names the Read, by its tool_use_id.
+func TestPreCompactSettle_NamesALeasedReadMovingIntoItsLane(t *testing.T) {
+	dd, root := settleTestDaemon(t, liveOrderBound)
+	const sess core.SessionID = "sess-precompact-moving"
+	tool := liveOrderTool(dd, root, sess, 1)
+	line, err := ipc.EncodeRequest(tool)
+	require.NoError(t, err)
+	jb, err := dd.ing.makeDurable(tool, bytes.TrimSuffix(line, []byte{'\n'}))
+	require.NoError(t, err)
+	require.True(t, jb.leased, "fixture sanity: the Read is leased")
+	ls := dd.ing.lanes
+	ls.noteUnheld(jb) // Accept's record: the Read waits in the ring
+	upTo := jb.lease.ArrivalSeq + 1
+	want := []pendingCapture{captureOf(tool)}
+	require.Equal(t, want, dd.unreplayedCaptures(sess, upTo, nil), "fixture sanity: the settle names the Read in the ring")
+
+	stop, stopped := make(chan struct{}), make(chan struct{})
+	var moves atomic.Int64
+	go func() {
+		defer close(stopped)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			_, _, _ = ls.join(jb) // a worker routes the Read into its lane
+			ls.park(sess)
+			ls.forget(sess) // and a flush hands it back to the WAL
+			moves.Add(1)
+		}
+	}()
+	deadline := time.NewTimer(liveOrderBound)
+	defer deadline.Stop()
+	reads, unnamed := 0, 0
+	var first []pendingCapture // the first read that did not name it, for the failure message
+	for reads < movingReads || moves.Load() < movingReads {
+		select {
+		case <-deadline.C:
+			close(stop)
+			<-stopped
+			require.FailNow(t, "fixture sanity: the reads and the moves ran", "%d reads, %d moves", reads, moves.Load())
+		default:
+		}
+		if got := dd.unreplayedCaptures(sess, upTo, nil); !slices.Equal(got, want) {
+			if unnamed == 0 {
+				first = got
+			}
+			unnamed++
+		}
+		reads++
+	}
+	close(stop)
+	<-stopped
+	require.Zero(t, unnamed, "every one of the %d reads names the Read, wherever it is (%d moves); the first that "+
+		"did not read %+v", reads, moves.Load(), first)
+}
+
+// movingReads is how many reads, and how many moves of the Read between the record and its lane,
+// TestPreCompactSettle_NamesALeasedReadMovingIntoItsLane makes at least.
+const movingReads = 5000
 
 // requireReplayedLater asserts the second half of D55's rule for a capture a seal named: a drain,
 // here run by the row as the lanes' requested drain or the idle drain would run it, replays it from
