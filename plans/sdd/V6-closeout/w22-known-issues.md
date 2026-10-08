@@ -112,6 +112,13 @@ re-check add is appended here first.
 - ci.yml's reconciliation prints only the tail of a crashed test binary's output and uploads no test JSON,
   so a crash's cause line is lost (D75(c)). After the release: keep the head too, and upload test.json on
   failure.
+- After the release, ci.yml 37746311073 on develop fff45a45 (code identical to the tag's) had two test-defect
+  reds (D81(a)). Job cover: TestPromptWarning_SlowDurableAcceptIsLateForTheClient, the missing join above
+  (D70(b)). Job timing (windows-latest): TestGC_DeadlineTruncatesAndResumes at
+  internal/store/gc_test.go:475 priced its budget at 4x one control mark, the binary's first and coldest,
+  so the budget outlasted the judged pass's last check at object 512; the collector is correct. Neither
+  blocks 0.3.0. Fixed for 0.3.1 on fix/v031-flakes (c7f1dd38, 352aec9b: the budget is priced from the
+  fastest of four marks, the assertion is unchanged).
 
 ## Added by candidate 8's live re-check (D76)
 

@@ -394,8 +394,8 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
       candidate's evidence (`verified_in_target` only with an executed artifact); the 14 §3
       integration identifiers and the SP19/20/21 switches mapped.
 - [x] **C6.3** *(920f9269, e404673c: 22 fixed, 6 wontfix each with its 0.3.0 disposition; test/guards green)* `CARRIED-DEFECTS.tsv` final dispositions; `test/guards` green against the report.
-- [ ] **C6.4** V6 close-out report (the plan's §8 template), with independent final review.
-- [x] **C6.5** *(727417fe ticked 46 of the V6 plan's boxes with evidence; the C6.4 review round unticked 3.10 and section 10's environments box, so 44 are ticked and 9 left open with a reason; CHANGELOG.md [0.3.0] - 2026-10-08 (D79))* Tick the V6 plan's boxes with evidence links; `CHANGELOG.md` release entry.
+- [x] **C6.4** *(D81(a), D81(b): `plans/V6-CLOSEOUT-report.md` with every section 8 template cell filled; independent review by non-authoring seats in two rounds (1 major, 5 minors, 1 nit; 2 majors, 2 minors, 3 nits) and a third that applied D81(a) to the TestGC red, with no blocker or major open (`sdd/V6-closeout/c6-final-review.md`))* V6 close-out report (the plan's §8 template), with independent final review.
+- [x] **C6.5** *(727417fe ticked 46 of the V6 plan's boxes with evidence; the C6.4 review round unticked 3.10 and section 10's environments box, and its third round ticked section 10's review box, so 45 are ticked and 8 left open with a reason; CHANGELOG.md [0.3.0] - 2026-10-08 (D79))* Tick the V6 plan's boxes with evidence links; `CHANGELOG.md` release entry.
 
 ## Phase 7 — Release (each step needs its own authorization)
 
