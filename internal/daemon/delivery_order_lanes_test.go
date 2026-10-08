@@ -222,6 +222,12 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 			case <-ctx.Done():
 				return ipc.Response{Err: ctx.Err().Error()}
 			}
+			// The stall has spent 3 s of the line's 5 s drainLineDeadline. The real publication
+			// that follows runs without it: under it, a host that needs more than the 2 s left
+			// cuts the line with nothing published, and passLeftWork rightly does not ask again
+			// after a pass that made no progress, so the row stranded whatever its bound (D73(2)).
+			// The row is about the pass budget, which the stall alone spends.
+			return withoutLineDeadline(dispatch)(ctx, req)
 		}
 		return dispatch(ctx, req)
 	}
@@ -260,9 +266,10 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 // second longer than the whole budget and well inside drainLineDeadline, as such a publication does;
 // a requested pass must give a line it has started its own deadline, and stop starting lines once
 // its budget is spent. The row counts the attempts cancelled inside their slow part: the pass budget
-// did that to every attempt, and a line's own deadline, which ends after it, cannot. (An attempt can
-// still run out of its own deadline after the slow part on a loaded host and be tried again; that is
-// the per-line deadline doing its job, not the budget.)
+// did that to every attempt, and a line's own deadline, which ends after it, cannot. The real
+// publication after the slow part runs without the line's deadline (withoutLineDeadline): under it, a
+// loaded host that needed more than the 2 s the slow part left cut the line with nothing published,
+// and a pass that publishes nothing is not asked again (passLeftWork), so the row stranded (D73(2)).
 func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing.T) {
 	dd, o, root := laneTestDaemon(t)
 	const sess core.SessionID = "sess-overflow-slow-line"
@@ -284,6 +291,9 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 				cutInside.Add(1)
 				return ipc.Response{Err: ctx.Err().Error()}
 			}
+			// The real publication after the slow part runs without the line's deadline, for the
+			// reason the row above gives (D73(2)): the slow part is what this row prices.
+			return withoutLineDeadline(dispatch)(ctx, req)
 		}
 		return dispatch(ctx, req)
 	}
