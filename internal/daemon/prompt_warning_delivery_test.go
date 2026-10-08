@@ -270,6 +270,12 @@ func TestPromptWarning_SlowDurableAcceptIsLateForTheClient(t *testing.T) {
 	require.Nil(t, out.HookSpecificOutput,
 		"a reply produced after the hook's budget ran out reaches nobody; it must go out empty")
 	require.Equal(t, int64(1), r.late(), "and be counted late")
+	// The late reply call is still running: the reply went out empty without waiting for it. Join it
+	// before the next prompt, as the sibling rows join theirs, or that prompt's own reply call can
+	// take the session lock first and drain the warning the late call has not yet re-armed (D70(b)).
+	r.dd.promptWG.Wait()
+	require.Equal(t, int64(1), r.dd.m.Counter(observerThrashUndelivered).Value(),
+		"the late reply call re-armed the warning it drained rather than consuming it")
 
 	require.Nil(t, r.prompt("what now?").HookSpecificOutput, "the stale warning is not replayed")
 	r.spacerTool()
