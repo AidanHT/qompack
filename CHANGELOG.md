@@ -5,6 +5,94 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-09
+
+A patch release on 0.3.0 (tag `v0.3.0`, `1a368a4b`). It fixes three of 0.3.0's known issues and one
+diagnostic counter, and changes nothing else a user can see. The release decision is V6 close-out
+decision D81, with D82 and the rows that follow them in `plans/V6-CLOSEOUT-CHECKLIST.md`; its
+release gate is D81(c)(8). Its product code is 0.3.0's plus five fix branches (`fix/v031-spoolid`,
+`fix/v031-status`, `fix/v031-flakes`, `fix/v031-ci` and `fix/v031-settle`) and the version commit.
+Known issues are numbered as in the close-out ledger's `plans/sdd/V6-closeout/w22-known-issues.md`,
+which is the order of [0.3.0]'s Known issues below, with 11 to 15 in one item.
+
+**Upgrading from 0.3.0.** Update the marketplace, then the entry you installed (`docs/install.md`
+§9), and restart Claude Code when the update says so:
+
+```sh
+claude plugin marketplace update qompack
+claude plugin update qompack-windows-amd64@qompack -s user
+```
+
+Replace `qompack-windows-amd64` with the entry you installed. No data migration is needed: 0.3.1
+keeps 0.3.0's store and state formats, and the only on-disk name it changes is a hook's fallback
+spool file's, whose 0.3.0 form the daemon still drains.
+
+### Fixed
+
+- **A capture is no longer dropped when Windows reuses a hook's process id** (known issue 19).
+  Each hook's fallback spool, the file it writes when it cannot reach the daemon, is now a file of
+  its own, `client-<pid>-<16 hex>.ndjson`, named by its process id and a random 64-bit writer id.
+  In 0.3.0 it was `client-<pid>.ndjson`, so a new hook that reused an earlier hook's process id
+  appended to that hook's file and shared its 64 MiB cap, and once that file was full while it
+  waited to be consumed, a capture whose hook could not reach the daemon was dropped. A 0.3.0
+  hook's `client-<pid>.ndjson` is still drained, in host order with the new files. The same change
+  ends decision D38's residual for 0.3.1 hooks: a prompt spooled by a hook that reused a process id
+  can no longer be replayed ahead of an earlier one; only a 0.3.0 hook's leftover file still can
+  (D78(c), D81(c)(1)).
+- **A `PreCompact` checkpoint's drop report names every capture it leaves waiting** (known issue
+  20). When a compaction's checkpoint is sealed while some of the session's captures are still
+  waiting in the daemon, the rehydration block's section 7 and `dropped()` now name them wherever
+  they wait: queued for a busy worker (ring-held), held only in the daemon's write-ahead log after a
+  full queue or ingest lane (WAL-only), or leased by an earlier daemon that never stored them
+  (predecessor-leased). 0.3.0 named only those still in a hook's spool or in the session's lane. A
+  capture known only by its delivery lease is counted, not named, and the summary says how many. The
+  summary no longer blames a slow disk: only a spooled capture can owe its wait to the disk, so it
+  now gives no cause. Nothing was lost in either release: the daemon stores the captures right
+  after, and `recall` and `expand` find them then (D73(b), D81(c)(4), D82).
+- **`/qompack:status` no longer promises a last decision** (known issue 17). Its description, and
+  `docs/commands.md` generated from it, now read "Qompack status — mode, contracts, store, latency".
+  Neither the status page nor `qompack status --json` carried a last decision, and 0.3.1 adds none;
+  `/qompack:why <decision-id>` explains a recorded decision (D76(b), D81(c)(2)).
+- **`checkpoint.decision_read_error` no longer counts a read that did not fail.** It counted the
+  decision extractor's by-design read of an elimination node's empty root, so it read 2 or 3 on
+  healthy stores. Any other unreadable node that explains a decision is still counted (D76(d),
+  D81(c)(3)).
+
+### Changed
+
+- **Client spool file names.** A hook's fallback spool under `.qompack/spool/` is
+  `client-<pid>-<16 hex>.ndjson`, one per hook process, instead of `client-<pid>.ndjson`. The
+  daemon, `status`, `doctor` and `fsck` read both forms (D81(c)(1)).
+- **The `unreplayed_capture` drop entry's text.** It no longer says "(durable writes on this disk
+  were slower than their budget)", and when some of the captures it counts are known only by their
+  lease it adds "N of the other capture(s) are known here only by their delivery lease, not by their
+  kind" (D81(c)(4), `docs/troubleshooting.md` §7).
+
+### Development
+
+Test and CI changes, with no product change and no check loosened (D81(c)(5)):
+
+- `ci.yml` keeps a crashed test binary's first lines and its panic, fatal-error, timeout or Windows
+  exception block, and uploads `test.json` when the test job fails (D75(c)).
+- The Windows test leg's two passes get a 120-minute hang guard per binary instead of 60 (D70(b)).
+- `TestFault_DaemonKilledMidIngest` waits out a fresh spawn claim before it recovers (D73(1)).
+- Two drain-order rows lift the per-line deadline after their injected stall (D73(2)).
+- `TestPromptWarning_SlowDurableAcceptIsLateForTheClient` joins its late reply call before the next
+  prompt (D70(b)).
+- `TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes` waits for the live worker to
+  own the delivery (D75(c)).
+- `TestGC_DeadlineTruncatesAndResumes` prices its budget from the fastest of four control marks
+  (D81(a)).
+- The C1.16 rig gives each in-process hook a spool file of its own and requires 0 `LOUD.log` spool
+  drops (D78(b)).
+
+### Known issues
+
+0.3.0's known issues 1 to 16 and 18 are carried into 0.3.1 unchanged (D81(c)(6) keeps 18) and are
+listed under [0.3.0]'s Known issues below; 0.3.1 fixes 17, 19 and 20, above. 0.3.0's Known limits
+hold for 0.3.1 too, except that a 0.3.1 hook's reused process id no longer puts a prompt out of host
+order.
+
 ## [0.3.0] - 2026-10-08
 
 The release 0.3.0 entry (V6 close-out decision D1). It summarises the user-visible changes since

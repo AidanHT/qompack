@@ -19,6 +19,15 @@ evict anything from the native context, and performs no network I/O of any kind.
 
 ## Status: released
 
+**0.3.1** is a patch release on 0.3.0 (V6 close-out decisions D81 and D82). It fixes three of
+0.3.0's known issues: a capture dropped when Windows gives a new hook an earlier hook's process id
+(19), a checkpoint drop report that left out captures still waiting in the daemon (20), and
+`/qompack:status`'s description promising a last decision (17). Its product code is 0.3.0's plus
+those fixes, so the evidence below, which is 0.3.0's, does not carry to it by a byte comparison.
+Its own release gate is decision D81(c)(8), the
+[0.3.1 release notes](docs/release-notes/v0.3.1.md) say where it was verified, and
+[CHANGELOG.md](CHANGELOG.md) lists every change. The rest of this section describes 0.3.0.
+
 Release **0.3.0** (V6 close-out decision D1) was published on 2026-10-08 (decisions D79 and D80),
 the first release from this repository. It is cut from release candidate 8 (decision D58(e)),
 commit `3ec62ad2`, whose frozen bundles and evidence are recorded in
@@ -33,10 +42,11 @@ rehearsed, and the release was then promoted. The marketplace is `.claude-plugin
 on develop ([docs/install.md §9](docs/install.md#9-installing-from-the-public-marketplace)), and
 [docs/release.md](docs/release.md#1-procedure) §1 is the procedure.
 
-The source tree declares the same version: `internal/core.Version` and
-`plugin/.claude-plugin/plugin.json` read `0.3.0` from the release's own version commit on (release
-§1, step 1), so a binary from a plain `go build ./cmd/qompack` also reports `0.3.0`. The tag
-before it, `v0.2.0`, was an internal verification checkpoint and never a release.
+The source tree declares the version it builds: `internal/core.Version` and
+`plugin/.claude-plugin/plugin.json` read `0.3.0` from 0.3.0's own version commit on (release §1,
+step 1) and `0.3.1` from 0.3.1's, so a binary from a plain `go build ./cmd/qompack` reports the
+version its tree declares. The tag before `v0.3.0`, `v0.2.0`, was an internal verification
+checkpoint and never a release.
 
 **What 0.3.0 is.** A local recorder and retriever for Claude Code sessions: it keeps a durable record
 of what the hooks deliver, seals a checkpoint when the host is about to compact, puts a bounded
@@ -72,8 +82,8 @@ slash commands. It runs on your machine only.
 
 **Claude Code 2.1.139 or later** is required for any install: every hook is exec form, and 2.1.139
 added the hook `args` field that form needs. Installing from the marketplace
-needs **2.1.224 or later**. The host version this release was tested with is **Claude Code
-2.1.280**; the install of the published release was rehearsed with 2.1.293 (D80). See [docs/install.md](docs/install.md).
+needs **2.1.224 or later**. The host version 0.3.0 was tested with is **Claude Code
+2.1.280**; the install of the published 0.3.0 was rehearsed with 2.1.293 (D80). See [docs/install.md](docs/install.md).
 
 The following checks are configured in `.github/workflows/ci.yml`. Go jobs pin
 `1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
@@ -142,8 +152,8 @@ release's per-target claim, raised only by committed records, and
 Packaging and release tooling: [docs/install.md](docs/install.md) and
 [docs/security.md](docs/security.md) cover installing the bundle and its security and recovery
 posture, and [docs/release.md](docs/release.md) covers how a release is cut and what it claims. The
-bundle is assembled by `go run ./tools/devtool bundle`. The tag-triggered release workflow has run
-once, for 0.3.0 (`release.yml` run `37738581717`, success;
+bundle is assembled by `go run ./tools/devtool bundle`. The tag-triggered release workflow first
+ran for 0.3.0 (`release.yml` run `37738581717`, success;
 [docs/release.md](docs/release.md#7-not-claimed) §7).
 
 ## Building from source
