@@ -11,9 +11,9 @@ the V6 plan's section 8 template and section 10 gate. The fixes are the `fix:clo
 Commits quoted here are on `closeout/c6-final`, and none is on `develop` (`7fbb8a40`) yet:
 `9325fc86`, `54c13eca` and `912e71c4` (round 1's fixes), `c99a7794` (the inventory seat) and
 `1555353b` (round 2's fixes, which added this file), `9ded0cfd` (the D81 pass), `004b169f` (round
-3's fixes), and `8b17d6fe` and the D82 pass commit named in "Round 3 resolution" below. The 0.3.1
-test fixes `c7f1dd38` and `352aec9b` that D81(a) cites are on branch `fix/v031-flakes`, and the
-0.3.1 settle fix `8fceae1e`, `3f30dfd7` and `f12dd56f` that D82(b) cites is on branch
+3's fixes), and `8b17d6fe` and `facea715` (the D82 row and its pass, "Round 3 resolution" below).
+The 0.3.1 test fixes `c7f1dd38` and `352aec9b` that D81(a) cites are on branch `fix/v031-flakes`, and
+the 0.3.1 settle fix `8fceae1e`, `3f30dfd7` and `f12dd56f` that D82(b) cites is on branch
 `fix/v031-settle`; none of them is on `closeout/c6-final`.
 
 **Status.** Every finding of rounds 1-3 is resolved, and C6.4 is ticked in
@@ -125,10 +125,11 @@ Every round 3 finding is resolved:
 - **3.2:** resolved by D82 (2026-10-08). `8b17d6fe` adds the row and discloses the defect as known
   issue 20 in CHANGELOG.md's 0.3.0 Known issues, `docs/release-notes/v0.3.0.md` and
   `w22-known-issues.md`. The published 0.3.0 release body is not edited (D82(a)). The fix is 0.3.1's,
-  on `fix/v031-settle` (D82(b)). The D82 pass (the commit that adds this section) applies the row: the report cites D82
-  in its header and sections 0, 4, 9, 10, 13, 17, 18 and 19, and its ledger range reads D1-D82. The V6 plan's
-  section 2 no-hidden-blocker box and section 10 independent-review box are ticked, so the plan counts
-  45 boxes ticked and 8 open. The checklist ticks C6.4 and corrects C6.5's counts. No D row was edited.
+  on `fix/v031-settle` (D82(b)). The D82 pass (`facea715`) applies the row: the report cites D82 in
+  its header and sections 0, 4, 9, 10, 13, 17, 18 and 19, and its ledger range reads D1-D82. The V6
+  plan's section 2 no-hidden-blocker box and section 10 independent-review box are ticked, so the
+  plan counts 45 boxes ticked and 8 open. The checklist ticks C6.4 and corrects C6.5's counts. No D
+  row was edited.
 
 ### Checks run for the D82 pass
 
