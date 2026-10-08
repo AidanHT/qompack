@@ -1,0 +1,526 @@
+start candidate=3ec62ad2e01b985640c0f1fb832df3917f766a5f pid 448 winpid 46208 deadline=2026-10-08T08:00:00 mode=c52-only c52_set=full steps=[c116-rig c52-linux-checkpoint c52-linux-other] ac_wait_budget=180min used=0min prev_candidate=d20309c03ffc364e4cc48663be73cfbb1f2309b2 go=go1.26.6 power=BAT 70 2026-10-07T21:35:05Z
+disk: /tmp has 82 GiB free (NIGHT_MIN_FREE_GB=40); disk: /c/Users/Quant/AppData/Local/go-build has 82 GiB free (NIGHT_MIN_FREE_GB=40) 2026-10-07T21:35:06Z
+engine up at start=1 (three probes); an engine is stopped only when it was down now, Docker Desktop said stopped, this chain started it, and nothing else runs on it 2026-10-07T21:35:06Z
+supabase_studio_promptly Up 2 days (healthy)
+supabase_pg_meta_promptly Up 2 days (healthy)
+supabase_storage_promptly Up 2 days (healthy)
+supabase_rest_promptly Up 2 days
+supabase_realtime_promptly Up 2 days (healthy)
+supabase_inbucket_promptly Up 2 days (healthy)
+supabase_auth_promptly Up 2 days (healthy)
+supabase_kong_promptly Up 2 days (healthy)
+supabase_vector_promptly Restarting (0) 11 seconds ago
+supabase_analytics_promptly Up 2 days (healthy)
+supabase_db_promptly Up 2 days (healthy)
+C8_C52_ONLY=1: a C5.2 night (D62(c)): only these steps run, in this order: c116-rig c52-linux-checkpoint c52-linux-other 2026-10-07T21:35:07Z
+queued for AC: c116-rig (power BAT 70) 2026-10-07T21:35:09Z
+c52: the FULL C5.2 list is measured: all 65 rows of quiet.sh's benches() list (19 packages), in chunks whose packages together are exactly the list's (observer store checkpoint one chunk each, other the rest), with QUIET_BENCH_FILTER empty; tonight only C8_C52_STEPS: c116-rig c52-linux-checkpoint c52-linux-other (C8_C52_SET=full, D62(b): D57(e) is file-level, and candidate 8's internal/config/config.go runs at package init in every benchmark binary linking internal/config) 2026-10-07T21:35:09Z
+c52: c52-linux-checkpoint measures QUIET_PKGS='checkpoint' QUIET_BENCH_FILTER='' into quiet-c52-linux-checkpoint/, about 56 min 2026-10-07T21:35:10Z
+c52: c52-linux-other measures QUIET_PKGS='negknow daemon cli canon chunk symbols obs config paths eval sketch dag hostperm scheduler rules skills' QUIET_BENCH_FILTER='' into quiet-c52-linux-other/, about 38 min 2026-10-07T21:35:11Z
+c52: tonight's chunks need about 0 min on Windows and 94 min on Linux (C52_EST_*: candidate 5's time for each chunk's packages, plus 10 min a chunk); each starts only if it can end by 2026-10-08T08:00:00 2026-10-07T21:35:11Z
+power: waiting for AC (BAT 70; 0 of 180 min of the night's wait budget used) 2026-10-07T21:35:12Z
+power: waiting for AC (BAT 64; 15 of 180 min of the night's wait budget used) 2026-10-07T21:50:26Z
+power: waiting for AC (BAT 57; 30 of 180 min of the night's wait budget used) 2026-10-08T03:07:39Z
+power: waiting for AC (BAT 55; 45 of 180 min of the night's wait budget used) 2026-10-08T03:22:55Z
+power: waiting for AC (BAT 53; 60 of 180 min of the night's wait budget used) 2026-10-08T03:38:11Z
+power: waiting for AC (BAT 51; 75 of 180 min of the night's wait budget used) 2026-10-08T03:53:27Z
+step c116-rig try 1 start power=AC 49 2026-10-08T04:01:37Z
+run p3-c116-rig-noextra exit=0
+run p3-c116-rig-coload exit=1
+c116-rig noextra: compact SessionStart wall (n=30): p50=82.4047ms p95=108.1441ms p99=142.899ms max=142.899ms answers=map[rehydration:30]
+c116-rig noextra: of the rig's 2144 Reads: 18 indexed, 2054 in its daemon's WAL only, 72 in a client spool
+p3-c116-rig-coload: TestSessionStartCompact_UnderSameSessionIngest did not pass (or did not run)
+p3-c116-rig-coload: no n=30 wall-time distribution
+p3-c116-rig-coload: no Read-routing line (a rig before 3f2da1b3?)
+step c116-rig exit=1
+step c116-rig try 1 exit=1 VALID power=AC 49->AC 75 2026-10-08T04:29:15Z
+step c52-linux-checkpoint try 1 start power=AC 75 2026-10-08T04:29:16Z
+container start exit=0 (c52-linux-checkpoint) 2026-10-08T04:29:17Z
+gate prep quiet-c52-prep-base (base cf31e01f38f3) exit=0 run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261008T042929Z
+run c52-linux-build-base-checkpoint exit=0
+gate prep quiet-c52-prep-candidate (candidate 3ec62ad2e01b) exit=0 run_id=cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261008T042958Z
+run c52-linux-build-candidate-checkpoint exit=0
+load before-c52-linux 04:30:27Z: windows_cpu_pct=9 linux_loadavg=0.53 0.26 0.21 5/959 1398
+run c52-linux-r1-base-checkpoint-10x exit=0
+run c52-linux-r1-candidate-checkpoint-10x exit=0
+run c52-linux-r1-base-checkpoint-1s exit=0
+run c52-linux-r1-candidate-checkpoint-1s exit=0
+load after-c52-linux-round-1 04:35:31Z: windows_cpu_pct=7 linux_loadavg=2.28 1.48 0.76 2/963 1468
+WARNING: host not idle at after-c52-linux-round-1 (linux 1-min load 2.28 > 1.0); timings from here may not be quiet
+run c52-linux-r2-candidate-checkpoint-10x exit=0
+run c52-linux-r2-base-checkpoint-10x exit=0
+run c52-linux-r2-candidate-checkpoint-1s exit=0
+run c52-linux-r2-base-checkpoint-1s exit=0
+load after-c52-linux-round-2 04:40:30Z: windows_cpu_pct=29 linux_loadavg=2.10 1.97 1.19 5/964 1538
+WARNING: host not idle at after-c52-linux-round-2 (windows_cpu_pct 29 > 15; linux 1-min load 2.10 > 1.0); timings from here may not be quiet
+run c52-linux-r3-base-checkpoint-10x exit=0
+run c52-linux-r3-candidate-checkpoint-10x exit=0
+run c52-linux-r3-base-checkpoint-1s exit=0
+run c52-linux-r3-candidate-checkpoint-1s exit=0
+load after-c52-linux-round-3 04:44:51Z: windows_cpu_pct=14 linux_loadavg=1.92 1.94 1.37 4/965 1608
+WARNING: host not idle at after-c52-linux-round-3 (linux 1-min load 1.92 > 1.0); timings from here may not be quiet
+run c52-linux-r4-candidate-checkpoint-10x exit=0
+run c52-linux-r4-base-checkpoint-10x exit=0
+run c52-linux-r4-candidate-checkpoint-1s exit=0
+run c52-linux-r4-base-checkpoint-1s exit=0
+load after-c52-linux-round-4 04:49:53Z: windows_cpu_pct=0 linux_loadavg=1.98 2.04 1.59 2/964 1678
+WARNING: host not idle at after-c52-linux-round-4 (linux 1-min load 1.98 > 1.0); timings from here may not be quiet
+run c52-linux-r5-base-checkpoint-10x exit=0
+run c52-linux-r5-candidate-checkpoint-10x exit=0
+run c52-linux-r5-base-checkpoint-1s exit=0
+run c52-linux-r5-candidate-checkpoint-1s exit=0
+load after-c52-linux-round-5 04:54:14Z: windows_cpu_pct=8 linux_loadavg=1.83 1.94 1.67 3/976 1749
+WARNING: host not idle at after-c52-linux-round-5 (linux 1-min load 1.83 > 1.0); timings from here may not be quiet
+run c52-linux-r6-candidate-checkpoint-10x exit=0
+run c52-linux-r6-base-checkpoint-10x exit=0
+run c52-linux-r6-candidate-checkpoint-1s exit=0
+run c52-linux-r6-base-checkpoint-1s exit=0
+load after-c52-linux-round-6 04:59:14Z: windows_cpu_pct=17 linux_loadavg=2.05 1.99 1.77 3/965 1818
+WARNING: host not idle at after-c52-linux-round-6 (windows_cpu_pct 17 > 15; linux 1-min load 2.05 > 1.0); timings from here may not be quiet
+run c52-linux-r7-base-checkpoint-10x exit=0
+run c52-linux-r7-candidate-checkpoint-10x exit=0
+run c52-linux-r7-base-checkpoint-1s exit=0
+run c52-linux-r7-candidate-checkpoint-1s exit=0
+load after-c52-linux-round-7 05:04:12Z: windows_cpu_pct=2 linux_loadavg=1.87 1.97 1.83 5/965 1889
+WARNING: host not idle at after-c52-linux-round-7 (linux 1-min load 1.87 > 1.0); timings from here may not be quiet
+run c52-linux-r8-candidate-checkpoint-10x exit=0
+run c52-linux-r8-base-checkpoint-10x exit=0
+run c52-linux-r8-candidate-checkpoint-1s exit=0
+run c52-linux-r8-base-checkpoint-1s exit=0
+load after-c52-linux-round-8 05:08:25Z: windows_cpu_pct=14 linux_loadavg=1.90 1.95 1.86 5/979 1959
+WARNING: host not idle at after-c52-linux-round-8 (linux 1-min load 1.90 > 1.0); timings from here may not be quiet
+run c52-linux-r9-base-checkpoint-10x exit=0
+run c52-linux-r9-candidate-checkpoint-10x exit=0
+run c52-linux-r9-base-checkpoint-1s exit=0
+run c52-linux-r9-candidate-checkpoint-1s exit=0
+load after-c52-linux-round-9 05:13:19Z: windows_cpu_pct=5 linux_loadavg=2.08 2.03 1.92 5/966 2030
+WARNING: host not idle at after-c52-linux-round-9 (linux 1-min load 2.08 > 1.0); timings from here may not be quiet
+run c52-linux-r10-candidate-checkpoint-10x exit=0
+run c52-linux-r10-base-checkpoint-10x exit=0
+run c52-linux-r10-candidate-checkpoint-1s exit=0
+run c52-linux-r10-base-checkpoint-1s exit=0
+load after-c52-linux-round-10 05:18:12Z: windows_cpu_pct=6 linux_loadavg=2.06 2.03 1.96 3/964 2100
+WARNING: host not idle at after-c52-linux-round-10 (linux 1-min load 2.06 > 1.0); timings from here may not be quiet
+c52-linux paired analysis and completeness exit=0
+run c52-linux-benchstat exit=0
+run c52-linux-benchstat-csv exit=0
+step c52-linux exit=0
+WARNING: homeguard check reports a real-home difference; read C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/homeguard-check.txt
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.f4tHzincaJ removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-names.tsv
+gate prep (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/prep-base.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/gate/cx-quiet-quiet-c52-prep-base-cf31e01-20261008T042929Z-artifacts
+gate prep (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/prep-candidate.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/gate/cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261008T042958Z-artifacts
+c52-linux raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/c52-linux-r*-*.log + .json)
+c52-linux benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/c52-linux-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/c52-linux-benchstat-csv.log)
+c52-linux paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/absolute-budget.tsv
+c52-linux clone checks: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/source-status-after-*.txt, binaries C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/c52-linux/binaries-*.sha256
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+container stopped exit=0 2026-10-08T05:18:36Z
+engine left as found (D56(g)) 2026-10-08T05:18:36Z
+step c52-linux-checkpoint try 1 exit=0 VALID power=AC 75->AC 95 2026-10-08T05:18:38Z
+step c52-linux-other try 1 start power=AC 95 2026-10-08T05:18:39Z
+container start exit=0 (c52-linux-other) 2026-10-08T05:18:40Z
+gate prep quiet-c52-prep-base (base cf31e01f38f3) exit=0 run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261008T051850Z
+run c52-linux-build-base-canon exit=0
+run c52-linux-build-base-chunk exit=0
+run c52-linux-build-base-cli exit=0
+run c52-linux-build-base-config exit=0
+run c52-linux-build-base-daemon exit=0
+run c52-linux-build-base-dag exit=0
+run c52-linux-build-base-eval exit=0
+run c52-linux-build-base-negknow exit=0
+run c52-linux-build-base-obs exit=0
+run c52-linux-build-base-paths exit=0
+run c52-linux-build-base-rules exit=0
+run c52-linux-build-base-scheduler exit=0
+run c52-linux-build-base-sketch exit=0
+run c52-linux-build-base-skills exit=0
+run c52-linux-build-base-symbols exit=0
+gate prep quiet-c52-prep-candidate (candidate 3ec62ad2e01b) exit=0 run_id=cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261008T051934Z
+run c52-linux-build-candidate-canon exit=0
+run c52-linux-build-candidate-chunk exit=0
+run c52-linux-build-candidate-cli exit=0
+run c52-linux-build-candidate-config exit=0
+run c52-linux-build-candidate-daemon exit=0
+run c52-linux-build-candidate-dag exit=0
+run c52-linux-build-candidate-eval exit=0
+run c52-linux-build-candidate-hostperm exit=0
+run c52-linux-build-candidate-negknow exit=0
+run c52-linux-build-candidate-obs exit=0
+run c52-linux-build-candidate-paths exit=0
+run c52-linux-build-candidate-rules exit=0
+run c52-linux-build-candidate-scheduler exit=0
+run c52-linux-build-candidate-sketch exit=0
+run c52-linux-build-candidate-skills exit=0
+run c52-linux-build-candidate-symbols exit=0
+load before-c52-linux 05:20:40Z: windows_cpu_pct=0 linux_loadavg=1.52 1.84 1.89 3/961 5535
+WARNING: host not idle at before-c52-linux (linux 1-min load 1.52 > 1.0); timings from here may not be quiet
+run c52-linux-r1-base-negknow-10x exit=0
+run c52-linux-r1-candidate-negknow-10x exit=0
+run c52-linux-r1-base-negknow-1s exit=0
+run c52-linux-r1-candidate-negknow-1s exit=0
+run c52-linux-r1-base-daemon-1s exit=0
+run c52-linux-r1-candidate-daemon-1s exit=0
+run c52-linux-r1-base-cli-1s exit=0
+run c52-linux-r1-candidate-cli-1s exit=0
+run c52-linux-r1-base-canon-1s exit=0
+run c52-linux-r1-candidate-canon-1s exit=0
+run c52-linux-r1-base-chunk-1s exit=0
+run c52-linux-r1-candidate-chunk-1s exit=0
+run c52-linux-r1-base-symbols-1s exit=0
+run c52-linux-r1-candidate-symbols-1s exit=0
+run c52-linux-r1-base-obs-1s exit=0
+run c52-linux-r1-candidate-obs-1s exit=0
+run c52-linux-r1-base-config-1s exit=0
+run c52-linux-r1-candidate-config-1s exit=0
+run c52-linux-r1-base-paths-1s exit=0
+run c52-linux-r1-candidate-paths-1s exit=0
+run c52-linux-r1-base-eval-1s exit=0
+run c52-linux-r1-candidate-eval-1s exit=0
+run c52-linux-r1-base-sketch-1s exit=0
+run c52-linux-r1-candidate-sketch-1s exit=0
+run c52-linux-r1-base-dag-1s exit=0
+run c52-linux-r1-candidate-dag-1s exit=0
+run c52-linux-r1-candidate-hostperm-1s exit=0
+run c52-linux-r1-base-scheduler-1s exit=0
+run c52-linux-r1-candidate-scheduler-1s exit=0
+run c52-linux-r1-base-rules-1s exit=0
+run c52-linux-r1-candidate-rules-1s exit=0
+run c52-linux-r1-base-skills-1s exit=0
+run c52-linux-r1-candidate-skills-1s exit=0
+load after-c52-linux-round-1 05:23:08Z: windows_cpu_pct=5 linux_loadavg=1.28 1.62 1.80 2/963 6019
+WARNING: host not idle at after-c52-linux-round-1 (linux 1-min load 1.28 > 1.0); timings from here may not be quiet
+run c52-linux-r2-candidate-negknow-10x exit=0
+run c52-linux-r2-base-negknow-10x exit=0
+run c52-linux-r2-candidate-negknow-1s exit=0
+run c52-linux-r2-base-negknow-1s exit=0
+run c52-linux-r2-candidate-daemon-1s exit=0
+run c52-linux-r2-base-daemon-1s exit=0
+run c52-linux-r2-candidate-cli-1s exit=0
+run c52-linux-r2-base-cli-1s exit=0
+run c52-linux-r2-candidate-canon-1s exit=0
+run c52-linux-r2-base-canon-1s exit=0
+run c52-linux-r2-candidate-chunk-1s exit=0
+run c52-linux-r2-base-chunk-1s exit=0
+run c52-linux-r2-candidate-symbols-1s exit=0
+run c52-linux-r2-base-symbols-1s exit=0
+run c52-linux-r2-candidate-obs-1s exit=0
+run c52-linux-r2-base-obs-1s exit=0
+run c52-linux-r2-candidate-config-1s exit=0
+run c52-linux-r2-base-config-1s exit=0
+run c52-linux-r2-candidate-paths-1s exit=0
+run c52-linux-r2-base-paths-1s exit=0
+run c52-linux-r2-candidate-eval-1s exit=0
+run c52-linux-r2-base-eval-1s exit=0
+run c52-linux-r2-candidate-sketch-1s exit=0
+run c52-linux-r2-base-sketch-1s exit=0
+run c52-linux-r2-candidate-dag-1s exit=0
+run c52-linux-r2-base-dag-1s exit=0
+run c52-linux-r2-candidate-hostperm-1s exit=0
+run c52-linux-r2-candidate-scheduler-1s exit=0
+run c52-linux-r2-base-scheduler-1s exit=0
+run c52-linux-r2-candidate-rules-1s exit=0
+run c52-linux-r2-base-rules-1s exit=0
+run c52-linux-r2-candidate-skills-1s exit=0
+run c52-linux-r2-base-skills-1s exit=0
+load after-c52-linux-round-2 05:25:38Z: windows_cpu_pct=16 linux_loadavg=0.78 1.34 1.67 4/960 6506
+WARNING: host not idle at after-c52-linux-round-2 (windows_cpu_pct 16 > 15); timings from here may not be quiet
+run c52-linux-r3-base-negknow-10x exit=0
+run c52-linux-r3-candidate-negknow-10x exit=0
+run c52-linux-r3-base-negknow-1s exit=0
+run c52-linux-r3-candidate-negknow-1s exit=0
+run c52-linux-r3-base-daemon-1s exit=0
+run c52-linux-r3-candidate-daemon-1s exit=0
+run c52-linux-r3-base-cli-1s exit=0
+run c52-linux-r3-candidate-cli-1s exit=0
+run c52-linux-r3-base-canon-1s exit=0
+run c52-linux-r3-candidate-canon-1s exit=0
+run c52-linux-r3-base-chunk-1s exit=0
+run c52-linux-r3-candidate-chunk-1s exit=0
+run c52-linux-r3-base-symbols-1s exit=0
+run c52-linux-r3-candidate-symbols-1s exit=0
+run c52-linux-r3-base-obs-1s exit=0
+run c52-linux-r3-candidate-obs-1s exit=0
+run c52-linux-r3-base-config-1s exit=0
+run c52-linux-r3-candidate-config-1s exit=0
+run c52-linux-r3-base-paths-1s exit=0
+run c52-linux-r3-candidate-paths-1s exit=0
+run c52-linux-r3-base-eval-1s exit=0
+run c52-linux-r3-candidate-eval-1s exit=0
+run c52-linux-r3-base-sketch-1s exit=0
+run c52-linux-r3-candidate-sketch-1s exit=0
+run c52-linux-r3-base-dag-1s exit=0
+run c52-linux-r3-candidate-dag-1s exit=0
+run c52-linux-r3-candidate-hostperm-1s exit=0
+run c52-linux-r3-base-scheduler-1s exit=0
+run c52-linux-r3-candidate-scheduler-1s exit=0
+run c52-linux-r3-base-rules-1s exit=0
+run c52-linux-r3-candidate-rules-1s exit=0
+run c52-linux-r3-base-skills-1s exit=0
+run c52-linux-r3-candidate-skills-1s exit=0
+load after-c52-linux-round-3 05:28:05Z: windows_cpu_pct=10 linux_loadavg=0.90 1.23 1.58 4/963 6993
+run c52-linux-r4-candidate-negknow-10x exit=0
+run c52-linux-r4-base-negknow-10x exit=0
+run c52-linux-r4-candidate-negknow-1s exit=0
+run c52-linux-r4-base-negknow-1s exit=0
+run c52-linux-r4-candidate-daemon-1s exit=0
+run c52-linux-r4-base-daemon-1s exit=0
+run c52-linux-r4-candidate-cli-1s exit=0
+run c52-linux-r4-base-cli-1s exit=0
+run c52-linux-r4-candidate-canon-1s exit=0
+run c52-linux-r4-base-canon-1s exit=0
+run c52-linux-r4-candidate-chunk-1s exit=0
+run c52-linux-r4-base-chunk-1s exit=0
+run c52-linux-r4-candidate-symbols-1s exit=0
+run c52-linux-r4-base-symbols-1s exit=0
+run c52-linux-r4-candidate-obs-1s exit=0
+run c52-linux-r4-base-obs-1s exit=0
+run c52-linux-r4-candidate-config-1s exit=0
+run c52-linux-r4-base-config-1s exit=0
+run c52-linux-r4-candidate-paths-1s exit=0
+run c52-linux-r4-base-paths-1s exit=0
+run c52-linux-r4-candidate-eval-1s exit=0
+run c52-linux-r4-base-eval-1s exit=0
+run c52-linux-r4-candidate-sketch-1s exit=0
+run c52-linux-r4-base-sketch-1s exit=0
+run c52-linux-r4-candidate-dag-1s exit=0
+run c52-linux-r4-base-dag-1s exit=0
+run c52-linux-r4-candidate-hostperm-1s exit=0
+run c52-linux-r4-candidate-scheduler-1s exit=0
+run c52-linux-r4-base-scheduler-1s exit=0
+run c52-linux-r4-candidate-rules-1s exit=0
+run c52-linux-r4-base-rules-1s exit=0
+run c52-linux-r4-candidate-skills-1s exit=0
+run c52-linux-r4-base-skills-1s exit=0
+load after-c52-linux-round-4 05:30:34Z: windows_cpu_pct=8 linux_loadavg=0.97 1.16 1.50 5/964 7478
+run c52-linux-r5-base-negknow-10x exit=0
+run c52-linux-r5-candidate-negknow-10x exit=0
+run c52-linux-r5-base-negknow-1s exit=0
+run c52-linux-r5-candidate-negknow-1s exit=0
+run c52-linux-r5-base-daemon-1s exit=0
+run c52-linux-r5-candidate-daemon-1s exit=0
+run c52-linux-r5-base-cli-1s exit=0
+run c52-linux-r5-candidate-cli-1s exit=0
+run c52-linux-r5-base-canon-1s exit=0
+run c52-linux-r5-candidate-canon-1s exit=0
+run c52-linux-r5-base-chunk-1s exit=0
+run c52-linux-r5-candidate-chunk-1s exit=0
+run c52-linux-r5-base-symbols-1s exit=0
+run c52-linux-r5-candidate-symbols-1s exit=0
+run c52-linux-r5-base-obs-1s exit=0
+run c52-linux-r5-candidate-obs-1s exit=0
+run c52-linux-r5-base-config-1s exit=0
+run c52-linux-r5-candidate-config-1s exit=0
+run c52-linux-r5-base-paths-1s exit=0
+run c52-linux-r5-candidate-paths-1s exit=0
+run c52-linux-r5-base-eval-1s exit=0
+run c52-linux-r5-candidate-eval-1s exit=0
+run c52-linux-r5-base-sketch-1s exit=0
+run c52-linux-r5-candidate-sketch-1s exit=0
+run c52-linux-r5-base-dag-1s exit=0
+run c52-linux-r5-candidate-dag-1s exit=0
+run c52-linux-r5-candidate-hostperm-1s exit=0
+run c52-linux-r5-base-scheduler-1s exit=0
+run c52-linux-r5-candidate-scheduler-1s exit=0
+run c52-linux-r5-base-rules-1s exit=0
+run c52-linux-r5-candidate-rules-1s exit=0
+run c52-linux-r5-base-skills-1s exit=0
+run c52-linux-r5-candidate-skills-1s exit=0
+load after-c52-linux-round-5 05:33:01Z: windows_cpu_pct=4 linux_loadavg=0.85 1.09 1.42 4/962 7964
+run c52-linux-r6-candidate-negknow-10x exit=0
+run c52-linux-r6-base-negknow-10x exit=0
+run c52-linux-r6-candidate-negknow-1s exit=0
+run c52-linux-r6-base-negknow-1s exit=0
+run c52-linux-r6-candidate-daemon-1s exit=0
+run c52-linux-r6-base-daemon-1s exit=0
+run c52-linux-r6-candidate-cli-1s exit=0
+run c52-linux-r6-base-cli-1s exit=0
+run c52-linux-r6-candidate-canon-1s exit=0
+run c52-linux-r6-base-canon-1s exit=0
+run c52-linux-r6-candidate-chunk-1s exit=0
+run c52-linux-r6-base-chunk-1s exit=0
+run c52-linux-r6-candidate-symbols-1s exit=0
+run c52-linux-r6-base-symbols-1s exit=0
+run c52-linux-r6-candidate-obs-1s exit=0
+run c52-linux-r6-base-obs-1s exit=0
+run c52-linux-r6-candidate-config-1s exit=0
+run c52-linux-r6-base-config-1s exit=0
+run c52-linux-r6-candidate-paths-1s exit=0
+run c52-linux-r6-base-paths-1s exit=0
+run c52-linux-r6-candidate-eval-1s exit=0
+run c52-linux-r6-base-eval-1s exit=0
+run c52-linux-r6-candidate-sketch-1s exit=0
+run c52-linux-r6-base-sketch-1s exit=0
+run c52-linux-r6-candidate-dag-1s exit=0
+run c52-linux-r6-base-dag-1s exit=0
+run c52-linux-r6-candidate-hostperm-1s exit=0
+run c52-linux-r6-candidate-scheduler-1s exit=0
+run c52-linux-r6-base-scheduler-1s exit=0
+run c52-linux-r6-candidate-rules-1s exit=0
+run c52-linux-r6-base-rules-1s exit=0
+run c52-linux-r6-candidate-skills-1s exit=0
+run c52-linux-r6-base-skills-1s exit=0
+load after-c52-linux-round-6 05:35:29Z: windows_cpu_pct=3 linux_loadavg=1.39 1.23 1.43 3/962 8448
+WARNING: host not idle at after-c52-linux-round-6 (linux 1-min load 1.39 > 1.0); timings from here may not be quiet
+run c52-linux-r7-base-negknow-10x exit=0
+run c52-linux-r7-candidate-negknow-10x exit=0
+run c52-linux-r7-base-negknow-1s exit=0
+run c52-linux-r7-candidate-negknow-1s exit=0
+run c52-linux-r7-base-daemon-1s exit=0
+run c52-linux-r7-candidate-daemon-1s exit=0
+run c52-linux-r7-base-cli-1s exit=0
+run c52-linux-r7-candidate-cli-1s exit=0
+run c52-linux-r7-base-canon-1s exit=0
+run c52-linux-r7-candidate-canon-1s exit=0
+run c52-linux-r7-base-chunk-1s exit=0
+run c52-linux-r7-candidate-chunk-1s exit=0
+run c52-linux-r7-base-symbols-1s exit=0
+run c52-linux-r7-candidate-symbols-1s exit=0
+run c52-linux-r7-base-obs-1s exit=0
+run c52-linux-r7-candidate-obs-1s exit=0
+run c52-linux-r7-base-config-1s exit=0
+run c52-linux-r7-candidate-config-1s exit=0
+run c52-linux-r7-base-paths-1s exit=0
+run c52-linux-r7-candidate-paths-1s exit=0
+run c52-linux-r7-base-eval-1s exit=0
+run c52-linux-r7-candidate-eval-1s exit=0
+run c52-linux-r7-base-sketch-1s exit=0
+run c52-linux-r7-candidate-sketch-1s exit=0
+run c52-linux-r7-base-dag-1s exit=0
+run c52-linux-r7-candidate-dag-1s exit=0
+run c52-linux-r7-candidate-hostperm-1s exit=0
+run c52-linux-r7-base-scheduler-1s exit=0
+run c52-linux-r7-candidate-scheduler-1s exit=0
+run c52-linux-r7-base-rules-1s exit=0
+run c52-linux-r7-candidate-rules-1s exit=0
+run c52-linux-r7-base-skills-1s exit=0
+run c52-linux-r7-candidate-skills-1s exit=0
+load after-c52-linux-round-7 05:38:03Z: windows_cpu_pct=1 linux_loadavg=1.66 1.41 1.46 2/966 8932
+WARNING: host not idle at after-c52-linux-round-7 (linux 1-min load 1.66 > 1.0); timings from here may not be quiet
+run c52-linux-r8-candidate-negknow-10x exit=0
+run c52-linux-r8-base-negknow-10x exit=0
+run c52-linux-r8-candidate-negknow-1s exit=0
+run c52-linux-r8-base-negknow-1s exit=0
+run c52-linux-r8-candidate-daemon-1s exit=0
+run c52-linux-r8-base-daemon-1s exit=0
+run c52-linux-r8-candidate-cli-1s exit=0
+run c52-linux-r8-base-cli-1s exit=0
+run c52-linux-r8-candidate-canon-1s exit=0
+run c52-linux-r8-base-canon-1s exit=0
+run c52-linux-r8-candidate-chunk-1s exit=0
+run c52-linux-r8-base-chunk-1s exit=0
+run c52-linux-r8-candidate-symbols-1s exit=0
+run c52-linux-r8-base-symbols-1s exit=0
+run c52-linux-r8-candidate-obs-1s exit=0
+run c52-linux-r8-base-obs-1s exit=0
+run c52-linux-r8-candidate-config-1s exit=0
+run c52-linux-r8-base-config-1s exit=0
+run c52-linux-r8-candidate-paths-1s exit=0
+run c52-linux-r8-base-paths-1s exit=0
+run c52-linux-r8-candidate-eval-1s exit=0
+run c52-linux-r8-base-eval-1s exit=0
+run c52-linux-r8-candidate-sketch-1s exit=0
+run c52-linux-r8-base-sketch-1s exit=0
+run c52-linux-r8-candidate-dag-1s exit=0
+run c52-linux-r8-base-dag-1s exit=0
+run c52-linux-r8-candidate-hostperm-1s exit=0
+run c52-linux-r8-candidate-scheduler-1s exit=0
+run c52-linux-r8-base-scheduler-1s exit=0
+run c52-linux-r8-candidate-rules-1s exit=0
+run c52-linux-r8-base-rules-1s exit=0
+run c52-linux-r8-candidate-skills-1s exit=0
+run c52-linux-r8-base-skills-1s exit=0
+load after-c52-linux-round-8 05:40:30Z: windows_cpu_pct=4 linux_loadavg=1.00 1.24 1.39 4/962 9415
+run c52-linux-r9-base-negknow-10x exit=0
+run c52-linux-r9-candidate-negknow-10x exit=0
+run c52-linux-r9-base-negknow-1s exit=0
+run c52-linux-r9-candidate-negknow-1s exit=0
+run c52-linux-r9-base-daemon-1s exit=0
+run c52-linux-r9-candidate-daemon-1s exit=0
+run c52-linux-r9-base-cli-1s exit=0
+run c52-linux-r9-candidate-cli-1s exit=0
+run c52-linux-r9-base-canon-1s exit=0
+run c52-linux-r9-candidate-canon-1s exit=0
+run c52-linux-r9-base-chunk-1s exit=0
+run c52-linux-r9-candidate-chunk-1s exit=0
+run c52-linux-r9-base-symbols-1s exit=0
+run c52-linux-r9-candidate-symbols-1s exit=0
+run c52-linux-r9-base-obs-1s exit=0
+run c52-linux-r9-candidate-obs-1s exit=0
+run c52-linux-r9-base-config-1s exit=0
+run c52-linux-r9-candidate-config-1s exit=0
+run c52-linux-r9-base-paths-1s exit=0
+run c52-linux-r9-candidate-paths-1s exit=0
+run c52-linux-r9-base-eval-1s exit=0
+run c52-linux-r9-candidate-eval-1s exit=0
+run c52-linux-r9-base-sketch-1s exit=0
+run c52-linux-r9-candidate-sketch-1s exit=0
+run c52-linux-r9-base-dag-1s exit=0
+run c52-linux-r9-candidate-dag-1s exit=0
+run c52-linux-r9-candidate-hostperm-1s exit=0
+run c52-linux-r9-base-scheduler-1s exit=0
+run c52-linux-r9-candidate-scheduler-1s exit=0
+run c52-linux-r9-base-rules-1s exit=0
+run c52-linux-r9-candidate-rules-1s exit=0
+run c52-linux-r9-base-skills-1s exit=0
+run c52-linux-r9-candidate-skills-1s exit=0
+load after-c52-linux-round-9 05:42:57Z: windows_cpu_pct=4 linux_loadavg=1.63 1.39 1.42 3/962 9898
+WARNING: host not idle at after-c52-linux-round-9 (linux 1-min load 1.63 > 1.0); timings from here may not be quiet
+run c52-linux-r10-candidate-negknow-10x exit=0
+run c52-linux-r10-base-negknow-10x exit=0
+run c52-linux-r10-candidate-negknow-1s exit=0
+run c52-linux-r10-base-negknow-1s exit=0
+run c52-linux-r10-candidate-daemon-1s exit=0
+run c52-linux-r10-base-daemon-1s exit=0
+run c52-linux-r10-candidate-cli-1s exit=0
+run c52-linux-r10-base-cli-1s exit=0
+run c52-linux-r10-candidate-canon-1s exit=0
+run c52-linux-r10-base-canon-1s exit=0
+run c52-linux-r10-candidate-chunk-1s exit=0
+run c52-linux-r10-base-chunk-1s exit=0
+run c52-linux-r10-candidate-symbols-1s exit=0
+run c52-linux-r10-base-symbols-1s exit=0
+run c52-linux-r10-candidate-obs-1s exit=0
+run c52-linux-r10-base-obs-1s exit=0
+run c52-linux-r10-candidate-config-1s exit=0
+run c52-linux-r10-base-config-1s exit=0
+run c52-linux-r10-candidate-paths-1s exit=0
+run c52-linux-r10-base-paths-1s exit=0
+run c52-linux-r10-candidate-eval-1s exit=0
+run c52-linux-r10-base-eval-1s exit=0
+run c52-linux-r10-candidate-sketch-1s exit=0
+run c52-linux-r10-base-sketch-1s exit=0
+run c52-linux-r10-candidate-dag-1s exit=0
+run c52-linux-r10-base-dag-1s exit=0
+run c52-linux-r10-candidate-hostperm-1s exit=0
+run c52-linux-r10-candidate-scheduler-1s exit=0
+run c52-linux-r10-base-scheduler-1s exit=0
+run c52-linux-r10-candidate-rules-1s exit=0
+run c52-linux-r10-base-rules-1s exit=0
+run c52-linux-r10-candidate-skills-1s exit=0
+run c52-linux-r10-base-skills-1s exit=0
+load after-c52-linux-round-10 05:45:23Z: windows_cpu_pct=17 linux_loadavg=1.33 1.35 1.40 2/961 10384
+WARNING: host not idle at after-c52-linux-round-10 (windows_cpu_pct 17 > 15; linux 1-min load 1.33 > 1.0); timings from here may not be quiet
+c52-linux paired analysis and completeness exit=0
+run c52-linux-benchstat exit=0
+run c52-linux-benchstat-csv exit=0
+step c52-linux exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.9bmxFsTAMS removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-names.tsv
+gate prep (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/prep-base.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/gate/cx-quiet-quiet-c52-prep-base-cf31e01-20261008T051850Z-artifacts
+gate prep (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/prep-candidate.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/gate/cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261008T051934Z-artifacts
+c52-linux raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/c52-linux-r*-*.log + .json)
+c52-linux benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/c52-linux-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/c52-linux-benchstat-csv.log)
+c52-linux paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/absolute-budget.tsv
+c52-linux clone checks: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/source-status-after-*.txt, binaries C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/c52-linux/binaries-*.sha256
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-other/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+container stopped exit=0 2026-10-08T05:45:45Z
+engine left as found (D56(g)) 2026-10-08T05:45:45Z
+step c52-linux-other try 1 exit=0 VALID power=AC 95->AC 98 2026-10-08T05:45:47Z
+done: steps=3 passed=2 failed=1 [c116-rig] invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0 reported=0 ac_wait_used=83min 2026-10-08T05:45:47Z

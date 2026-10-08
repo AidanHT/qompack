@@ -1,0 +1,37 @@
+quiet.sh 2026-10-08T04:29:19Z
+candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand head=3ec62ad2e01b985640c0f1fb832df3917f766a5f
+base=cf31e01 resolved=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+steps=c52-linux
+iterations=5000 rounds=10 percall=1 benchtime=per row pkgs=checkpoint filter=none
+QOMPACK_UNDER_COLOAD unset; work=C:/Users/Quant/AppData/Local/Temp/tmp.f4tHzincaJ container=qompack-v6-linux-verification user=qompack-test
+go version go1.26.6 windows/amd64
+22
+candidate repo git status --porcelain (tracked changes refused above):
+  (clean)
+gate prep quiet-c52-prep-base (base cf31e01f38f3) exit=0 run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261008T042929Z
+gate prep quiet-c52-prep-candidate (candidate 3ec62ad2e01b) exit=0 run_id=cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261008T042958Z
+load before-c52-linux 04:30:27Z: windows_cpu_pct=9 linux_loadavg=0.53 0.26 0.21 5/959 1398
+load after-c52-linux-round-1 04:35:31Z: windows_cpu_pct=7 linux_loadavg=2.28 1.48 0.76 2/963 1468
+WARNING: host not idle at after-c52-linux-round-1 (linux 1-min load 2.28 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-2 04:40:30Z: windows_cpu_pct=29 linux_loadavg=2.10 1.97 1.19 5/964 1538
+WARNING: host not idle at after-c52-linux-round-2 (windows_cpu_pct 29 > 15; linux 1-min load 2.10 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-3 04:44:51Z: windows_cpu_pct=14 linux_loadavg=1.92 1.94 1.37 4/965 1608
+WARNING: host not idle at after-c52-linux-round-3 (linux 1-min load 1.92 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-4 04:49:53Z: windows_cpu_pct=0 linux_loadavg=1.98 2.04 1.59 2/964 1678
+WARNING: host not idle at after-c52-linux-round-4 (linux 1-min load 1.98 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-5 04:54:14Z: windows_cpu_pct=8 linux_loadavg=1.83 1.94 1.67 3/976 1749
+WARNING: host not idle at after-c52-linux-round-5 (linux 1-min load 1.83 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-6 04:59:14Z: windows_cpu_pct=17 linux_loadavg=2.05 1.99 1.77 3/965 1818
+WARNING: host not idle at after-c52-linux-round-6 (windows_cpu_pct 17 > 15; linux 1-min load 2.05 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-7 05:04:12Z: windows_cpu_pct=2 linux_loadavg=1.87 1.97 1.83 5/965 1889
+WARNING: host not idle at after-c52-linux-round-7 (linux 1-min load 1.87 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-8 05:08:25Z: windows_cpu_pct=14 linux_loadavg=1.90 1.95 1.86 5/979 1959
+WARNING: host not idle at after-c52-linux-round-8 (linux 1-min load 1.90 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-9 05:13:19Z: windows_cpu_pct=5 linux_loadavg=2.08 2.03 1.92 5/966 2030
+WARNING: host not idle at after-c52-linux-round-9 (linux 1-min load 2.08 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-10 05:18:12Z: windows_cpu_pct=6 linux_loadavg=2.06 2.03 1.96 3/964 2100
+WARNING: host not idle at after-c52-linux-round-10 (linux 1-min load 2.06 > 1.0); timings from here may not be quiet
+c52-linux paired analysis and completeness exit=0
+step c52-linux exit=0
+WARNING: homeguard check reports a real-home difference; read C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-c52/quiet-c52-linux-checkpoint/homeguard-check.txt
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.f4tHzincaJ removed (every step passed)

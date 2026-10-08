@@ -1,0 +1,33 @@
+quiet.sh 2026-10-08T05:18:41Z
+candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand head=3ec62ad2e01b985640c0f1fb832df3917f766a5f
+base=cf31e01 resolved=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+steps=c52-linux
+iterations=5000 rounds=10 percall=1 benchtime=per row pkgs=negknow daemon cli canon chunk symbols obs config paths eval sketch dag hostperm scheduler rules skills filter=none
+QOMPACK_UNDER_COLOAD unset; work=C:/Users/Quant/AppData/Local/Temp/tmp.9bmxFsTAMS container=qompack-v6-linux-verification user=qompack-test
+go version go1.26.6 windows/amd64
+22
+candidate repo git status --porcelain (tracked changes refused above):
+  (clean)
+gate prep quiet-c52-prep-base (base cf31e01f38f3) exit=0 run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261008T051850Z
+gate prep quiet-c52-prep-candidate (candidate 3ec62ad2e01b) exit=0 run_id=cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261008T051934Z
+load before-c52-linux 05:20:40Z: windows_cpu_pct=0 linux_loadavg=1.52 1.84 1.89 3/961 5535
+WARNING: host not idle at before-c52-linux (linux 1-min load 1.52 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-1 05:23:08Z: windows_cpu_pct=5 linux_loadavg=1.28 1.62 1.80 2/963 6019
+WARNING: host not idle at after-c52-linux-round-1 (linux 1-min load 1.28 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-2 05:25:38Z: windows_cpu_pct=16 linux_loadavg=0.78 1.34 1.67 4/960 6506
+WARNING: host not idle at after-c52-linux-round-2 (windows_cpu_pct 16 > 15); timings from here may not be quiet
+load after-c52-linux-round-3 05:28:05Z: windows_cpu_pct=10 linux_loadavg=0.90 1.23 1.58 4/963 6993
+load after-c52-linux-round-4 05:30:34Z: windows_cpu_pct=8 linux_loadavg=0.97 1.16 1.50 5/964 7478
+load after-c52-linux-round-5 05:33:01Z: windows_cpu_pct=4 linux_loadavg=0.85 1.09 1.42 4/962 7964
+load after-c52-linux-round-6 05:35:29Z: windows_cpu_pct=3 linux_loadavg=1.39 1.23 1.43 3/962 8448
+WARNING: host not idle at after-c52-linux-round-6 (linux 1-min load 1.39 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-7 05:38:03Z: windows_cpu_pct=1 linux_loadavg=1.66 1.41 1.46 2/966 8932
+WARNING: host not idle at after-c52-linux-round-7 (linux 1-min load 1.66 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-8 05:40:30Z: windows_cpu_pct=4 linux_loadavg=1.00 1.24 1.39 4/962 9415
+load after-c52-linux-round-9 05:42:57Z: windows_cpu_pct=4 linux_loadavg=1.63 1.39 1.42 3/962 9898
+WARNING: host not idle at after-c52-linux-round-9 (linux 1-min load 1.63 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-10 05:45:23Z: windows_cpu_pct=17 linux_loadavg=1.33 1.35 1.40 2/961 10384
+WARNING: host not idle at after-c52-linux-round-10 (windows_cpu_pct 17 > 15; linux 1-min load 1.33 > 1.0); timings from here may not be quiet
+c52-linux paired analysis and completeness exit=0
+step c52-linux exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.9bmxFsTAMS removed (every step passed)

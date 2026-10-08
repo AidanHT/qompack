@@ -1,0 +1,41 @@
+=== RUN   TestSessionStartCompact_UnderSameSessionIngest
+    sessionstart_compact_load_test.go:356: round 0: 184.5833ms rehydration
+    sessionstart_compact_load_test.go:356: round 1: 232.9099ms rehydration
+    sessionstart_compact_load_test.go:356: round 2: 169.745ms rehydration
+    sessionstart_compact_load_test.go:356: round 3: 323.7086ms rehydration
+    sessionstart_compact_load_test.go:356: round 4: 215.1234ms rehydration
+    sessionstart_compact_load_test.go:356: round 5: 262.6021ms rehydration
+    sessionstart_compact_load_test.go:356: round 6: 205.0679ms rehydration
+    sessionstart_compact_load_test.go:356: round 7: 417.0503ms rehydration
+    sessionstart_compact_load_test.go:356: round 8: 265.2009ms rehydration
+    sessionstart_compact_load_test.go:356: round 9: 222.807ms rehydration
+    sessionstart_compact_load_test.go:356: round 10: 234.1539ms rehydration
+    sessionstart_compact_load_test.go:356: round 11: 281.5512ms rehydration
+    sessionstart_compact_load_test.go:356: round 12: 315.0952ms rehydration
+    sessionstart_compact_load_test.go:356: round 13: 165.6233ms rehydration
+    sessionstart_compact_load_test.go:356: round 14: 221.1481ms rehydration
+    sessionstart_compact_load_test.go:356: round 15: 276.1038ms rehydration
+    sessionstart_compact_load_test.go:356: round 16: 336.9776ms rehydration
+    sessionstart_compact_load_test.go:356: round 17: 215.6961ms rehydration
+    sessionstart_compact_load_test.go:356: round 18: 179.3475ms rehydration
+    sessionstart_compact_load_test.go:356: round 19: 215.5387ms rehydration
+    sessionstart_compact_load_test.go:356: round 20: 217.7491ms rehydration
+    sessionstart_compact_load_test.go:356: round 21: 177.606ms rehydration
+    sessionstart_compact_load_test.go:356: round 22: 237.0524ms rehydration
+    sessionstart_compact_load_test.go:356: round 23: 262.4174ms rehydration
+    sessionstart_compact_load_test.go:356: round 24: 385.684ms rehydration
+    sessionstart_compact_load_test.go:356: round 25: 299.1819ms rehydration
+    sessionstart_compact_load_test.go:356: round 26: 120.615ms rehydration
+    sessionstart_compact_load_test.go:356: round 27: 131.5205ms rehydration
+    sessionstart_compact_load_test.go:356: round 28: 112.0037ms rehydration
+    sessionstart_compact_load_test.go:356: round 29: 119.7926ms rehydration
+    sessionstart_compact_load_test.go:363: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/internal/cli/sessionstart_compact_load_test.go:418
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/internal/cli/sessionstart_compact_load_test.go:363
+        	Error:      	Should be zero, but was 10
+        	Test:       	TestSessionStartCompact_UnderSameSessionIngest
+        	Messages:   	10 of the rig's 1665 Reads reached neither its index nor its spool, the first [toolu_c116_000238 toolu_c116_000240 toolu_c116_000343]
+--- FAIL: TestSessionStartCompact_UnderSameSessionIngest (653.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	653.430s
+FAIL

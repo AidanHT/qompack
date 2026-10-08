@@ -1,0 +1,58 @@
+C5.2 paired comparison (linux): per round, candidate/base of the median ns/op within the call.
+geomean < 1 means the candidate is faster; "faster k/n" counts rounds; p is the exact two-sided sign test.
+benchmark                                                  pairs        base   candidate  geomean  faster  sign p base allocs cand allocs  base p99  cand p99
+BenchmarkAssembleCandidates_2000ToolUses/cold                 10    1.193 ms    1.192 ms    0.994    4/10   0.754        536        536         -         -
+BenchmarkAssembleCandidates_2000ToolUses/warm                 10    3.628 us    3.478 us    1.002    6/10   0.754         11         11         -         -
+BenchmarkBOCDMarshal                                          10     16.1 us    16.09 us    1.011    3/10   0.344          1          1         -         -
+BenchmarkBOCDObserve_4Features/full_posterior                 10    23.61 us    23.53 us    0.999    5/10   1.000          2          2         -         -
+BenchmarkBOCDObserve_4Features/steady_state                   10    1.588 us    1.603 us    1.011    3/10   0.344          2          2         -         -
+BenchmarkBackwardSlice5000                                    10    290.4 us    290.7 us    0.992    4/10   0.754       1435       1435         -         -
+BenchmarkBeladyDetail_400Turns                                10    758.4 us    760.5 us    1.012    3/10   0.344       7598       7598         -         -
+BenchmarkBreakpointOPT_256Candidates                          10    526.3 us    531.2 us    1.006    5/10   1.000       5751       5751         -         -
+BenchmarkCompare_400Actions                                   10    509.7 us      511 us    0.992    8/10   0.109         48         48         -         -
+BenchmarkConfigLoad_ColdNoFiles                               10    211.2 us    219.1 us    1.037    0/10   0.002       2012       2031         -         -
+BenchmarkCrossingEdges                                        10    91.75 ns    93.18 ns    1.018    0/10   0.002          0          0         -         -
+BenchmarkEnclosing_100KB                                      10    1.099 ms      1.1 ms    1.000    5/10   1.000       2325       2325         -         -
+BenchmarkEvaluate                                          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkEvaluate_64Candidates                                10    3.018 us    2.993 us    0.998    8/10   0.109          6          6         -         -
+BenchmarkExtract_100KB                                        10    1.108 ms    1.097 ms    0.997    5/10   1.000       2325       2325         -         -
+BenchmarkFeaturesFrom                                         10    17.74 us    17.57 us    0.986    7/10   0.344         39         39         -         -
+BenchmarkGearScan_1MiB                                        10    404.9 us    410.5 us    0.995    6/10   0.754          0          0         -         -
+BenchmarkHistogram_Observe                                    10    9.644 ns    9.428 ns    0.979    8/10   0.109          0          0         -         -
+BenchmarkHookNoop_InProcess                                candidate 502.7 us against its absolute budget 3 ms: PASS; no ratio against base cf31e01f38f3 (not like for like: D67(j): SP-01's B-A headroom budget (< 3 ms/op) on the candidate only; since fbb32c13 the benchmark spools into a temp dir, cf31e01's into its clone, so its ratio is not like for like)
+BenchmarkIndex                                                10    316.8 us    317.4 us    0.997    4/10   0.754        740        740         -         -
+BenchmarkIngestAccept                                         10    7.508 ms    7.532 ms    1.006    5/10   1.000          9          9         -         -
+BenchmarkIngestAcceptExternalized                          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkIngestAcceptLeased                                   10    18.58 ms    18.65 ms    1.012    4/10   0.754         72         76         -         -
+BenchmarkIngestMCPRealStore                                candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkIsHome_AProjectBelowHome                          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkL0SketchUpdate                                       10    390.2 ns    388.9 ns    0.999    4/10   0.754          0          0         -         -
+BenchmarkOpen                                                 10    55.69 ms    75.13 ms    1.335    0/10   0.002     400437     260513         -         -
+BenchmarkPathScoped                                           10    255.5 us    258.2 us    0.999    7/10   0.344       1979       1979         -         -
+BenchmarkPathsWriteAtomic_4KB                                 10    14.84 ms    14.73 ms    1.003    3/10   0.344         55         16         -         -
+BenchmarkRebuildBloom5000                                     10    846.8 us    843.5 us    1.000    5/10   1.000          4          4         -         -
+BenchmarkReclaimableIndexBuild_5000Blocks                     10    343.7 us    342.4 us    0.998    5/10   1.000         17         17         -         -
+BenchmarkRecord                                               10    33.55 us    33.22 us    0.965    8/10   0.109         72         70         -         -
+BenchmarkReferences_100KB_50Names                             10    169.1 us    169.1 us    1.003    5/10   1.000          8          8         -         -
+BenchmarkRestore_100KB                                        10    15.22 us    16.16 us    1.023    4/10   0.754          1          1         -         -
+BenchmarkRootHash_1000Chunks                                  10    20.81 us    20.82 us    0.996    7/10   0.344          1          1         -         -
+BenchmarkRun_Bash100KB                                        10    2.586 ms    1.985 ms    0.766   10/10   0.002         39         36         -         -
+BenchmarkRun_GoTest                                           10    828.7 us    603.1 us    0.720   10/10   0.002        285        168         -         -
+BenchmarkRun_KeepDeltas                                       10    2.607 ms    1.987 ms    0.763   10/10   0.002         38         36         -         -
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold       10    2.039 ms    2.049 ms    1.000    4/10   0.754       1970       1970         -         -
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm       10    12.52 us    12.76 us    1.026    3/10   0.344         25         25         -         -
+BenchmarkSchedulerTap_ObserveTool                             10    31.61 us    30.93 us    0.982    7/10   0.344         73         73         -         -
+BenchmarkSplitStream_4MiB                                     10    4.298 ms    4.293 ms    0.999    5/10   1.000          6          6         -         -
+BenchmarkSplit_100KB                                          10    89.18 us    87.85 us    0.991    7/10   0.344          2          2         -         -
+BenchmarkSplit_1MiB                                           10    921.1 us    920.7 us    1.002    6/10   0.754          2          2         -         -
+BenchmarkSynthesize_320Turns                                  10    290.3 us    290.9 us    0.983    7/10   0.344       2999       2999         -         -
+
+Completeness (10 ns/op samples expected per side and full name; NO-RESULT/SHORT fail the step):
+BenchmarkIngestMCPRealStore                                not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkIngestAcceptExternalized                          not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkIsHome_AProjectBelowHome                          not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkEvaluate                                          not on base cf31e01f38f3: candidate only, no quiet before/after
+0 incomplete side(s)
+
+Absolute budgets (judged on the candidate only; absolute-budget.tsv):
+BenchmarkHookNoop_InProcess                                PASS (candidate median 502.7 us, budget 3 ms)

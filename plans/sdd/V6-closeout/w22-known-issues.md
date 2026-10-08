@@ -124,3 +124,10 @@ re-check add is appended here first.
     `qompack fsck` still names the gap. (F-C8-C16-1, D76(c).)
 - Diagnostic only: checkpoint.decision_read_error counts a by-design read of an elimination node's empty
   root, so it reads above 0 on healthy stores (D76(d)). After the release: skip those nodes.
+19. **A capture can be dropped when hook processes share an id while the daemon is behind.** On Windows a
+    new hook process can reuse an earlier one's process id and append to the same fallback spool file. Once
+    that file reaches its 64 MiB cap while it waits to be consumed, a capture whose hook could not reach the
+    daemon is dropped, and LOUD.log says so. (D78(c).)
+- The C1.16 rig runs every hook in one process, so they share one spool file and its cap (D78(b)); after the
+  release it gives each hook its own spool identity. An unprovable Read target is persisted nowhere, not as
+  unavailable (D78(d)).

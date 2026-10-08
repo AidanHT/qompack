@@ -1,0 +1,1 @@
+steps=3 passed=2 failed=1 [c116-rig] invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0 reported=0 ac_wait_used=83min

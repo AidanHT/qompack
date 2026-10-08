@@ -1,0 +1,25 @@
+total 1406808
+drwxr-xr-x 1 Quant 197609        0 Oct  8 01:47 .
+drwxr-xr-x 1 Quant 197609        0 Oct  8 01:47 ..
+-rw-r--r-- 1 Quant 197609 66900654 Oct  8 01:47 client-25452.ndjson
+-rw-r--r-- 1 Quant 197609 66716023 Oct  8 01:47 wal-sess-c116-compact-under-ingest.1.ndjson
+-rw-r--r-- 1 Quant 197609 66704362 Oct  8 01:47 wal-sess-c116-compact-under-ingest.10.ndjson
+-rw-r--r-- 1 Quant 197609 66698581 Oct  8 01:47 wal-sess-c116-compact-under-ingest.11.ndjson
+-rw-r--r-- 1 Quant 197609 66710143 Oct  8 01:47 wal-sess-c116-compact-under-ingest.12.ndjson
+-rw-r--r-- 1 Quant 197609 66704362 Oct  8 01:47 wal-sess-c116-compact-under-ingest.13.ndjson
+-rw-r--r-- 1 Quant 197609 66700508 Oct  8 01:47 wal-sess-c116-compact-under-ingest.14.ndjson
+-rw-r--r-- 1 Quant 197609 66706289 Oct  8 01:47 wal-sess-c116-compact-under-ingest.15.ndjson
+-rw-r--r-- 1 Quant 197609 66704362 Oct  8 01:47 wal-sess-c116-compact-under-ingest.16.ndjson
+-rw-r--r-- 1 Quant 197609 66702435 Oct  8 01:47 wal-sess-c116-compact-under-ingest.17.ndjson
+-rw-r--r-- 1 Quant 197609 66704362 Oct  8 01:47 wal-sess-c116-compact-under-ingest.18.ndjson
+-rw-r--r-- 1 Quant 197609 66704362 Oct  8 01:47 wal-sess-c116-compact-under-ingest.19.ndjson
+-rw-r--r-- 1 Quant 197609 66717950 Oct  8 01:47 wal-sess-c116-compact-under-ingest.2.ndjson
+-rw-r--r-- 1 Quant 197609 39270875 Oct  8 01:47 wal-sess-c116-compact-under-ingest.20.ndjson
+-rw-r--r-- 1 Quant 197609 66727585 Oct  8 01:47 wal-sess-c116-compact-under-ingest.3.ndjson
+-rw-r--r-- 1 Quant 197609 66714096 Oct  8 01:47 wal-sess-c116-compact-under-ingest.4.ndjson
+-rw-r--r-- 1 Quant 197609 66717950 Oct  8 01:47 wal-sess-c116-compact-under-ingest.5.ndjson
+-rw-r--r-- 1 Quant 197609 66725658 Oct  8 01:47 wal-sess-c116-compact-under-ingest.6.ndjson
+-rw-r--r-- 1 Quant 197609 66706266 Oct  8 01:47 wal-sess-c116-compact-under-ingest.7.ndjson
+-rw-r--r-- 1 Quant 197609 66702435 Oct  8 01:47 wal-sess-c116-compact-under-ingest.8.ndjson
+-rw-r--r-- 1 Quant 197609 66706289 Oct  8 01:47 wal-sess-c116-compact-under-ingest.9.ndjson
+-rw-r--r-- 1 Quant 197609 66864616 Oct  8 01:47 wal-sess-c116-compact-under-ingest.ndjson

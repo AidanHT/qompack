@@ -1,0 +1,86 @@
+=== RUN   TestSessionStartCompact_UnderSameSessionIngest
+    sessionstart_compact_load_test.go:353: C116 overlay: rig root kept at C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/c116-keep-r3\rig-897625908
+    sessionstart_compact_load_test.go:367: round 0: 96.6126ms rehydration
+    sessionstart_compact_load_test.go:367: round 1: 77.0353ms rehydration
+    sessionstart_compact_load_test.go:367: round 2: 91.1937ms rehydration
+    sessionstart_compact_load_test.go:367: round 3: 322.9115ms rehydration
+    sessionstart_compact_load_test.go:367: round 4: 118.1711ms rehydration
+    sessionstart_compact_load_test.go:367: round 5: 134.2902ms rehydration
+    sessionstart_compact_load_test.go:367: round 6: 89.6963ms rehydration
+    sessionstart_compact_load_test.go:367: round 7: 284.0255ms rehydration
+    sessionstart_compact_load_test.go:367: round 8: 207.7108ms rehydration
+    sessionstart_compact_load_test.go:367: round 9: 111.5485ms rehydration
+    sessionstart_compact_load_test.go:367: round 10: 93.1305ms rehydration
+    sessionstart_compact_load_test.go:367: round 11: 87.0174ms rehydration
+    sessionstart_compact_load_test.go:367: round 12: 277.1503ms rehydration
+    sessionstart_compact_load_test.go:367: round 13: 105.1274ms rehydration
+    sessionstart_compact_load_test.go:367: round 14: 127.7457ms rehydration
+    sessionstart_compact_load_test.go:367: round 15: 90.0115ms rehydration
+    sessionstart_compact_load_test.go:367: round 16: 107.7702ms rehydration
+    sessionstart_compact_load_test.go:367: round 17: 114.0701ms rehydration
+    sessionstart_compact_load_test.go:367: round 18: 188.1941ms rehydration
+    sessionstart_compact_load_test.go:367: round 19: 138.6624ms rehydration
+    sessionstart_compact_load_test.go:367: round 20: 105.0785ms rehydration
+    sessionstart_compact_load_test.go:367: round 21: 94.8325ms rehydration
+    sessionstart_compact_load_test.go:367: round 22: 115.6652ms rehydration
+    sessionstart_compact_load_test.go:367: round 23: 136.1719ms rehydration
+    sessionstart_compact_load_test.go:367: round 24: 103.1285ms rehydration
+    sessionstart_compact_load_test.go:367: round 25: 233.7648ms rehydration
+    sessionstart_compact_load_test.go:367: round 26: 105.3395ms rehydration
+    sessionstart_compact_load_test.go:367: round 27: 146.081ms empty
+    sessionstart_compact_load_test.go:367: round 28: 136.0287ms empty
+    sessionstart_compact_load_test.go:367: round 29: 131.8626ms empty
+panic: test timed out after 30m0s
+	running tests:
+		TestSessionStartCompact_UnderSameSessionIngest (30m0s)
+
+goroutine 55585 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2802 +0x354
+created by time.goFunc
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 30 minutes]:
+testing.(*T).Run(0x295e3a57c000, {0x7ff73ab78065?, 0x7ff73a41178e?}, 0x7ff73aba9538)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(0x295e3a57c000)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2585 +0x3e
+testing.tRunner(0x295e3a57c000, 0x295e3a39fb18)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2036 +0xc3
+testing.runTests({0x7ff73ab5ed83, 0x1a}, {0x7ff73ab6f423, 0x27}, 0x295e3a51c030, {0x7ff73b0ecf40, 0x143, 0x143}, {0xc2a9ebd60ea9b7f4, 0x1a31b726cc1, ...})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x295e3a461540)
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2443 +0x6ac
+github.com/qompack/qompack/internal/paths/pathstest.Main(0x295e3a461540, {0x0, 0x0, 0x27f83600108?})
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/internal/paths/pathstest/home.go:117 +0x3d
+github.com/qompack/qompack/internal/cli.TestMain(0x295e3a461540)
+	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/internal/cli/main_test.go:30 +0xe6
+main.main()
+	_testmain.go:694 +0xa5
+
+goroutine 51 [syscall, 27 minutes]:
+syscall.syscalln(0x0?, 0x0?, {0x295e3a1b1f08?, 0x295e591a8a80?, 0x0?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/syscall_windows.go:431 +0x4e
+syscall.SyscallN(0x3e3?, {0x295e3a1b1f08?, 0x295e3e8547e0?, 0x295ee6e9a378?})
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/syscall/dll_windows.go:99 +0x1e
+github.com/Microsoft/go-winio.getQueuedCompletionStatus(0x2d4, 0x295e3a1b1f8c?, 0x295e3a1b1f90?, 0x295e3a1b1f98?, 0xffffffff)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/zsyscall_windows.go:327 +0xac
+github.com/Microsoft/go-winio.ioCompletionProcessor(0x2d4)
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:162 +0x85
+created by github.com/Microsoft/go-winio.initIO in goroutine 83
+	C:/Users/Quant/go/pkg/mod/github.com/!microsoft/go-winio@v0.6.2/file.go:58 +0x5d
+
+goroutine 18 [running]:
+	goroutine running on other thread; stack unavailable
+created by testing.(*T).Run in goroutine 1
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/testing/testing.go:2101 +0x4a9
+
+goroutine 66 [syscall, 29 minutes]:
+os/signal.signal_recv()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/runtime/sigqueue.go:152 +0x98
+os/signal.loop()
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/signal/signal_unix.go:23 +0x13
+created by os/signal.Notify.func1.1 in goroutine 11
+	C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/os/signal/signal.go:152 +0x1f
+FAIL	github.com/qompack/qompack/internal/cli	1800.925s
+FAIL

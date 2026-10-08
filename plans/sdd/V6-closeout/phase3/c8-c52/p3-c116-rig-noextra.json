@@ -1,0 +1,28 @@
+{
+  "id": "p3-c116-rig-noextra",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "env",
+    "QOMPACK_C116_ROUNDS=30",
+    "QOMPACK_C116_WORKERS=8",
+    "QOMPACK_C116_READ_BYTES=262144",
+    "go",
+    "test",
+    "./internal/cli/",
+    "-run",
+    "^TestSessionStartCompact_UnderSameSessionIngest$",
+    "-count=1",
+    "-v",
+    "-timeout=30m"
+  ],
+  "source_head": "3ec62ad2e01b985640c0f1fb832df3917f766a5f",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-08T00:01:38-04:00",
+  "ended_at": "2026-10-08T00:17:49-04:00",
+  "exit_code": 0,
+  "log": "p3-c116-rig-noextra.log",
+  "log_sha256": "5ef29c04bbcf6e7868cdb6aedeccb7bdf4149d0e3d9392de081b1e3b69cec0ef"
+}

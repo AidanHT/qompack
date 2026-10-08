@@ -1,0 +1,2 @@
+benchmark	candidate_median_ns_op	budget_ns_op	verdict	why
+BenchmarkHookNoop_InProcess	502658	3000000	PASS	D67(j): SP-01's B-A headroom budget (< 3 ms/op) on the candidate only; since fbb32c13 the benchmark spools into a temp dir, cf31e01's into its clone, so its ratio is not like for like

@@ -1,0 +1,11 @@
+C5.2 paired comparison (linux): per round, candidate/base of the median ns/op within the call.
+geomean < 1 means the candidate is faster; "faster k/n" counts rounds; p is the exact two-sided sign test.
+benchmark                                                  pairs        base   candidate  geomean  faster  sign p base allocs cand allocs  base p99  cand p99
+BenchmarkAdvanceSegment                                       10    21.95 ms    21.33 ms    0.973    8/10   0.109     6579.5       6357         -         -
+BenchmarkExtractDecisions                                     10    5.934 ms    5.689 ms    0.986    7/10   0.344      32645      32481         -         -
+BenchmarkFinalize                                             10    34.71 ms     46.6 ms    1.317    0/10   0.002      22494      15826         -         -
+BenchmarkStripInjections                                      10      203 us    130.4 us    0.630   10/10   0.002         14         14         -         -
+BenchmarkTruncate                                             10    1.195 ms    1.074 ms    0.916    9/10   0.021       1571       1562         -         -
+
+Completeness (10 ns/op samples expected per side and full name; NO-RESULT/SHORT fail the step):
+0 incomplete side(s)

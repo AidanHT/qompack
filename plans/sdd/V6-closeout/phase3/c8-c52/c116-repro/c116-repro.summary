@@ -1,0 +1,4 @@
+2026-10-08 01:46:44 start r2
+2026-10-08 01:57:31 r2 exit=0     sessionstart_compact_load_test.go:374: of the rig's 2206 Reads: 15 indexed, 2085 in its daemon's WAL only, 106 in a client spool ok  	github.com/qompack/qompack/internal/cli	626.985s 
+2026-10-08 01:57:31 start r3
+2026-10-08 02:27:37 r3 exit=0 FAIL	github.com/qompack/qompack/internal/cli	1800.925s FAIL 

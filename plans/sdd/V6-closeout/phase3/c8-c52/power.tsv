@@ -1,0 +1,4 @@
+step	try	exit	verdict	power_start	power_end	t0	t1
+c116-rig	1	1	VALID	AC 49	AC 75	1791432096	1791433752
+c52-linux-checkpoint	1	0	VALID	AC 75	AC 95	1791433755	1791436716
+c52-linux-other	1	0	VALID	AC 95	AC 98	1791436718	1791438345

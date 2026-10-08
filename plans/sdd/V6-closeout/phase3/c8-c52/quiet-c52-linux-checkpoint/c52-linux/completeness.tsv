@@ -1,0 +1,11 @@
+package	benchmark	side	status	samples
+internal/checkpoint	BenchmarkFinalize	base	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkFinalize	candidate	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkAdvanceSegment	base	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkAdvanceSegment	candidate	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkExtractDecisions	base	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkExtractDecisions	candidate	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkStripInjections	base	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkStripInjections	candidate	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkTruncate	base	OK	1 name(s) x 10
+internal/checkpoint	BenchmarkTruncate	candidate	OK	1 name(s) x 10
