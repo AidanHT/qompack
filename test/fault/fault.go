@@ -78,6 +78,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -877,6 +878,73 @@ func waitDaemonUpFor(t *testing.T, root string, bound time.Duration) bool {
 	}
 }
 
+// faultSpawnLockName is internal/ipc's unexported spawnLockName, respelled as test/e2e respells it:
+// the claim a spawner writes in <root>/.qompack/run, carrying its UnixMilli stamp, before it launches
+// a detached daemon. That daemon removes it once it listens.
+const faultSpawnLockName = "spawn.lock"
+
+// faultSpawnLockStaleAfter is internal/ipc's unexported spawnLockStaleAfter: within it a claim holds
+// every other spawner off, session-start's included (ipc.ClaimSpawn, internal/daemon/spawn.go).
+const faultSpawnLockStaleAfter = 10 * time.Second
+
+// spawnClaimFresh reports whether root holds a spawn.lock the product still counts as a spawn in
+// flight, judged as ipc's readSpawnLock judges it: by its stamp, or by its modification time when
+// the stamp does not parse or is dated after now. It reads through paths.ReadFileShared, because the
+// daemon deletes this file and a reader without FILE_SHARE_DELETE would make that delete fail on
+// Windows.
+func spawnClaimFresh(root string) bool {
+	path := filepath.Join(paths.Of(root).Run, faultSpawnLockName)
+	b, err := paths.ReadFileShared(path)
+	if err != nil {
+		return false
+	}
+	if ms, perr := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64); perr == nil {
+		if age := time.Since(time.UnixMilli(ms)); age >= 0 {
+			return age <= faultSpawnLockStaleAfter
+		}
+	}
+	fi, err := os.Stat(paths.Long(path))
+	return err == nil && time.Since(fi.ModTime()) <= faultSpawnLockStaleAfter
+}
+
+// awaitNoSpawnClaim waits until root holds no fresh spawn claim (spawnClaimFresh): the daemon it
+// announced has listened and removed it, or it has lapsed. It is called only while no hook of the
+// case is running, and only a spawner makes a claim, so a claim present now is gone within
+// faultSpawnLockStaleAfter; the bound adds a tick of polling and the stamp's millisecond to that.
+//
+// A claim can be an orphan, and two cuts here leave one. A burst hook whose connect missed its
+// deadline under load spawns a duplicate daemon, which loses daemon.lock and exits leaving its claim
+// behind (D35(a), D61(c)), and a kill of the owner then leaves that claim standing (D73(1)). A hook
+// run under the daemon-down fault site claims and then spawns nothing (internal/cli noopSpawn), so
+// every TestFault_WriteFailures row leaves one too. Either claim holds off the recovery's
+// session-start, which spawns nothing and spools, and a fixture that then waits for a daemon with
+// dials only reads the product's recovery as "recording did not resume". A row that sends the next
+// hook only once the claim is gone measures the recovery it is about, not that one-claim window.
+func awaitNoSpawnClaim(t *testing.T, root string) {
+	t.Helper()
+	if !spawnClaimFresh(root) {
+		return
+	}
+	started := time.Now()
+	t.Logf("fault: a fresh spawn claim stands in %s with no hook running; waiting for its daemon or its lapse", root)
+	ticker := time.NewTicker(daemonPollTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(faultSpawnLockStaleAfter + daemonPollTick + time.Millisecond)
+	defer deadline.Stop()
+	for spawnClaimFresh(root) {
+		select {
+		case <-ticker.C:
+		case <-deadline.C:
+			// Only a spawner refreshes a claim, so this is a spawner the case did not account for.
+			// The row goes on and its verdict says what the next hook met; the log says why.
+			t.Logf("fault: a spawn claim in %s stayed fresh past %s with no hook running",
+				root, faultSpawnLockStaleAfter)
+			return
+		}
+	}
+	t.Logf("fault: the spawn claim in %s was gone after %s", root, time.Since(started).Round(time.Millisecond))
+}
+
 // waitIndexed waits until index/tool_use.jsonl names id and reports whether it ever did.
 //
 // It REPORTS rather than fatals, which is the difference between this and test/security's
@@ -1111,6 +1179,9 @@ func recoverSession(t *testing.T, b bundle, p project, sess core.SessionID) bool
 	name := strings.TrimPrefix(string(sess), "sess-fault-")
 
 	writeProjectFile(t, p, "src/gamma.ts", seedContent("gamma", 40))
+	// The cut may have left a fresh spawn claim with no daemon behind it (awaitNoSpawnClaim): the
+	// recovery's session-start is sent once it is gone, so that it can spawn.
+	awaitNoSpawnClaim(t, p.Root)
 	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "startup"))
 	up := waitDaemonUp(t, p.Root)
 
