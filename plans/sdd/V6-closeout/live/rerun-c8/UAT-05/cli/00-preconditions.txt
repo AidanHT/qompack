@@ -1,0 +1,9 @@
+project: <scratch>/sessions/c8/uat05/proj
+<project>/.qompack exists: False
+<project>/.qompack/config.json exists: False
+~/.qompack exists: False; ~/.qompack/config.json exists: False
+QOMPACK_* in the lane's environment (names): []
+session env adds: QOMPACK_HOME=<scratch>/sessions/c8/qhome (moves calibration.json only), ENABLE_CLAUDEAI_MCP_SERVERS=false
+configuration: defaults (no project or user config.json, no --set); idle exit default (1800 s), no override
+bundle: C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256 61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; bin/qompack.exe sha256 93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9) via --plugin-dir
+commit 3ec62ad2e01b985640c0f1fb832df3917f766a5f (candidate 8); Claude Code 2.1.280; Windows 11 Home 25H2 build 10.0.26200.9457

@@ -1,0 +1,7 @@
+dropped: 2026-10-07T14:58:08.887Z, expansion found, 770 chars
+eval: 2026-10-07T14:58:13.614Z, expansion found, 642 chars
+pin: 2026-10-07T14:58:15.085Z, expansion found, 112 chars
+recall: 2026-10-07T14:58:18.507Z, expansion found, 1548 chars
+status: 2026-10-07T14:58:26.464Z, expansion found, 4724 chars
+why: 2026-10-07T14:58:37.857Z, expansion found, 807 chars
+missing: []

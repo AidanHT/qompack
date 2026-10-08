@@ -1,0 +1,1 @@
+qompack backup restore: backup: stop the source daemon before maintenance: qompack: daemon lock already held

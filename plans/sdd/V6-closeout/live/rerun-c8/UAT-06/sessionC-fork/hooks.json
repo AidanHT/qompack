@@ -1,0 +1,322 @@
+[
+ {
+  "hook_id": "139e1c3d-2bcc-4dc3-94a4-6417ef3c82c6",
+  "hook_name": "SessionStart:fork",
+  "hook_event": "SessionStart",
+  "latency_ms": 121,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "60a9487f-0612-4f58-9799-b7e26241f5a2",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 60,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "3881a2a3-11ba-433f-812d-ba16bf2d9166",
+  "hook_name": "PostToolUse:Read",
+  "hook_event": "PostToolUse",
+  "latency_ms": 125,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "75d27c79-abd9-486c-8b7f-7a0b587ae4a3",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 105,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "fe652cb7-a3e2-4773-8f33-5ced1912ba28",
+  "hook_name": "SubagentStop",
+  "hook_event": "SubagentStop",
+  "latency_ms": 102,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "64d67df8-cc53-4267-ad24-bfbcbc189dfa",
+  "hook_name": "SessionStart:compact",
+  "hook_event": "SessionStart",
+  "latency_ms": 133,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "e597f78f-d6ad-40d6-889e-6dd201dfe15b",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 73,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "edb8caa8-e383-485c-98ce-f164820d18b7",
+  "hook_name": "PostToolUse:ToolSearch",
+  "hook_event": "PostToolUse",
+  "latency_ms": 112,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "3bdfb9ad-d2f3-4f63-915c-192c336a28f2",
+  "hook_name": "PostToolUse:mcp__plugin_qompack_qompack__already_tried",
+  "hook_event": "PostToolUse",
+  "latency_ms": 85,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "55c3784f-2d5a-4d66-b2c0-737cb633c1d5",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 79,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "1c031406-1483-4bab-b1a5-8ae04212160b",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 92,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "5c1190e4-b48f-455b-9d5e-3fa9d6652803",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 97,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "93a9b024-f26f-4a98-a084-75b05d2d537e",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 78,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "e03d9a82-dc25-49d2-a12e-5e15d1f9830e",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 104,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "88378ba1-e43e-4574-9211-237f12366d28",
+  "hook_name": "SubagentStop",
+  "hook_event": "SubagentStop",
+  "latency_ms": 93,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "05929d29-dbf2-47b2-a85e-db82796366e7",
+  "hook_name": "SessionStart:compact",
+  "hook_event": "SessionStart",
+  "latency_ms": 268,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "6ba6bac2-b9d7-488a-94ce-df1f2e33850e",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 79,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "523c0aa2-04e9-4f1b-996d-efc905f0d0ac",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 103,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "063094b5-c8c5-498a-a3a5-ae0852d350bc",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 124,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "6528cc20-c437-40fa-9f98-1d00de5bc79a",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 73,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "952d5e9d-b821-43ea-afea-6bdb1f636f38",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 66,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "86bdf5a3-9825-4313-85e6-bf8be565b061",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 93,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "56e6de27-d0bc-435e-866a-7bf987cbc0ca",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 83,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "76552618-6e90-4bbe-a069-7dac60bc2b0b",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 96,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "5d7f34d3-18d7-40cd-a0fd-0b2def4fb6c9",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 63,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "cb48e1c4-35a4-45db-8833-eafd9bf1609a",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 102,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "28b68116-91db-4544-8a42-7b01cf83672f",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 71,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "46e2c7e5-28bd-435b-978f-725ac52936ae",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 75,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "de68c2ca-14a9-4d7f-a28a-cf3e7b721d7f",
+  "hook_name": "SubagentStop",
+  "hook_event": "SubagentStop",
+  "latency_ms": 193,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "11bf5f33-7bcf-4488-8a32-f2ecab524c5e",
+  "hook_name": "SessionStart:compact",
+  "hook_event": "SessionStart",
+  "latency_ms": 132,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "be7b3967-88a4-498e-8a47-c03dfa92b7a4",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 76,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "dc06c1c7-a78d-442e-be12-d708cd37c3e9",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 99,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ }
+]

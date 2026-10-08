@@ -1,0 +1,7 @@
+transcript line 220, 2026-10-07T14:58:15.085Z
+command: /qompack:pin Rejected calls get HTTP 429 with a Retry-After header.
+expansion isMeta=True:
+Run the Qompack pin command and report its output verbatim to the user.
+
+pinned inv_8002eb274536 (source: user)
+

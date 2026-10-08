@@ -1,0 +1,4 @@
+DEFAULT idle exit, no termination of pid 55416: daemon gone (pid None, lock present: False) after 705 s at 11:32:51
+{
+ "lock": "unreadable: [Errno 2] No such file or directory: '<scratch>/sessions/c8/uat06/proj\\\\.qompack\\\\run\\\\daemon.lock'"
+}

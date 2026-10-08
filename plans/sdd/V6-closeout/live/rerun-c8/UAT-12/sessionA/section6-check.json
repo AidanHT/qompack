@@ -1,0 +1,277 @@
+{
+ "block": "rerun-c8/UAT-12/sessionA/injected-2-SessionStart-compact.txt",
+ "chars": 9101,
+ "sections": [
+  "2",
+  "5",
+  "6",
+  "7",
+  "8"
+ ],
+ "section6_counts": {
+  "file_shown": 8,
+  "tool_shown": 12,
+  "tool_withheld": 13
+ },
+ "section6_tool_pointers": 25,
+ "section6_legend_lines": [
+  "Withheld entries name a path the host's permission rules refuse, or one outside the project; restore them by hash.",
+  ""
+ ],
+ "section6_shown_leaks": [],
+ "section7_entries": 22,
+ "section7_leaks": [],
+ "section6": [
+  {
+   "kind": "file_shown",
+   "line": "- big.log sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- calc.py sha256:80a20ec01778b2727ea7b8b033c738f451e29002fc3e2b006ff44a4d48777093 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- deploy_notes.md sha256:07e221ee5dc4d8485bfe6f48ea2a4d832b7dafbc6cb919a583b1b53105d5e4a6 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- notes-a.md sha256:9ac2f1fbfdcc96a0154e51b7fd4057261540482cb70ab80fcdb6924bd03d3b83 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- notes-b.md sha256:aff2996337960d0cae550c6c348bf673fc1afc2c39851fd14a1df5fcfdeca691 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- notes-c.md sha256:50625b8f6dc6d781954113973442682b2250251f3a864642ce74758e49e2a2bf — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- pixel.png sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- readme.md sha256:33d13b14c1bf0df646e975d452e98c68387d814f92456e49502c21eeb692ccaf — referenced"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01117kUzy6Dw7qpLEj5dCbkT",
+   "hash": "sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018",
+   "summary": "<scratch>\\retrieval\\c8\\uat12 space\\proj\\pixel.png"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_011MouhmutjkkE19xnyW4ark",
+   "hash": "sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_011QVAc21Uwv3tKv9rgKG5UH",
+   "hash": "sha256:c0bd17efe18ba4e6d6545a53ef20e45d83ddaa94bb2a52cb571ee8378f4c823d",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_012MPZ8ED3Y32WuabfETfaAf",
+   "hash": "sha256:42f2e1124dd6691f26f36162a200ef5b7b58f3bfab33155434e3dfc04097d0ea",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_012ffPyfL2r7qDtCXmV19hjA",
+   "hash": "sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_017PJMUajSxPBVHVSWmsVdZ1",
+   "hash": "sha256:0e35f962419d20ebcf98fea7456e18afc8012e767a8d9318205842651f056463",
+   "summary": "head -n 2 README.md"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_017kd8Xa1SMsB2PPkkiG4n5T",
+   "hash": "sha256:e542e417b56d007711f7d595fcd92492ed40babe9cd82a1e97380e53987edbca",
+   "summary": "{\"max_results\":5,\"query\":\"select:mcp__plugin_qompack_qompack__recall\"}"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_0183dhqU4zTXjeSjUnrioQkN",
+   "hash": "sha256:50625b8f6dc6d781954113973442682b2250251f3a864642ce74758e49e2a2bf",
+   "summary": "<scratch>\\retrieval\\c8\\uat12 space\\proj\\notes-c.md"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_018yy6ffVt3AHgkH2DVqV8w4",
+   "hash": "sha256:2795eb7e8ed1cdcf35c5a39253c7404a66a30c99cc257002e3d4f0cc04d2b966",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_019ggDsMiazxvcVN4e1cJ1jv",
+   "hash": "sha256:b9ba1c89ed6c3014e350caf9178662fbb8fadfa4cb6d96ee3f7e0641276b8338",
+   "summary": "ls -l private/"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01AxPUzQ8NPhFt1MXTEaQrXm",
+   "hash": "sha256:4f9a929da7c30fb5ea25c57517683769496a69c8922c5c80668102cc8a453851",
+   "summary": "ls -l \"<scratch>/retrieval/c8/uat12 space/proj/notes-a.md\""
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01B5PPbS9z5SiEsRCZwW4jns",
+   "hash": "sha256:564af7a1f4dc3609d5f444178f41e62bcc6394f6615f22e24878ba73e6c32cf1",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01CVAxRumyTWWcbiwrdES3ma",
+   "hash": "sha256:d972143ec4989b4ce6da55fe8d6a7f14b2a8522bb2bb4a255b024850740b4749",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01CYfcJWw7XAS8UxvTwG94E1",
+   "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+   "summary": "cat blob.bin"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01D3tAMPrqqtwFea3QWdfRMq",
+   "hash": "sha256:e3387f2f0134bd9e9f093e360de4be40149f2702319b2a40da451377c9aac5d3",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01FFWiJ2K3vusX7dSEpRGwAY",
+   "hash": "sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01FWabxKPGP71jWwTnaPzXvL",
+   "hash": "sha256:6987efefcbedaea016676f1bace75928d536ae54bc4e714a89f75d5302253caf",
+   "summary": "git diff HEAD~1 --stat"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01FoxoTnvUamzLAjujfoRZP9",
+   "hash": "sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01H38wbYPv1oFUHsNA1Kffwp",
+   "hash": "sha256:02ac3e8a670db7daa9d475d223d0188db0c51c0fa929ae0c3745c468b1974b88",
+   "summary": "cd \"<scratch>/retrieval/c8/uat12 space/proj\" && git status --short"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01H6oCibeK4NyXwvAHoaeYN9",
+   "hash": "sha256:78d6221d7acce5923322300a5d93b6fdb50563298fe0ab124e3311df6cad8c2e",
+   "summary": "LUPINE-7731"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01HZVwjYSbC1EyiNc416zPJT",
+   "hash": "sha256:5a92f4e6c757f2b3f187c0885ce9b6c85075f89e8711a18c4270c4d032744dae",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+   "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+   "summary": "<scratch>\\retrieval\\c8\\uat12 space\\proj\\big.log"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01LnC3pagN5k1HkwwUMtLuq8",
+   "hash": "sha256:9ac2f1fbfdcc96a0154e51b7fd4057261540482cb70ab80fcdb6924bd03d3b83",
+   "summary": "<scratch>\\retrieval\\c8\\uat12 space\\proj\\notes-a.md"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01MQPtZYgzZKhTYYM2PjJgcH",
+   "hash": "sha256:b9076540fdd79fe61f6c5f9dc638a5872d617347222d80e30bbdd1f4544dbe13",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_01Mzu3h22XVZr5aJJV7TDR82",
+   "hash": "sha256:fcafbfd611397a4e3df41989f66aaab9391ea7071270cc421bfda5b20d9d85f0",
+   "summary": "(summary withheld)"
+  }
+ ],
+ "section7": [
+  {
+   "line": "- pointer toolu_01NUHPPbERCXmVnpAgxXSt39 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01NUHPPbERCXmVnpAgxXSt39)"
+  },
+  {
+   "line": "- pointer toolu_01P6BeTK9wZDuKUa2275rVWb — did not fit the rehydration budget; call expand(tool_use_id=toolu_01P6BeTK9wZDuKUa2275rVWb)"
+  },
+  {
+   "line": "- pointer toolu_01P7jax5Jr7B1eQA3Qsi7Zua — did not fit the rehydration budget; call expand(tool_use_id=toolu_01P7jax5Jr7B1eQA3Qsi7Zua)"
+  },
+  {
+   "line": "- pointer toolu_01Peov3FqbGzb1bo2dpPBBfP — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Peov3FqbGzb1bo2dpPBBfP)"
+  },
+  {
+   "line": "- pointer toolu_01Qm4KEeauQXNvsc1qXSvP6B — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Qm4KEeauQXNvsc1qXSvP6B)"
+  },
+  {
+   "line": "- pointer toolu_01Qtu9vJNhdBFQ8EXoMLGnVU — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Qtu9vJNhdBFQ8EXoMLGnVU)"
+  },
+  {
+   "line": "- pointer toolu_01R55h5QaQzbNYLv4rA2BNQr — did not fit the rehydration budget; call expand(tool_use_id=toolu_01R55h5QaQzbNYLv4rA2BNQr)"
+  },
+  {
+   "line": "- pointer toolu_01SFxABSgGiQ4Dw1e1XmGyU2 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01SFxABSgGiQ4Dw1e1XmGyU2)"
+  },
+  {
+   "line": "- pointer toolu_01SVqe3vhqLEQhZFYYr6uvCx — did not fit the rehydration budget; call expand(tool_use_id=toolu_01SVqe3vhqLEQhZFYYr6uvCx)"
+  },
+  {
+   "line": "- pointer toolu_01SZhXoenX3m9zAsuACVdAWk — did not fit the rehydration budget; call expand(tool_use_id=toolu_01SZhXoenX3m9zAsuACVdAWk)"
+  },
+  {
+   "line": "- pointer toolu_01SkwBVSbwHApctL5Y6jnSFm — did not fit the rehydration budget; call expand(tool_use_id=toolu_01SkwBVSbwHApctL5Y6jnSFm)"
+  },
+  {
+   "line": "- pointer toolu_01Tdnn3S3f7b3n1AkPbv48Eh — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Tdnn3S3f7b3n1AkPbv48Eh)"
+  },
+  {
+   "line": "- pointer toolu_01VA6VKNoacr6cEKMNeWogvu — did not fit the rehydration budget; call expand(tool_use_id=toolu_01VA6VKNoacr6cEKMNeWogvu)"
+  },
+  {
+   "line": "- user_intent_evolution 0 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])"
+  },
+  {
+   "line": "- user_intent_evolution 1 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])"
+  },
+  {
+   "line": "- user_intent_evolution 2 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])"
+  },
+  {
+   "line": "- user_intent_evolution 3 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[3])"
+  },
+  {
+   "line": "- user_intent_evolution 4 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[4])"
+  },
+  {
+   "line": "- user_intent_evolution 5 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[5])"
+  },
+  {
+   "line": "- user_intent_evolution 6 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[6])"
+  },
+  {
+   "line": "- user_intent_evolution 7 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[7])"
+  },
+  {
+   "line": "- … and 1 more; call dropped()"
+  }
+ ],
+ "deferred_note": false
+}

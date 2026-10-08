@@ -158,7 +158,6 @@ var releaseInterimMarkers = map[string][]*regexp.Regexp{
 	releaseNotesPage: {
 		regexp.MustCompile(`until candidate [0-9]+'s are recorded`),
 		regexp.MustCompile(`the release is not published before they are`),
-		regexp.MustCompile(`once candidate [0-9]+'s last fixes are verified`),
 	},
 	"README.md": {
 		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),
@@ -169,7 +168,6 @@ var releaseInterimMarkers = map[string][]*regexp.Regexp{
 	"CHANGELOG.md": {
 		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),
 		regexp.MustCompile(`supply the release's evidence, and they are owed`),
-		regexp.MustCompile(`once candidate [0-9]+'s last fixes are verified`),
 	},
 	"docs/release.md": {
 		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),

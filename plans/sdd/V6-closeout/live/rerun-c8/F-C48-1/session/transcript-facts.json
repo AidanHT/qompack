@@ -1,0 +1,55 @@
+{
+ "session_id": "77ff5d8c-d422-4375-b919-46a55cf8840f",
+ "found": true,
+ "project_slug_is_scratch": true,
+ "bytes": 686184,
+ "lines": 163,
+ "entry_types": {
+  "queue-operation": 12,
+  "attachment": 79,
+  "user": 22,
+  "atis-latch": 8,
+  "last-prompt": 7,
+  "assistant": 26,
+  "system": 8,
+  "cost-state": 1
+ },
+ "tool_uses": {
+  "Read": 5,
+  "Bash": 2
+ },
+ "attachment_types": {
+  "hook_success": 17,
+  "hook_additional_context": 4,
+  "environment": 4,
+  "model": 4,
+  "deferred_tools_delta": 4,
+  "agent_listing_delta": 4,
+  "mcp_instructions_delta": 4,
+  "skill_listing": 2,
+  "total_tokens_reminder": 14,
+  "session_context": 3,
+  "date": 3,
+  "remote_session_change": 3,
+  "prompt_snapshot": 6,
+  "file": 7
+ },
+ "hook_attachments": {
+  "hook_success/SessionStart": 4,
+  "hook_additional_context/SessionStart": 4,
+  "hook_success/PostToolUse": 7,
+  "hook_success/Stop": 6
+ },
+ "main_chain_user_text_entries": 11,
+ "compact_boundaries": [
+  {
+   "trigger": "manual",
+   "preTokens": 26482
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 26220
+  }
+ ],
+ "sidechain_markers": []
+}

@@ -1,0 +1,1706 @@
+{
+ "initialize": {
+  "name": "qompack",
+  "version": "0.3.0"
+ },
+ "max_response_bytes": 262144,
+ "series": {
+  "expand_minimal": {
+   "pages": [
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5"
+     },
+     "isError": false,
+     "text_bytes": 8064,
+     "jsonrpc_line_bytes": 11182,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      0,
+      6458
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "6458:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 6290,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "6458:16384"
+     },
+     "isError": false,
+     "text_bytes": 21612,
+     "jsonrpc_line_bytes": 29218,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      6458,
+      24218
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "24218:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 17305,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "24218:16384"
+     },
+     "isError": false,
+     "text_bytes": 26051,
+     "jsonrpc_line_bytes": 35186,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      24218,
+      45652
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "45652:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 20881,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "45652:16384"
+     },
+     "isError": false,
+     "text_bytes": 25211,
+     "jsonrpc_line_bytes": 34022,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      45652,
+      66408
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "66408:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 20224,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "66408:16384"
+     },
+     "isError": false,
+     "text_bytes": 24460,
+     "jsonrpc_line_bytes": 33051,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      66408,
+      86523
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "86523:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 19597,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "86523:16384"
+     },
+     "isError": false,
+     "text_bytes": 20948,
+     "jsonrpc_line_bytes": 28295,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      86523,
+      103747
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "103747:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 16783,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "103747:16384"
+     },
+     "isError": false,
+     "text_bytes": 21775,
+     "jsonrpc_line_bytes": 29424,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      103747,
+      121646
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "121646:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 17444,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "121646:16384"
+     },
+     "isError": false,
+     "text_bytes": 29490,
+     "jsonrpc_line_bytes": 39835,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      121646,
+      145913
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "145913:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 23637,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "145913:16384"
+     },
+     "isError": false,
+     "text_bytes": 30059,
+     "jsonrpc_line_bytes": 40452,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      145913,
+      170725
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "170725:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 24182,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "170725:16384"
+     },
+     "isError": false,
+     "text_bytes": 22550,
+     "jsonrpc_line_bytes": 30486,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      170725,
+      189256
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "189256:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 18055,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "189256:16384"
+     },
+     "isError": false,
+     "text_bytes": 28814,
+     "jsonrpc_line_bytes": 38912,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      189256,
+      212970
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "212970:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 23098,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "212970:16384"
+     },
+     "isError": false,
+     "text_bytes": 22515,
+     "jsonrpc_line_bytes": 30451,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      212970,
+      231466
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "231466:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 18020,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "231466:16384"
+     },
+     "isError": false,
+     "text_bytes": 22225,
+     "jsonrpc_line_bytes": 29983,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      231466,
+      249761
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "249761:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 17833,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "249761:16384"
+     },
+     "isError": false,
+     "text_bytes": 25856,
+     "jsonrpc_line_bytes": 34903,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      249761,
+      271042
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "271042:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 20730,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "271042:16384"
+     },
+     "isError": false,
+     "text_bytes": 26622,
+     "jsonrpc_line_bytes": 35960,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      271042,
+      292944
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "292944:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 21340,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "292944:16384"
+     },
+     "isError": false,
+     "text_bytes": 22775,
+     "jsonrpc_line_bytes": 30795,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      292944,
+      311658
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "311658:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 18231,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "311658:16384"
+     },
+     "isError": false,
+     "text_bytes": 23406,
+     "jsonrpc_line_bytes": 31576,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      311658,
+      330928
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "330928:16384",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 18780,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "330928:16384"
+     },
+     "isError": false,
+     "text_bytes": 28428,
+     "jsonrpc_line_bytes": 38314,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      330928,
+      354373
+     ],
+     "total_bytes": 354373,
+     "truncated": false,
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 22843,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": true,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    }
+   ],
+   "n": 18,
+   "contiguous": true,
+   "last_reaches_end": true,
+   "last_truncated": false,
+   "every_page_within_bound": true,
+   "every_truncated_page_has_next_span": true,
+   "max_text_bytes": 30059
+  },
+  "expand_full": {
+   "pages": [
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "full": true
+     },
+     "isError": false,
+     "text_bytes": 261189,
+     "jsonrpc_line_bytes": 349287,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      0,
+      217091
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "217091:137282",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 211512,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "217091:137282"
+     },
+     "isError": false,
+     "text_bytes": 165235,
+     "jsonrpc_line_bytes": 221061,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      217091,
+      354373
+     ],
+     "total_bytes": 354373,
+     "truncated": false,
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 133761,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": true,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    }
+   ],
+   "n": 2,
+   "contiguous": true,
+   "last_reaches_end": true,
+   "last_truncated": false,
+   "every_page_within_bound": true,
+   "every_truncated_page_has_next_span": true,
+   "max_text_bytes": 261189
+  },
+  "expand_span_0_total": {
+   "pages": [
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "0:354373"
+     },
+     "isError": false,
+     "text_bytes": 261189,
+     "jsonrpc_line_bytes": 349287,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      0,
+      217091
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "217091:137282",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 211512,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "FileRead",
+     "args": {
+      "tool_use_id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "span": "217091:137282"
+     },
+     "isError": false,
+     "text_bytes": 165235,
+     "jsonrpc_line_bytes": 221061,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "span": [
+      217091,
+      354373
+     ],
+     "total_bytes": 354373,
+     "truncated": false,
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "path",
+      "promoted",
+      "span",
+      "tool",
+      "total_bytes",
+      "truncated",
+      "widened"
+     ],
+     "content_chars": 133761,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": true,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    }
+   ],
+   "n": 2,
+   "contiguous": true,
+   "last_reaches_end": true,
+   "last_truncated": false,
+   "every_page_within_bound": true,
+   "every_truncated_page_has_next_span": true,
+   "max_text_bytes": 261189
+  },
+  "re_read_full": {
+   "pages": [
+    {
+     "tool": "re_read",
+     "args": {
+      "path": "big.log",
+      "full": true
+     },
+     "isError": false,
+     "text_bytes": 261197,
+     "jsonrpc_line_bytes": 349314,
+     "within_bound": true,
+     "found": true,
+     "hash": "sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9",
+     "path": "big.log",
+     "source": "store",
+     "turn": 5,
+     "span": [
+      0,
+      217091
+     ],
+     "total_bytes": 354373,
+     "truncated": true,
+     "next_span": "217091:137282",
+     "widened": false,
+     "fields": [
+      "content",
+      "expansions",
+      "found",
+      "hash",
+      "next_span",
+      "path",
+      "promoted",
+      "source",
+      "span",
+      "total_bytes",
+      "truncated",
+      "turn",
+      "widened"
+     ],
+     "content_chars": 211512,
+     "content_has_fffd": false,
+     "denied_markers_in_content": [],
+     "reaches_end": false,
+     "truncated_iff_not_end": true,
+     "next_span_iff_truncated": true
+    },
+    {
+     "tool": "re_read",
+     "args": {
+      "path": "big.log",
+      "span": "217091:137282"
+     },
+     "isError": true,
+     "text_bytes": 54,
+     "jsonrpc_line_bytes": 198,
+     "within_bound": true,
+     "text": "invalid arguments for re_read: /span: unknown property"
+    }
+   ],
+   "n": 2,
+   "contiguous": true,
+   "last_reaches_end": null,
+   "last_truncated": null,
+   "every_page_within_bound": true,
+   "every_truncated_page_has_next_span": true,
+   "max_text_bytes": 261197
+  }
+ },
+ "span_0_total_vs_full": {
+  "same_page_count": true,
+  "identical": true,
+  "pairs": [
+   {
+    "span": [
+     [
+      0,
+      217091
+     ],
+     [
+      0,
+      217091
+     ]
+    ],
+    "truncated": [
+     true,
+     true
+    ],
+    "next_span": [
+     "217091:137282",
+     "217091:137282"
+    ],
+    "text_bytes": [
+     261189,
+     261189
+    ]
+   },
+   {
+    "span": [
+     [
+      217091,
+      354373
+     ],
+     [
+      217091,
+      354373
+     ]
+    ],
+    "truncated": [
+     false,
+     false
+    ],
+    "next_span": [
+     null,
+     null
+    ],
+    "text_bytes": [
+     165235,
+     165235
+    ]
+   }
+  ]
+ },
+ "single": [
+  {
+   "tool": "Bash",
+   "args": {
+    "tool_use_id": "toolu_01CYfcJWw7XAS8UxvTwG94E1"
+   },
+   "isError": false,
+   "text_bytes": 2948,
+   "jsonrpc_line_bytes": 3504,
+   "within_bound": true,
+   "found": true,
+   "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+   "span": [
+    0,
+    2134
+   ],
+   "total_bytes": 2134,
+   "truncated": false,
+   "widened": false,
+   "fields": [
+    "content",
+    "expansions",
+    "found",
+    "hash",
+    "promoted",
+    "span",
+    "tool",
+    "total_bytes",
+    "truncated",
+    "widened"
+   ],
+   "content_chars": 1117,
+   "content_has_fffd": true,
+   "denied_markers_in_content": [],
+   "reaches_end": true,
+   "truncated_iff_not_end": true,
+   "next_span_iff_truncated": true
+  },
+  {
+   "tool": "Bash",
+   "args": {
+    "tool_use_id": "toolu_01CYfcJWw7XAS8UxvTwG94E1",
+    "full": true
+   },
+   "isError": false,
+   "text_bytes": 2947,
+   "jsonrpc_line_bytes": 3502,
+   "within_bound": true,
+   "found": true,
+   "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+   "span": [
+    0,
+    2134
+   ],
+   "total_bytes": 2134,
+   "truncated": false,
+   "widened": false,
+   "fields": [
+    "content",
+    "expansions",
+    "found",
+    "hash",
+    "promoted",
+    "span",
+    "tool",
+    "total_bytes",
+    "truncated",
+    "widened"
+   ],
+   "content_chars": 1117,
+   "content_has_fffd": true,
+   "denied_markers_in_content": [],
+   "reaches_end": true,
+   "truncated_iff_not_end": true,
+   "next_span_iff_truncated": true
+  },
+  {
+   "tool": "FileRead",
+   "args": {
+    "tool_use_id": "toolu_01117kUzy6Dw7qpLEj5dCbkT",
+    "full": true
+   },
+   "isError": false,
+   "text_bytes": 2395,
+   "jsonrpc_line_bytes": 2866,
+   "within_bound": true,
+   "found": true,
+   "hash": "sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018",
+   "path": "pixel.png",
+   "span": [
+    0,
+    2123
+   ],
+   "total_bytes": 2123,
+   "truncated": false,
+   "widened": false,
+   "fields": [
+    "content",
+    "expansions",
+    "found",
+    "hash",
+    "path",
+    "promoted",
+    "span",
+    "tool",
+    "total_bytes",
+    "truncated",
+    "widened"
+   ],
+   "content_chars": 2123,
+   "content_has_fffd": false,
+   "denied_markers_in_content": [],
+   "reaches_end": true,
+   "truncated_iff_not_end": true,
+   "next_span_iff_truncated": true
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01SZhXoenX3m9zAsuACVdAWk"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:aff2996337960d0cae550c6c348bf673fc1afc2c39851fd14a1df5fcfdeca691"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "notes-b.md"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01GhqxxYaQ1STbnDJPjMBNoj"
+   },
+   "isError": false,
+   "text_bytes": 43,
+   "jsonrpc_line_bytes": 316,
+   "within_bound": true,
+   "found": false,
+   "searched": "tool_use index",
+   "fields": [
+    "found",
+    "searched"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/deny.txt"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/deny (1).txt"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/John's notes.txt"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/a,b.txt"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/k=v.txt"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/draft-plan.txt"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "<scratch>/retrieval/c8/uat12 space/proj/private/k=v.txt"
+   },
+   "isError": false,
+   "text_bytes": 131,
+   "jsonrpc_line_bytes": 406,
+   "within_bound": true,
+   "found": false,
+   "denied": true,
+   "reason": "authorization denied: the host's current permission rules deny reading the associated path",
+   "fields": [
+    "denied",
+    "found",
+    "reason"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "ORCHID-DENY-8842"
+   },
+   "isError": false,
+   "text_bytes": 1585,
+   "jsonrpc_line_bytes": 2052,
+   "within_bound": true,
+   "found": true,
+   "denied": 7,
+   "count": 4,
+   "hits": [
+    {
+     "tool": "SubagentStop",
+     "path": "",
+     "tool_use_id": "subagent_d10f2a9f-05c3-4a77-a384-ef58633b20a1_24",
+     "score": 0.6257
+    },
+    {
+     "tool": "UserPromptSubmit",
+     "path": "",
+     "tool_use_id": "prompt_1f321f2c-ef04-4382-a870-3a0818b72245_6",
+     "score": 0.3172
+    },
+    {
+     "tool": "UserPromptSubmit",
+     "path": "",
+     "tool_use_id": "prompt_1f321f2c-ef04-4382-a870-3a0818b72245_2",
+     "score": 0.3001
+    },
+    {
+     "tool": "UserPromptSubmit",
+     "path": "",
+     "tool_use_id": "prompt_d10f2a9f-05c3-4a77-a384-ef58633b20a1_22",
+     "score": 0.2918
+    }
+   ],
+   "denied_count": 7,
+   "fields": [
+    "count",
+    "denied",
+    "found",
+    "hits",
+    "query"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:private/deny.txt"
+   },
+   "isError": false,
+   "text_bytes": 114,
+   "jsonrpc_line_bytes": 424,
+   "within_bound": true,
+   "found": false,
+   "denied": 1,
+   "count": 0,
+   "hits": [],
+   "denied_count": 1,
+   "fields": [
+    "count",
+    "denied",
+    "found",
+    "hits",
+    "query"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:notes-b.md"
+   },
+   "isError": false,
+   "text_bytes": 108,
+   "jsonrpc_line_bytes": 418,
+   "within_bound": true,
+   "found": false,
+   "denied": 2,
+   "count": 0,
+   "hits": [],
+   "denied_count": 2,
+   "fields": [
+    "count",
+    "denied",
+    "found",
+    "hits",
+    "query"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:private/*"
+   },
+   "isError": false,
+   "text_bytes": 107,
+   "jsonrpc_line_bytes": 418,
+   "within_bound": true,
+   "found": false,
+   "denied": 6,
+   "count": 0,
+   "hits": [],
+   "denied_count": 6,
+   "fields": [
+    "count",
+    "denied",
+    "found",
+    "hits",
+    "query"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "<scratch>/retrieval/c8/uat12 space/outside/outside.txt"
+   },
+   "isError": true,
+   "text_bytes": 29,
+   "jsonrpc_line_bytes": 173,
+   "within_bound": true,
+   "text": "path escapes the project root"
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "../outside/outside.txt"
+   },
+   "isError": true,
+   "text_bytes": 29,
+   "jsonrpc_line_bytes": 173,
+   "within_bound": true,
+   "text": "path escapes the project root"
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01DAn746k47w39kP4XAzpNfu"
+   },
+   "isError": false,
+   "text_bytes": 43,
+   "jsonrpc_line_bytes": 316,
+   "within_bound": true,
+   "found": false,
+   "searched": "tool_use index",
+   "fields": [
+    "found",
+    "searched"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "LUPINE-7731"
+   },
+   "isError": false,
+   "text_bytes": 2056,
+   "jsonrpc_line_bytes": 2633,
+   "within_bound": true,
+   "found": true,
+   "denied": 1,
+   "count": 5,
+   "hits": [
+    {
+     "tool": "UserPromptSubmit",
+     "path": "",
+     "tool_use_id": "prompt_1f321f2c-ef04-4382-a870-3a0818b72245_22",
+     "score": 0.4776
+    },
+    {
+     "tool": "FileRead",
+     "path": "readme.md",
+     "tool_use_id": "toolu_01L7Hcz8dpvqYJMX5kicRowA",
+     "score": 0.2973
+    },
+    {
+     "tool": "UserPromptSubmit",
+     "path": "",
+     "tool_use_id": "prompt_d10f2a9f-05c3-4a77-a384-ef58633b20a1_12",
+     "score": 0.2607
+    },
+    {
+     "tool": "FileRead",
+     "path": "notes-c.md",
+     "tool_use_id": "toolu_0183dhqU4zTXjeSjUnrioQkN",
+     "score": 0.2547
+    },
+    {
+     "tool": "FileRead",
+     "path": "notes-a.md",
+     "tool_use_id": "toolu_01LnC3pagN5k1HkwwUMtLuq8",
+     "score": 0.2533
+    }
+   ],
+   "denied_count": 1,
+   "fields": [
+    "count",
+    "denied",
+    "found",
+    "hits",
+    "query"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "LUPINE-7731",
+    "k": 20
+   },
+   "isError": false,
+   "text_bytes": 4024,
+   "jsonrpc_line_bytes": 4893,
+   "within_bound": true,
+   "found": true,
+   "denied": 7,
+   "count": 10,
+   "hits": [
+    {
+     "tool": "UserPromptSubmit",
+     "path": "",
+     "tool_use_id": "prompt_1f321f2c-ef04-4382-a870-3a0818b72245_22",
+     "score": 0.4771
+    },
+    {
+     "tool": "FileRead",
+     "path": "readme.md",
+     "tool_use_id": "toolu_01L7Hcz8dpvqYJMX5kicRowA",
+     "score": 0.2971
+    },
+    {
+     "tool": "UserPromptSubmit",
+     "path": "",
+     "tool_use_id": "prompt_d10f2a9f-05c3-4a77-a384-ef58633b20a1_12",
+     "score": 0.2606
+    },
+    {
+     "tool": "FileRead",
+     "path": "notes-c.md",
+     "tool_use_id": "toolu_0183dhqU4zTXjeSjUnrioQkN",
+     "score": 0.2546
+    },
+    {
+     "tool": "FileRead",
+     "path": "notes-a.md",
+     "tool_use_id": "toolu_01LnC3pagN5k1HkwwUMtLuq8",
+     "score": 0.2533
+    },
+    {
+     "tool": "FileRead",
+     "path": "calc.py",
+     "tool_use_id": "toolu_01Qm4KEeauQXNvsc1qXSvP6B",
+     "score": 0.2527
+    },
+    {
+     "tool": "FileRead",
+     "path": "readme.md",
+     "tool_use_id": "toolu_01P7jax5Jr7B1eQA3Qsi7Zua",
+     "score": 0.252
+    },
+    {
+     "tool": "mcp__qompack__expand",
+     "path": "readme.md",
+     "tool_use_id": "qompack-mcp:0bc7b97a81af",
+     "score": 0.3408
+    },
+    {
+     "tool": "mcp__plugin_qompack_qompack__re_read",
+     "path": "notes-a.md",
+     "tool_use_id": "toolu_01NUHPPbERCXmVnpAgxXSt39",
+     "score": 0.2898
+    },
+    {
+     "tool": "mcp__qompack__re_read",
+     "path": "notes-a.md",
+     "tool_use_id": "qompack-mcp:d9229f1d14c0",
+     "score": 0.2891
+    }
+   ],
+   "denied_count": 7,
+   "fields": [
+    "count",
+    "denied",
+    "found",
+    "hits",
+    "query"
+   ]
+  },
+  {
+   "tool": "dropped",
+   "args": {},
+   "isError": false,
+   "text_bytes": 67,
+   "jsonrpc_line_bytes": 344,
+   "within_bound": true,
+   "raw": {
+    "available": false,
+    "count": 0,
+    "drops": [],
+    "reason": "no live session"
+   },
+   "reason": "no live session",
+   "available": false,
+   "count": 0,
+   "fields": [
+    "available",
+    "count",
+    "drops",
+    "reason"
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

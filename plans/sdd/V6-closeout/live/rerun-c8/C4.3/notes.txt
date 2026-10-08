@@ -1,0 +1,35 @@
+C4.3 on candidate 8 — "Real compaction round trip: PreCompact checkpoint -> SessionStart source=compact -> bounded
+rehydration payload injected -> the model recovers pre-compaction facts." Judged from this part's rows, with no session
+of its own: UAT-04, UAT-05 run 2, UAT-06 (with the C4.5 compaction and the parent's restart) and F-C48-1. Agent-
+executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human
+UAT. Date 2026-10-07 America/Toronto.
+
+Round trip: 18 "/compact" or automatic compactions across 7 sessions (UAT-04 8, UAT-05 2, UAT-06 A 1, B 1, C 3, D 1,
+F-C48-1 2), every one compact_result success; each wrote its PreCompact checkpoint and was followed by
+SessionStart:compact, except the one UAT-04 compaction whose PreCompact was made to fail by an unparseable config
+(no checkpoint, empty injection, manifest unchanged — UAT-04's step 4 by design). Every checkpoint written re-hashes
+to its MANIFEST line (UAT-04 7, UAT-05 2, UAT-06 6, F-C48-1 2).
+
+Bounded payloads (injection-sizes.txt): 17 non-empty compact injections, 468 to 3,745 UTF-16 units including the
+probe line, all inline (no <persisted-output>), all delimited; every state's tokens are within its budget (e.g.
+UAT-04 0007: 929 of 12,000; UAT-05: 131 of 150 twice). At the 150-token budget the payload is the D59 loss notice
+(UAT-05), so no compaction that dropped material was silent.
+
+Correct current authority: section 2 renders the evolution newest first and the original last, whole, in every block;
+the newest correction is above the older ones (UAT-06: 60 above the 100 original; 45 above 60 in the fork; the
+parent's restart keeps 60 and never shows the fork's 45). Current work is the session's newest real prompt, the fork's
+own and never a slash-command invocation (UAT-06 C-block2/3/4, F-C48-1 block3). Pins render first (UAT-06 C-block4,
+D-block2). The tier-1 original over the cap is named as an overflow with its restore call, never cut (UAT-04).
+
+Qompack-sourced recovery: UAT-04 — the closing marker OSPREY-END-7731 recovered after compaction 1 with expand
+("found in the archived original message via Qompack expand"), and Q23=TEAK-5825-WILLOW (correct) after compaction 7
+with data/keys.txt deleted, via recall + expand. UAT-06 — already_tried (active, scope session) and why
+(dec_991dbff588ec) answered the parent's records in the fork, and the model stated the requirement in force after
+every compaction (60 in the parent, 45 in the fork). UAT-05 — the notice names dropped() and the original's expand
+call; the in-session /qompack:dropped delivered all 14 entries (the model did not echo them, as on candidate 7).
+
+Host-reported hook outcomes in the part: 17 + 24 + 17 + 10 + 32 + 5 + 69 hook pairs across the seven sessions, all
+success, exit 0; every stderr.txt 0 bytes; no "Hook cancelled".
+
+Result: pass. Carried observations: UAT-06 O-1 (one subagent summary withheld in a rule-free project, accepted
+over-withholding under D66(e)); UAT-04's documented evolution drops beside a tier-1 overflow (F-C7-UAT04-1, by design).

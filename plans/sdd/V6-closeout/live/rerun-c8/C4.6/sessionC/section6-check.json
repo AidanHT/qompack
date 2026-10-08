@@ -1,0 +1,255 @@
+{
+ "block": "rerun-c8/C4.6/sessionC/injected-2-SessionStart-compact.txt",
+ "chars": 9169,
+ "sections": [
+  "2",
+  "5",
+  "6",
+  "7",
+  "8"
+ ],
+ "section6_counts": {
+  "file_shown": 7,
+  "tool_shown": 21,
+  "tool_withheld": 1
+ },
+ "section6_tool_pointers": 22,
+ "section6_legend_lines": [
+  "Withheld entries name a path the host's permission rules refuse, or one outside the project; restore them by hash.",
+  ""
+ ],
+ "section6_shown_leaks": [],
+ "section7_entries": 22,
+ "section7_leaks": [],
+ "section6": [
+  {
+   "kind": "file_shown",
+   "line": "- docs/design.md sha256:24b1e990516a823aa0407ba7ca44b9762bf362bdea3a5aaffe2aaf9d8fc24da1 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- docs/glossary.md sha256:6c3a8dac7c05d4b606260c57c5a79ae5a4c39d7c6a55d70160cb7a2e36e35922 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- readme.md sha256:68d3b3952c2ee93a21635068553640fb02009ce90cf701626d331558943548fc — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- src/mod1.py sha256:3f5e3a3f78dd585d7ded57bd403cc52f55620d07e4df9219ff29bfde4ddd3475 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- src/mod2.py sha256:2372ce65036b990fa0510da12439976e4839c39d5c481f46639b774ca5f45290 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- src/mod5.py sha256:5a6ee97b053953b90a1da8ac7cc17a9d3bcf59c40101e8ef3c3e3eba184eab71 — referenced"
+  },
+  {
+   "kind": "file_shown",
+   "line": "- src/mod8.py sha256:1b09f1dcf669a115a39464ff1aa85fa335e1ca2828ae84b0d73f117dca2f3174 — referenced"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_011hmDxqtwDQzwhfSgjDeDd4",
+   "hash": "sha256:8e89706f039c4f223f55de40ccdb657c49709ea609ae466319eab05d0eef9887",
+   "summary": "wc -l docs/glossary.md"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_0123vBBgJLrFQLNkxaExWnbT",
+   "hash": "sha256:3f5e3a3f78dd585d7ded57bd403cc52f55620d07e4df9219ff29bfde4ddd3475",
+   "summary": "<scratch>\\retrieval\\c8\\sessc space\\proj\\src\\mod1.py"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_012R3Mmen6D5ataVLZj8gkas",
+   "hash": "sha256:68d3b3952c2ee93a21635068553640fb02009ce90cf701626d331558943548fc",
+   "summary": "<scratch>\\retrieval\\c8\\sessc space\\proj\\README.md"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_012eWwKuWxmRNX66UfFv9SPz",
+   "hash": "sha256:2372ce65036b990fa0510da12439976e4839c39d5c481f46639b774ca5f45290",
+   "summary": "<scratch>\\retrieval\\c8\\sessc space\\proj\\src\\mod2.py"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_012pCw961GXMxcRjT4s35q1z",
+   "hash": "sha256:02ac3e8a670db7daa9d475d223d0188db0c51c0fa929ae0c3745c468b1974b88",
+   "summary": "cd \"<scratch>/retrieval/c8/sessc space/proj\" && git status --short"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_013U8SBeQQStxg73NpDEaT6s",
+   "hash": "sha256:6c3a8dac7c05d4b606260c57c5a79ae5a4c39d7c6a55d70160cb7a2e36e35922",
+   "summary": "<scratch>\\retrieval\\c8\\sessc space\\proj\\docs\\glossary.md"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_013Xy8aQtsFWNtt9uiwSe2Tz",
+   "hash": "sha256:d20b37ba444c73b33693d17269d8182d7bc4e4e640475a5a7ca2401d2761b4eb",
+   "summary": "head -n 1 src/mod8.py"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_013cRKv59MEQxNJEpVDSFmXG",
+   "hash": "sha256:e478b9e06fd25f09293e7db2d97b55fd7c1a9f28c4e6d4f4ad94bc4b90f250d3",
+   "summary": "grep -rn \"def f\" src"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_013n79qaRBbaUfzUE8DoGtt7",
+   "hash": "sha256:5a6ee97b053953b90a1da8ac7cc17a9d3bcf59c40101e8ef3c3e3eba184eab71",
+   "summary": "<scratch>\\retrieval\\c8\\sessc space\\proj\\src\\mod5.py"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_014e4XFRpgqBEWDQxdz9dFkG",
+   "hash": "sha256:b9ba1c89ed6c3014e350caf9178662fbb8fadfa4cb6d96ee3f7e0641276b8338",
+   "summary": "ls -l private/"
+  },
+  {
+   "kind": "tool_withheld",
+   "tool_use_id": "toolu_015xFcs1N8coi8ntDrp98omW",
+   "hash": "sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5",
+   "summary": "(summary withheld)"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_016spfkxYwCKeAfFGLca2WrT",
+   "hash": "sha256:f31c6911fcea08012d4be8d48bb8de313e76bce51bdd6c9f95405c33a4ffc9d8",
+   "summary": "ls src"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_017a5HbTnGGA7xLrhAymiha1",
+   "hash": "sha256:ee0a5886726b7266e161910b90aaa8b7f5ce2d08d8769fecdea59cd1a826542b",
+   "summary": "cat src/mod3.py"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_018ARKKfVGtsodeS3DiuAeUp",
+   "hash": "sha256:21d6114a2eb39acd7e2c1e22692006064feb3a575cee93b7b51f74532e18dd6f",
+   "summary": "cat src/mod2.py"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_018DMfr69m4kCDrThbTE9Rry",
+   "hash": "sha256:bb4999f894862b38e664f65de06937034a3650d2e8d5d928834dbae62377f25b",
+   "summary": "{\"max_results\":5,\"query\":\"select:mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__already_tried,mcp…"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_019NCKoRZHBVwq8Zq1aNxZFj",
+   "hash": "sha256:24b1e990516a823aa0407ba7ca44b9762bf362bdea3a5aaffe2aaf9d8fc24da1",
+   "summary": "<scratch>\\retrieval\\c8\\sessc space\\proj\\docs\\design.md"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01ACbThY5UonBzhX94DhoTB2",
+   "hash": "sha256:02b8ff18bad5610d47b918d184234c99c032617ea239309abb728265861142cd",
+   "summary": "{\"max_results\":5,\"query\":\"select:mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__re_read\"}"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01AQdDjgd4rCnpkbXAvimhdm",
+   "hash": "sha256:e098639af684bbd1feb5c8dd92a296706fd5e79f97563e524bee182c25705d6c",
+   "summary": "grep -c PLOVER docs/design.md"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01B4DiHdwpwBChfpBsP2sa2p",
+   "hash": "sha256:73a08aaa40076ba17005ade3f8bce78a9271ed61e93b78dcfac499883e38618d",
+   "summary": "cat src/mod1.py"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01BE6fD6h7QcVfX48b3h133j",
+   "hash": "sha256:5e3e37247281cf952d95d271b852ed9da9cd4fecda59c0be145f1f191ef2ce60",
+   "summary": "ls"
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01BxY1oVK5ZRXV7BjUUyXKYf",
+   "hash": "sha256:774195b4b4fe89ae9605ebff5afe87be5de9144daf58ee06c5c02ff784f85b6f",
+   "summary": "ls -l \"<scratch>/retrieval/c8/sessc space/proj/src\""
+  },
+  {
+   "kind": "tool_shown",
+   "tool_use_id": "toolu_01CnQxXPej4SqicqZMfe5HTr",
+   "hash": "sha256:03eeca923e8d6f579f0a0abcbbe688a651efab75635ed61e00c0c3f7bd880ce5",
+   "summary": "{\"query\":\"cache warms\"}"
+  }
+ ],
+ "section7": [
+  {
+   "line": "- pointer toolu_01CxKH4P4ynFPU4hLWPeUmXj — did not fit the rehydration budget; call expand(tool_use_id=toolu_01CxKH4P4ynFPU4hLWPeUmXj)"
+  },
+  {
+   "line": "- pointer toolu_01FeV3C6g2bKPt72ekNSNgyY — did not fit the rehydration budget; call expand(tool_use_id=toolu_01FeV3C6g2bKPt72ekNSNgyY)"
+  },
+  {
+   "line": "- pointer toolu_01FphCkGBPE3rTpxGWocsEiz — did not fit the rehydration budget; call expand(tool_use_id=toolu_01FphCkGBPE3rTpxGWocsEiz)"
+  },
+  {
+   "line": "- pointer toolu_01GgWmrVdCvApyd2ucSsEWy5 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01GgWmrVdCvApyd2ucSsEWy5)"
+  },
+  {
+   "line": "- pointer toolu_01Hp5vKa2jvFj1P8EWjib1qJ — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Hp5vKa2jvFj1P8EWjib1qJ)"
+  },
+  {
+   "line": "- pointer toolu_01KDQGaj4o33Ud6LaG3dJLqB — did not fit the rehydration budget; call expand(tool_use_id=toolu_01KDQGaj4o33Ud6LaG3dJLqB)"
+  },
+  {
+   "line": "- pointer toolu_01LQGPGpqCUyz3yz9B5SJDuD — did not fit the rehydration budget; call expand(tool_use_id=toolu_01LQGPGpqCUyz3yz9B5SJDuD)"
+  },
+  {
+   "line": "- pointer toolu_01LoMNrw842BjSpziZxnDD5k — did not fit the rehydration budget; call expand(tool_use_id=toolu_01LoMNrw842BjSpziZxnDD5k)"
+  },
+  {
+   "line": "- pointer toolu_01MXH8ULs7hd4kaNdW3iqtt9 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01MXH8ULs7hd4kaNdW3iqtt9)"
+  },
+  {
+   "line": "- pointer toolu_01MhCDkUqoThbz8GzW4H77v4 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01MhCDkUqoThbz8GzW4H77v4)"
+  },
+  {
+   "line": "- pointer toolu_01N6kbeKN6pL5tkB8uyDDFav — did not fit the rehydration budget; call expand(tool_use_id=toolu_01N6kbeKN6pL5tkB8uyDDFav)"
+  },
+  {
+   "line": "- pointer toolu_01NZhLGZ9ZDy547Gud6yq1Jn — did not fit the rehydration budget; call expand(tool_use_id=toolu_01NZhLGZ9ZDy547Gud6yq1Jn)"
+  },
+  {
+   "line": "- pointer toolu_01P4PbGoMXfamUob9zePGTv2 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01P4PbGoMXfamUob9zePGTv2)"
+  },
+  {
+   "line": "- pointer toolu_01P58sWLkervtgYaD9DSgsf8 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01P58sWLkervtgYaD9DSgsf8)"
+  },
+  {
+   "line": "- pointer toolu_01PN1mkWvt5pxy4pBFiq4rgT — did not fit the rehydration budget; call expand(tool_use_id=toolu_01PN1mkWvt5pxy4pBFiq4rgT)"
+  },
+  {
+   "line": "- pointer toolu_01RSTYUYpFReBRnRguirYR7w — did not fit the rehydration budget; call expand(tool_use_id=toolu_01RSTYUYpFReBRnRguirYR7w)"
+  },
+  {
+   "line": "- pointer toolu_01SUFdrBLcfLvY1RWfZV9vsB — did not fit the rehydration budget; call expand(tool_use_id=toolu_01SUFdrBLcfLvY1RWfZV9vsB)"
+  },
+  {
+   "line": "- pointer toolu_01TKgwXEJjtDeU9HFCoHHFGC — did not fit the rehydration budget; call expand(tool_use_id=toolu_01TKgwXEJjtDeU9HFCoHHFGC)"
+  },
+  {
+   "line": "- pointer toolu_01WtoP77jUa1fa1mwFmxshTL — did not fit the rehydration budget; call expand(tool_use_id=toolu_01WtoP77jUa1fa1mwFmxshTL)"
+  },
+  {
+   "line": "- pointer toolu_01WvDZkkRUGktrbgCH6qQ9Hk — did not fit the rehydration budget; call expand(tool_use_id=toolu_01WvDZkkRUGktrbgCH6qQ9Hk)"
+  },
+  {
+   "line": "- pointer toolu_01XEPxJVUhZFecxzdzSVU7dv — did not fit the rehydration budget; call expand(tool_use_id=toolu_01XEPxJVUhZFecxzdzSVU7dv)"
+  },
+  {
+   "line": "- … and 8 more; call dropped()"
+  }
+ ],
+ "deferred_note": false
+}

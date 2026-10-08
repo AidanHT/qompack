@@ -1,0 +1,101 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read README.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 6.625,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 49736,
+    "WorkingSet64": 29171712,
+    "PeakWorkingSet64": 29171712,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1791396722238)/"
+   },
+   "store_bytes": 288236
+  },
+  {
+   "msg": "Use the Read tool to read data.txt and tell me how many rows it says the export has.",
+   "ok": true,
+   "wall_s": 2.608,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 49736,
+    "WorkingSet64": 30691328,
+    "PeakWorkingSet64": 30691328,
+    "CPU": 0.390625,
+    "StartTime": "/Date(1791396722238)/"
+   },
+   "store_bytes": 310904
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 14.249,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 49736,
+    "WorkingSet64": 31203328,
+    "PeakWorkingSet64": 31203328,
+    "CPU": 0.4375,
+    "StartTime": "/Date(1791396722238)/"
+   },
+   "store_bytes": 333710
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__recall with the query \"export runs nightly\" and tell me how many hits it returns and which files they come from. If the call returns an error, quote it verbatim.",
+   "ok": true,
+   "wall_s": 5.618,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 49736,
+    "WorkingSet64": 34770944,
+    "PeakWorkingSet64": 34770944,
+    "CPU": 0.671875,
+    "StartTime": "/Date(1791396722238)/"
+   },
+   "store_bytes": 375957
+  },
+  {
+   "msg": "Use the Read tool to read notes.md and tell me the retention period it names.",
+   "ok": true,
+   "wall_s": 3.009,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 49736,
+    "WorkingSet64": 35577856,
+    "PeakWorkingSet64": 35577856,
+    "CPU": 0.828125,
+    "StartTime": "/Date(1791396722238)/"
+   },
+   "store_bytes": 398734
+  }
+ ],
+ "store_bytes_before": 191960,
+ "started_ms": 1791396720225,
+ "pid": 56640,
+ "exit": 0,
+ "wall_s": 39.041,
+ "store_bytes_after": 404209
+}

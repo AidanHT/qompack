@@ -1,0 +1,24 @@
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session 77ff5d8c
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read docs/plan.md and summarize it in one sentence.
+> Use the Read tool to read README.md and summarize it in one sentence.
+> Run the Bash command `cat data/info.txt` and tell me only how many rows it lists.
+Original:
+> We are building the Heron event router. Use the Read tool to read src/app.py and summarize it in one sentence.
+
+## 5. Current work
+goal: Use the Read tool to read docs/plan.md and summarize it in one sentence.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- docs/plan.md sha256:de6acb3e26125993dd16fea0ce0dae7b024b009396fa954f84613a5230c30941 — referenced
+- tool_use subagent_77ff5d8c-d422-4375-b919-46a55cf8840f_6 sha256:2789fef83e53d86a979a524d2e673f39a679e0b1bc402714672823934802383a — {"agent":"subagent","summary":"Heron is a disposable project created for a Qompack acceptance test run."}
+- tool_use toolu_01K32HpEWy113twK8bcBBjBs sha256:de6acb3e26125993dd16fea0ce0dae7b024b009396fa954f84613a5230c30941 — <scratch>\sessions\c8\fc48\proj\docs\plan.md
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-7a874ce423ea -->

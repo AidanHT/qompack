@@ -1,0 +1,108 @@
+C4.9 (b) re-run on candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f): a newer
+runtime.migration.settingsVersion in the project config. Legs (a) and (c) are not re-run (D59, D53(f):
+see ../CARRIED.md). Agent-executed on the owner's real host per owner decision D3 by a Claude Code
+workflow subagent (Opus 5.5) - not human UAT.
+
+Date 2026-10-07 14:09-14:15 America/Toronto. Sessions used: 2 (resilience-c8 n=1 session1/, n=2
+session2/, sessions.tsv). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2
+build 10.0.26200.9457, frozen bundle qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, bin/qompack.exe sha256
+93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9) via --plugin-dir; `qompack version`
+0.3.0 (cli/00-version). Project <scratch>/resilience/c8/c49b/proj, fresh (setup-facts.json); pre-run
+`backup create` exit 1 "source project has no existing store" (initial absence,
+cli/00-backup-create-absent). Session env: QOMPACK_HOME (calibration only) and
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 (cli/00-preconditions.txt). No daemon was terminated by
+this row; every daemon ended by its idle exit.
+
+Expectation read (current text): checklist C4.9 "the host session is never broken"; the brief's (b):
+the documented refusal or degradation and no broken session; hooks log the reset at warn in the day
+log; LOUD.log carries at most one such line per daemon, never one per hook process (D59, D62 config,
+loudcfg); backup create/verify/restore refuse with exit 1 and the documented message while it is in
+force (docs/backup.md: "backup: resolve configuration violations and warnings before maintenance").
+troubleshooting.md section 6's table: newer settingsVersion -> the whole versioned block reset to
+defaults; config-violations.json; loud once from each daemon when it starts ("configuration block
+reset to defaults"); warn from every hook and command; a running daemon that reloads a changed
+config.json logs "daemon: config reload warning" at loud.
+
+Index
+- session1/, session2/: driver config, stream.jsonl, stderr.txt (both empty), meta.json, hooks.json,
+  transcript-facts.json (no message bodies).
+- cli/: every CLI step (cmd/stdout/stderr/exit). s1-writecfg-before-t2.txt is the mid-session write.
+- store-s1/ (after session 1's idle exit), store-s1-after-selftest-daemon/, store-s2/ (after session
+  2's idle exit), store-final/ (after the rollback): day log, LOUD.log, config-violations.json,
+  config.json, listing.
+
+Session 1 (newer file written mid-session; the running daemon reloads it)
+Turns: T1 Read data.txt; [write config] T2 Read notes.md; T3 /qompack:status; T4 Read app.py; T5 MCP
+recall "codeword"; T6 /qompack:status.
+- Before T2, writecfg.py wrote <project>/.qompack/config.json = {"runtime": {"migration":
+  {"settingsVersion": 99}}} (52 bytes), no config.json before, LOUD.log absent before (none written).
+- The running daemon reloaded it within ~1 s: LOUD.log's ONLY line for this daemon is
+  18:09:48.00Z level=loud "daemon: config reload warning" key=runtime.migration message="settingsVersion
+  99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults
+  so unknown switches stay off" location=<project>\.qompack\config.json:1 (store-s1/logs_LOUD.log).
+- Hooks: every hook process after the write logged the reset at WARN in the day log ("configuration
+  warning" key=runtime.migration, no location); commands (the slash commands' `qompack status`) also at
+  warn, with location. 17 warn lines in store-s1's day log, 0 loud lines from any hook. Candidate 7's
+  F-C7-C49-2 (18 LOUD lines, one per hook) is GONE.
+- T3/T6 /qompack:status: source daemon, loud.total 1, the reload line under "recent loud lines".
+  There is no config.violations counter in this daemon's status: it started on no config file, and
+  troubleshooting section 1 says the counter is the daemon's report of the configuration it started on.
+- No broken session: 6/6 turns answered, exit 0, stderr empty, 18 hook_response events all
+  outcome success / exit 0 (SessionStart:startup 1, UserPromptSubmit 6, PostToolUse 5, Stop 6).
+  Captures continued under the reset (T5 recall: 3 hits incl. data.txt).
+- After the idle exit: state/config-violations.json holds exactly one entry, Key runtime.migration,
+  the same Message, Got null, Want null (store-s1/config-violations.json), as troubleshooting section 1
+  quotes. self-test config.capture "FAIL warn capture continues: 1 setting(s) fell back to the default,
+  0 key(s) not applied", exit 0 (cli/s1-post-self-test). doctor config.violations and config.capture
+  degraded naming runtime.migration (block reset: newer settingsVersion). config print --provenance marks
+  every runtime.migration leaf "default reset: newer settingsVersion". fsck --json exit 0.
+- backup create / verify / restore: exit 1, stdout error and stderr
+  "backup: resolve configuration violations and warnings before maintenance" - the documented message
+  (cli/s1-post-backup-*). Note: self-test's daemon.reachable check had spawned a daemon ("was not
+  running; spawned and reachable now") that was still inside its idle window, so the three were
+  repeated after its idle exit with no daemon running (cli/s1-post-nodaemon-backup-*, daemon.lock
+  absent): the same exit 1 and the same message. The configuration check is reported first either way.
+- The self-test-spawned daemon STARTED on the newer file and logged exactly one LOUD line:
+  18:11:11.20Z "configuration block reset to defaults" key=runtime.migration
+  (store-s1-after-selftest-daemon/logs_LOUD.log).
+
+Session 2 (a daemon that starts on the newer file)
+Turns: T1 Read README.md; T2 Read data.txt; T3 /qompack:status; T4 MCP recall "export runs nightly";
+T5 Read notes.md.
+- The session's daemon started on the file: one LOUD line, 18:12:02.31Z "configuration block reset to
+  defaults". T3 status: config.violations 1, loud.total 1, that line under recent loud lines.
+- No broken session: 5/5 turns answered, exit 0, stderr empty, 16 hook_response events all success /
+  exit 0. Recall answered (2 hits incl. notes.md from session 1).
+- After the idle exit (cli/s2-post-*): self-test, doctor, provenance and fsck as after session 1;
+  backup create/verify/restore exit 1 with the same documented message.
+
+Per-daemon count (store-final/): the day log has 4 "scheduler: idle work registered" lines (4 daemon
+starts: session 1's, the s1-post self-test's, session 2's, the s2-post self-test's) and LOUD.log has
+exactly 4 lines, one per daemon (1 reload warning, 3 startup resets). The day log has 36 warn
+"configuration warning" key=runtime.migration lines (hooks and commands) and no other loud line.
+At most one LOUD line per daemon, never one per hook process: holds.
+
+Rollback (troubleshooting section 6, "After a downgrade")
+- r0: config.json moved aside to <scratch>/resilience/c8/c49b/cfg-aside/; r1 self-test config.capture
+  "ok applied as written"; config-violations.json removed (r6).
+- r2-r4 refused with "backup: stop the source daemon before maintenance: qompack: daemon lock already
+  held": the s2-post self-test's daemon was still in its idle window (r7-note.txt). After its idle
+  exit, r8 create, r9 verify, r10 restore exit 0 (OpenedOK, 24 content roots, 23 tool refs proven, 0
+  tombstoned), r11 fsck of destination and source exit 0. The destination was not activated;
+  cross-version and activation checks unverified.
+
+Observations (not defects against the current text)
+- O-C8-C49-1: self-test's daemon.reachable check spawns a daemon, which then holds the writer lease
+  for its idle window, so a `self-test` run right before `backup create` (as troubleshooting section 6's
+  "After a downgrade" sequence suggests: re-run self-test until config.capture reads ok, then back up)
+  makes the backup refuse with "stop the source daemon" until that daemon exits. The section does say
+  "Then stop the project's daemon if one is running ... or the backup refuses with `backup: stop the
+  source daemon before maintenance`", so the doc covers it; recorded because the daemon is one that
+  self-test itself started (cli/r2-r4, r7-note.txt).
+
+Result C4.9 (b) on candidate 8: PASS. The host session was never broken (2 sessions, 11 turns, 34 hook
+calls, all success); the reset is documented degradation (block at defaults, record, self-test,
+doctor, provenance); hooks log it at warn; LOUD.log holds one line per daemon (4 daemons, 4 lines);
+backup create/verify/restore refuse with exit 1 and the documented message while it is in force.
+F-C7-C49-2 is fixed on this candidate. D53(i): 0 host-reported hook failures or timeouts.

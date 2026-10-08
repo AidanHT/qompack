@@ -1,0 +1,90 @@
+{
+  "session": "40b051ee-13e5-4f31-ac6f-8a3de019098f",
+  "seq": 2,
+  "emitted": 1791384633614,
+  "tokens": 131,
+  "budget": 150,
+  "items": [
+    {
+      "kind": "drop_report",
+      "rank": 0,
+      "tokens": 131,
+      "truncated": true,
+      "units": 2,
+      "units_seen": 14
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "invariants",
+      "id": "tier1",
+      "detail": "OVERFLOW: pinned invariant inv_b91128913d77 did not fit the rehydration payload and is emitted whole or not at all; restore: Read .qompack/checkpoints/0002.json (invariants)"
+    },
+    {
+      "kind": "user_intent",
+      "id": "tier1",
+      "detail": "OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_40b051ee-13e5-4f31-ac6f-8a3de019098f_0)"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "4",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[4])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "3",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[3])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "2",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[2])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "1",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[1])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "0",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[0])"
+    },
+    {
+      "kind": "elimination",
+      "id": "elim_138a899a92c1",
+      "detail": "did not fit the rehydration budget; call already_tried(target=\"billing export quoting\", approach=\"double-quote every field\")"
+    },
+    {
+      "kind": "decision",
+      "id": "dec_bb7b288523c4",
+      "detail": "did not fit the rehydration budget; call why(dec_bb7b288523c4)"
+    },
+    {
+      "kind": "current_work",
+      "id": "current_work",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (current_work)"
+    },
+    {
+      "kind": "pointer",
+      "id": "readme.md",
+      "detail": "did not fit the rehydration budget; call re_read(readme.md)"
+    },
+    {
+      "kind": "pointer",
+      "id": "subagent_40b051ee-13e5-4f31-ac6f-8a3de019098f_10",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=subagent_40b051ee-13e5-4f31-ac6f-8a3de019098f_10)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01WK9hXeQTkPJVUQqyNhWGES",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01WK9hXeQTkPJVUQqyNhWGES)"
+    },
+    {
+      "kind": "affordance",
+      "id": "tier1",
+      "detail": "OVERFLOW: tier-1 material did not fit the rehydration budget and is emitted whole or not at all — call dropped() for the full accounting"
+    }
+  ],
+  "degraded": true
+}

@@ -1,0 +1,63 @@
+status-json raw diff (before normalisation):
+--- read1
++++ read2
+@@ -4,7 +4,7 @@
+   "ok": true,
+   "data": {
+     "schema": 1,
+-    "collected_at_ms": 1791385380153,
++    "collected_at_ms": 1791385385946,
+     "primary": {
+       "source": "daemon",
+       "status": "available",
+
+status-json fields removed/normalised: {"/data/collected_at_ms": 1, "/data/primary/age_ms": 1, "/data/hooks[]/provenance/age_ms": 7, "/data/budgets[]/provenance/age_ms": 7}
+
+status-json: IDENTICAL after normalisation (10508 bytes)
+
+doctor-json raw diff (before normalisation):
+--- read1
++++ read2
+@@ -393,7 +393,7 @@
+           "id": "delivery.rollover",
+           "status": "ok",
+           "observed": "never rotated; last daemon: 0 rotation(s), 0 ms paused, 0 failed, 0 GC pass(es) halted on the carry bound",
+-          "detail": "a store that has never rotated rotates by itself at 65,536 deliveries; after that a build older than segmented rollover refuses the journal, and a backup taken before the first rotation is the only way back to one (docs/backup.md); `qompack fsck --seal-check` validates the authority; counters are the last daemon run's, from metrics/latency.json (persisted 1m10s ago), and LOUD.log keeps every occurrence"
++          "detail": "a store that has never rotated rotates by itself at 65,536 deliveries; after that a build older than segmented rollover refuses the journal, and a backup taken before the first rotation is the only way back to one (docs/backup.md); `qompack fsck --seal-check` validates the authority; counters are the last daemon run's, from metrics/latency.json (persisted 1m16s ago), and LOUD.log keeps every occurrence"
+         },
+         {
+           "id": "assertions.last",
+
+doctor-json fields removed/normalised: {"/sections[]/rows[]/detail '(persisted <age> ago)'": 1}
+
+doctor-json: IDENTICAL after normalisation (17461 bytes)
+
+status text raw diff:
+--- read1
++++ read2
+@@ -1,4 +1,4 @@
+-qompack status — collected 2026-10-07T15:03:00Z
++qompack status — collected 2026-10-07T15:03:06Z
+ 
+ source: daemon (available, 0µs old)
+ 
+
+status text (header 'collected <time>' and ', <age> old' removed): IDENTICAL after normalisation (4738 bytes)
+
+fsck-json stdout (exact): IDENTICAL after normalisation (3599 bytes)
+
+fsck-json stderr (exact): IDENTICAL after normalisation (0 bytes)
+
+fsck-json exit (exact): IDENTICAL after normalisation (2 bytes)
+
+eval stdout (exact): IDENTICAL after normalisation (0 bytes)
+
+eval stderr (exact): IDENTICAL after normalisation (442 bytes)
+
+eval exit (exact): IDENTICAL after normalisation (2 bytes)
+
+eval-json stdout (exact): IDENTICAL after normalisation (556 bytes)
+
+eval-json stderr (exact): IDENTICAL after normalisation (442 bytes)
+
+eval-json exit (exact): IDENTICAL after normalisation (2 bytes)

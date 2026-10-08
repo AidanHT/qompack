@@ -1,0 +1,67 @@
+UAT-11 - candidate 8 live re-check, carried part (decisions D58-D67). Agent-executed on the owner's real host per owner
+decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Build as ../UAT-07/notes.txt (qompack 0.3.0, BUNDLE.json sha256 61ba9c37...dcd8b, commit 3ec62ad2, Windows 11 Home 25H2
+build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the frozen bundle, claude-haiku-4-5-20251001). Date 2026-10-07
+12:54-13:01 America/Toronto. Shipped configuration: no config file, no QOMPACK_* variable except QOMPACK_HOME, default
+idle exit.
+
+STEPS 1-4 (no model; the frozen bundle's bin/qompack.exe; cli/): projects <scratch>/carried/uat11/a (steps 1-3), b
+(step 4, fresh) and b2 (step 4's unparseable file again in a fresh directory, for self-test --json's detail); pre-run
+backup create exit 1 "source project has no existing store" for a, b, b2 and c (initial absence).
+ 1: s1-config-print-provenance: `"newResult": false  // default config.Defaults()`.
+ 2: s2-config.json.txt {"runtime":{"migration":{"replacement":{"newResult":true}}}}; the hook (observe prompt) prints
+    {} exit 0; s2-_qompack_state_config-violations_json.txt: Key runtime.migration.replacement.newResult, Message
+    "invalid value, using default: true not in false"; the leaf reads `false  // default fallback after violation`.
+ 3: {} then {"runtime":{"migration":{"settingsVersion":2}}}: config-violations.json "settingsVersion 2 is newer than
+    this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off";
+    every migration leaf reads `default reset: newer settingsVersion`; the day log has the same line at level warn
+    (hooks log warn, D62 config); capture continued (s3-listing: two capture sidecars, objects, index rows). LOUD.log
+    holds only step 2's refused newResult line.
+ 4a: {"runtime": -> the hook prints {} exit 0; s4a-after-hook-listing: README.md and .qompack/config.json only;
+    self-test exit 1, config.capture FAIL critical "refused: every hook admits nothing"; in the fresh b2,
+    s4a2-self-test-json: config.capture ok false, severity 2, detail "qompack: running in degraded mode: capture
+    configuration unavailable: the project config file is not a single strict JSONC object", exit 1 (s4a2 listing
+    after the hook: config.json only). self-test then started a daemon and wrote the store skeleton, as the doc says it
+    can (s4a-after-self-test-listing).
+ 4b: {"runtime":{"notAKey":1}} -> capture continues (s4b-after-hook-listing has a capture sidecar), self-test exit 0,
+    config.capture FAIL warn "capture continues: 0 setting(s) fell back to the default, 1 key(s) not applied";
+    s4b-self-test-json detail "runtime.notAKey: unknown key".
+
+STEPS 5-6 (session carried-c8 n=3, session/, id ff97f035, 5 turns, 86 s, exit 0; project uat11/c, setup-facts.json; one
+planted aws_access_key_id-shaped secret in creds.env, built at run time from split parts, sha256 in setup-facts.json,
+literal only in <scratch>/carried/secrets.json; the driver scrubbed it to @@SEC_PLANTED_3@@ in every output):
+ T1 FIRST TURN: Read notes.md, then big.log offset 1 limit 3000 = the whole 363,000-byte file (captured object
+    total_bytes 366,102), as candidate 4 ran it; the model answered MAROON-LYNX-64 and ROW-03000.
+ T2 odd.txt (tabs, BEL/ESC, ANSI colour, emoji, RTL override, CJK, zero-width) and creds.env; T3 Bash `git add -A &&
+    git commit -m "uat-11 work" && git log --oneline -1` -> `9f7dd6c uat-11 work`; T4 /compact.
+ SessionStart:compact injected the rehydration block (session/injected-2-SessionStart-compact.txt, 2,418 chars,
+    `<!-- qompack:injected seq=1 ver=1 -->`, arrival delta 140 ms measured); no degraded systemMessage in the stream,
+    no "degraded" or "sentinel" line in the day log; status after the session (cli/c-10, c-11):
+    hook.additional_context_delivered "sentinel-observed", session_start.source_compact "compact", banner "9
+    assertion(s), none failing: 8 holding, 0 pending, 1 with nothing to judge".
+ STEP 6: section 6 holds 9 pointers (4 file paths, 5 tool_use lines). In the session (T5, tool-calls.txt) the model
+    expanded every distinct hash (big.log ecc579c9 truncated with next_span 15452:16384; creds.env 884ddc07 with the
+    «redacted:aws_access_key_id» placeholder; notes.md db82ddce; odd.txt e564dcc9; the Bash result 76d37db0) and
+    re_read each file path (it passed the in-project absolute spelling from the tool lines; each resolved to its
+    project-relative path, source store). The no-model probe (cli/c-20-mcp-probe-every-section6-pointer.json) then
+    resolved all 18 forms the block offers: expand by hash and re_read by the relative path for each file pointer,
+    expand by hash and by tool_use_id for each tool pointer - every one found, none an error. big.log truncated and
+    creds.env redacted are recorded fidelities, not failures.
+ Section 6 shows no path outside the project (the tool pointers' in-project absolute paths are shown, D63/D64(1)) and
+    section 7 is absent (nothing dropped). The planted secret: secret-scan-store.json - 184 files, 116 zstd-decompressed,
+    237 base64 fields: 0 hits in the store.
+ Hooks: 26 pairs, every one success exit 0, measured arrival deltas at most 205 ms; stderr.txt empty; no host-reported
+    hook failure or timeout (D53(i) holds).
+ Diagnostics after the daemon's DEFAULT idle exit (cli/c-30-daemon-ended.txt: 1,763 s, no process terminated by the
+    lane): doctor --json exit 0 with no degraded row, fsck --json and fsck --json --seal-check exit 0 (daemon_running
+    false, every row ok), status last.
+
+Result: pass - no gated switch took effect, no capture was written from a refused configuration, the host payload was
+untouched (hooks printed {} exit 0), and every pointer resolved.
+Rollback: not applicable - initial state absent (recorded); per the row's rule the run is retained as evidence; no
+restore was run. Guard: guard/carried.txt ("after session 3 UAT-11"). The uat11/a, b and b2 daemons (started by the
+step 2-4 hooks and self-test) ran at the default idle exit and were left to end by themselves: b2's ended at 13:24;
+a's and b's ended their CLI sessions as abandoned at 13:24 (day log, "ending abandoned session", silentMs 1,800,001
+and 1,829,949, the documented bookkeeping case) and then idle one more window, as docs/troubleshooting.md section 7
+says; the part's end record (guard/carried.txt) names when the last one ended.

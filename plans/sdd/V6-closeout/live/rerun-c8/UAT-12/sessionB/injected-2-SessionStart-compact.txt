@@ -1,0 +1,81 @@
+# stream line 272, hook SessionStart:compact, exit 0, 9211 chars
+<!-- qompack:injected seq=3 ver=1 -->
+# Qompack rehydration — checkpoint 0003, session 1f321f2c
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> /qompack:status
+> Call the MCP tool mcp__plugin_qompack_qompack__recall with query "LUPINE-7731" and no other arguments. Then call it again with query "LUPINE-7731" and k 20. For each call reply with: count, denied (or 'absent'), and one line per hit with its tool, path and tool_use_id, in the order returned.
+> Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id "toolu_01CYfcJWw7XAS8UxvTwG94E1", then with tool_use_id "toolu_01117kUzy6Dw7qpLEj5dCbkT". For each, reply with the names of every top-level field, the values of span, total_bytes and truncated, and whether the content is readable text; do not quote the content.
+Original:
+> Use the Read tool to read private/deny.txt, then private/k=v.txt, then notes-b.md. Then tell me exactly what the Read tool returned for each, quoting any error message word for word.
+
+## 5. Current work
+goal: Call the MCP tool mcp__plugin_qompack_qompack__recall with query "LUPINE-7731" and no other arguments.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+Withheld entries name a path the host's permission rules refuse, or one outside the project; restore them by hash.
+- big.log sha256:6df8e52882aba954e45e781098d347b3a6fecf1b4aad8402bc88b92994287ca9 — referenced
+- calc.py sha256:80a20ec01778b2727ea7b8b033c738f451e29002fc3e2b006ff44a4d48777093 — referenced
+- deploy_notes.md sha256:07e221ee5dc4d8485bfe6f48ea2a4d832b7dafbc6cb919a583b1b53105d5e4a6 — referenced
+- notes-a.md sha256:9ac2f1fbfdcc96a0154e51b7fd4057261540482cb70ab80fcdb6924bd03d3b83 — referenced
+- file (path withheld) sha256:aff2996337960d0cae550c6c348bf673fc1afc2c39851fd14a1df5fcfdeca691
+- notes-c.md sha256:50625b8f6dc6d781954113973442682b2250251f3a864642ce74758e49e2a2bf — referenced
+- pixel.png sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018 — referenced
+- readme.md sha256:33d13b14c1bf0df646e975d452e98c68387d814f92456e49502c21eeb692ccaf — referenced
+- tool_use toolu_01117kUzy6Dw7qpLEj5dCbkT sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018 — <scratch>\retrieval\c8\uat12 space\proj\pixel.png
+- tool_use toolu_011MouhmutjkkE19xnyW4ark sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5 — (summary withheld)
+- tool_use toolu_011QVAc21Uwv3tKv9rgKG5UH sha256:c0bd17efe18ba4e6d6545a53ef20e45d83ddaa94bb2a52cb571ee8378f4c823d — (summary withheld)
+- tool_use toolu_012MPZ8ED3Y32WuabfETfaAf sha256:42f2e1124dd6691f26f36162a200ef5b7b58f3bfab33155434e3dfc04097d0ea — (summary withheld)
+- tool_use toolu_012ffPyfL2r7qDtCXmV19hjA sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5 — (summary withheld)
+- tool_use toolu_013kGEwqwx7SzLN9LHRtxWT6 sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5 — (summary withheld)
+- tool_use toolu_013rmBkgJGNvMqKgX9Qr5iYh sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5 — (summary withheld)
+- tool_use toolu_0156tvMHj1VUcjqKv14sVmL8 sha256:5a92f4e6c757f2b3f187c0885ce9b6c85075f89e8711a18c4270c4d032744dae — (summary withheld)
+- tool_use toolu_0161vDoY5M1Ezzf93bBi2h43 sha256:b6a3d26e37d0e235e2f8ecdb8e285d8bf3ef706c51ce6d7c5d325e65919050bf — (summary withheld)
+- tool_use toolu_016GcVqqcorgDriSMxtowofd sha256:8c7a581e7357ead6080fb04e98a21eb440d0a6591b61c5461ea62be8d9b575c5 — {"k":20,"query":"LUPINE-7731"}
+- tool_use toolu_016cT3dFUBnQGrFNXCbxcquQ sha256:5f813b85840c3579b3450c985b9ad8985edcff419c1d273cbbb23beaa02c23a2 — (summary withheld)
+- tool_use toolu_017PJMUajSxPBVHVSWmsVdZ1 sha256:0e35f962419d20ebcf98fea7456e18afc8012e767a8d9318205842651f056463 — head -n 2 README.md
+- tool_use toolu_017kd8Xa1SMsB2PPkkiG4n5T sha256:e542e417b56d007711f7d595fcd92492ed40babe9cd82a1e97380e53987edbca — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__recall"}
+- tool_use toolu_0183dhqU4zTXjeSjUnrioQkN sha256:50625b8f6dc6d781954113973442682b2250251f3a864642ce74758e49e2a2bf — <scratch>\retrieval\c8\uat12 space\proj\notes-c.md
+- tool_use toolu_018RuDXtzKivTEHhav63KaBU sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5 — (summary withheld)
+- tool_use toolu_018mLgpFr4gxB22Qx2Z5o4cS sha256:162d068884c7b7c2c4c16f2b2a62a101cb0d691c67f9b4d90b075d6921349fc4 — {"tool_use_id":"toolu_01DAn746k47w39kP4XAzpNfu"}
+- tool_use toolu_018yy6ffVt3AHgkH2DVqV8w4 sha256:2795eb7e8ed1cdcf35c5a39253c7404a66a30c99cc257002e3d4f0cc04d2b966 — (summary withheld)
+- tool_use toolu_019fzFFQNVrNPa2ZjxmXYX16 sha256:0ea097e73d55f2266407fe65e38747406046f26e61cddc6ca0e120e3ea0c5984 — {"tool_use_id":"toolu_01117kUzy6Dw7qpLEj5dCbkT"}
+- tool_use toolu_019ggDsMiazxvcVN4e1cJ1jv sha256:b9ba1c89ed6c3014e350caf9178662fbb8fadfa4cb6d96ee3f7e0641276b8338 — ls -l private/
+- tool_use toolu_019xfHJf4pYY9hPCr3Het9s3 sha256:f1ec6e43110ed557770c1f0dd2cca211b32bc74fd3b7cef2774a8285149a2ba5 — {"hash":"sha256:aff2996337960d0cae550c6c348bf673fc1afc2c39851fd14a1df5fcfdeca691"}
+- tool_use toolu_01AxPUzQ8NPhFt1MXTEaQrXm sha256:4f9a929da7c30fb5ea25c57517683769496a69c8922c5c80668102cc8a453851 — ls -l "<scratch>/retrieval/c8/uat12 space/proj/notes-a.md"
+- tool_use toolu_01B5PPbS9z5SiEsRCZwW4jns sha256:564af7a1f4dc3609d5f444178f41e62bcc6394f6615f22e24878ba73e6c32cf1 — (summary withheld)
+- tool_use toolu_01BvMgetnWcPKWvU5KKUu79C sha256:304b51a66afe7b4203768866fc3b62d0908dfb78d53d0c3424f6fd57b2ddacd2 — {"tool_use_id":"toolu_01Jz9hzpqxCyv2b5r5jDirG5"}
+- tool_use toolu_01CVAxRumyTWWcbiwrdES3ma sha256:d972143ec4989b4ce6da55fe8d6a7f14b2a8522bb2bb4a255b024850740b4749 — (summary withheld)
+- tool_use toolu_01CYfcJWw7XAS8UxvTwG94E1 sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803 — cat blob.bin
+- tool_use toolu_01D3tAMPrqqtwFea3QWdfRMq sha256:e3387f2f0134bd9e9f093e360de4be40149f2702319b2a40da451377c9aac5d3 — (summary withheld)
+
+## 7. No longer in context
+- pointer toolu_01FFWiJ2K3vusX7dSEpRGwAY — did not fit the rehydration budget; call expand(tool_use_id=toolu_01FFWiJ2K3vusX7dSEpRGwAY)
+- pointer toolu_01FWabxKPGP71jWwTnaPzXvL — did not fit the rehydration budget; call expand(tool_use_id=toolu_01FWabxKPGP71jWwTnaPzXvL)
+- pointer toolu_01FoxoTnvUamzLAjujfoRZP9 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01FoxoTnvUamzLAjujfoRZP9)
+- pointer toolu_01Fwjg5rpbtastd1RQKVCgyP — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Fwjg5rpbtastd1RQKVCgyP)
+- pointer toolu_01H38wbYPv1oFUHsNA1Kffwp — did not fit the rehydration budget; call expand(tool_use_id=toolu_01H38wbYPv1oFUHsNA1Kffwp)
+- pointer toolu_01H6oCibeK4NyXwvAHoaeYN9 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01H6oCibeK4NyXwvAHoaeYN9)
+- pointer toolu_01HZVwjYSbC1EyiNc416zPJT — did not fit the rehydration budget; call expand(tool_use_id=toolu_01HZVwjYSbC1EyiNc416zPJT)
+- pointer toolu_01HfSETWQbywfUniFDXiTe49 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01HfSETWQbywfUniFDXiTe49)
+- pointer toolu_01Jz9hzpqxCyv2b5r5jDirG5 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Jz9hzpqxCyv2b5r5jDirG5)
+- pointer toolu_01K3JJT6vxzdcsaBKo3cc2jj — did not fit the rehydration budget; call expand(tool_use_id=toolu_01K3JJT6vxzdcsaBKo3cc2jj)
+- pointer toolu_01KC9toC62vrY1ioWgUZkzkz — did not fit the rehydration budget; call expand(tool_use_id=toolu_01KC9toC62vrY1ioWgUZkzkz)
+- pointer toolu_01LnC3pagN5k1HkwwUMtLuq8 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01LnC3pagN5k1HkwwUMtLuq8)
+- pointer toolu_01M34UoMm3fxR136wcPDqEDY — did not fit the rehydration budget; call expand(tool_use_id=toolu_01M34UoMm3fxR136wcPDqEDY)
+- pointer toolu_01MQPtZYgzZKhTYYM2PjJgcH — did not fit the rehydration budget; call expand(tool_use_id=toolu_01MQPtZYgzZKhTYYM2PjJgcH)
+- pointer toolu_01Mzu3h22XVZr5aJJV7TDR82 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Mzu3h22XVZr5aJJV7TDR82)
+- pointer toolu_01NUHPPbERCXmVnpAgxXSt39 — did not fit the rehydration budget; call expand(tool_use_id=toolu_01NUHPPbERCXmVnpAgxXSt39)
+- pointer toolu_01P6BeTK9wZDuKUa2275rVWb — did not fit the rehydration budget; call expand(tool_use_id=toolu_01P6BeTK9wZDuKUa2275rVWb)
+- pointer toolu_01PVTtBjnNEnVjxr6H9dH1jZ — did not fit the rehydration budget; call expand(tool_use_id=toolu_01PVTtBjnNEnVjxr6H9dH1jZ)
+- pointer toolu_01Peov3FqbGzb1bo2dpPBBfP — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Peov3FqbGzb1bo2dpPBBfP)
+- pointer toolu_01Qm4KEeauQXNvsc1qXSvP6B — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Qm4KEeauQXNvsc1qXSvP6B)
+- pointer toolu_01Qtu9vJNhdBFQ8EXoMLGnVU — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Qtu9vJNhdBFQ8EXoMLGnVU)
+- … and 22 more; call dropped()
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-37eee1042011 -->

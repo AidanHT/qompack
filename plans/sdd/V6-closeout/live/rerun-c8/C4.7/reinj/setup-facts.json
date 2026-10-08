@@ -1,0 +1,15 @@
+{
+ "files": {
+  "notes.md": {
+   "bytes": 51,
+   "sha256": "d3bfd9ceb8b2ef92fd7cb0be35d488dfe24f52567a562636661fc012ad9e1442"
+  },
+  "plan.md": {
+   "bytes": 54,
+   "sha256": "ab46b8ac5284b13083c8bfddb60d75fa25a22a2a079e4894049aee1691214ff7"
+  }
+ },
+ "switch": "{\"runtime\":{\"migration\":{\"reinjection\":{\"sessionStartCompact\":false}}}}",
+ "where": "<project>/.qompack/config.json, the only non-default key",
+ "env": "QOMPACK_HOME and QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30"
+}

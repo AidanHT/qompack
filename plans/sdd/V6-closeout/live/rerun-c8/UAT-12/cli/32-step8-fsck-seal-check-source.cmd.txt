@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/c8/uat12 space/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "fsck", "--project", "<scratch>/retrieval/c8/uat12 space/proj", "--seal-check", "--json"]
+env+: {}
+qompack_home: <scratch>/retrieval/c8/qhome
+wall_s: 1.105
+at: 2026-10-07T12:34:45-04:00

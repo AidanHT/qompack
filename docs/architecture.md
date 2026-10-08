@@ -686,9 +686,11 @@ made them; a sibling session that merely shares the project sees none of them. A
 checkpoint also carries the decisions of the checkpoint it continued (the parent's newest when the
 fork started, when the parent sealed it), ranked after the fork's own. Within one session, a
 decision stays in every later checkpoint while its source holds: an elimination's while the record
-is carried, a pinned one while the pin stands, one read off an explains edge always. It is carried
-as its source mints it, so a checkpoint truncated at budget does not pass on a decision with its
-rejected alternative emptied, or lose one it cut.
+is carried, a pinned one while the pin stands. A decision read off an explains edge from a node that
+is not an elimination would be kept in every later checkpoint, but no 0.3.0 producer draws such an
+edge: only an elimination's decision has an explains edge, and it is held as an elimination's. A
+decision is carried as its source mints it, so a checkpoint truncated at budget does not pass on a
+decision with its rejected alternative emptied, or lose one it cut.
 
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`
@@ -730,10 +732,14 @@ deadline, an unreachable daemon), wherever a rehydration was due; under degraded
 `runtime.mode` off or passive, with the daemon disabled, or with the reinjection switch below off,
 `{}` stays the answer, because nothing was due.
 `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` measures the compact answer under
-concurrent same-session ingest. The figures under `plans/sdd/V6-closeout/w2-lifetime/runs/` (p99 from
-1.85 s to 0.66 s) were taken before `3f2da1b3`, when that rig's reads never reached the daemon, so they
-do not measure the shipped route; candidate 8's C5.2 night re-measures it (D62(c)). The route's phases
-are in `metrics/latency.json` as `session_start.*` and `rehydrate.*`.
+concurrent same-session ingest. On the frozen release candidate (C5.2 night of 2026-10-07/08,
+decision D78), with eight workers feeding 256 KiB Reads into the session, all 30 compactions of each
+run answered with the rehydration: p50 82 ms, p95 108 ms and p99 143 ms with no extra load, and p50
+221 ms, p95 386 ms and p99 417 ms under the rig's in-process co-load of 16 fsync writers and 4 CPU
+spinners. The figures under `plans/sdd/V6-closeout/w2-lifetime/runs/` (p99 from 1.85 s to 0.66 s)
+were taken before `3f2da1b3`, when that rig's reads never reached the daemon, so they do not measure
+the shipped route, and no figure from before that fix is given here. The route's phases are in
+`metrics/latency.json` as `session_start.*` and `rehydrate.*`.
 
 Injection has an independent kill switch: `runtime.migration.reinjection.sessionStartCompact`
 (default `true`). Setting it false disables injection without touching recording. It names the one

@@ -1,0 +1,19 @@
+every SessionStart:compact additionalContext captured on candidate 8 (UTF-16 units, block + probe line)
+F-C48-1/block2-SessionStart-compact.txt                  1650 units  inline=True  delimited=True
+F-C48-1/block3-SessionStart-compact.txt                  1582 units  inline=True  delimited=True
+UAT-04/block2-SessionStart-compact.txt                   1424 units  inline=True  delimited=True
+UAT-04/block3-SessionStart-compact.txt                   2845 units  inline=True  delimited=True
+UAT-04/block4-SessionStart-compact.txt                   2635 units  inline=True  delimited=True
+UAT-04/block5-SessionStart-compact.txt                   2738 units  inline=True  delimited=True
+UAT-04/block6-SessionStart-compact.txt                   3010 units  inline=True  delimited=True
+UAT-04/block7-SessionStart-compact.txt                   3218 units  inline=True  delimited=True
+UAT-04/block8-SessionStart-compact.txt                   2950 units  inline=True  delimited=True
+UAT-05/run2-block2-SessionStart-compact.txt               468 units  inline=True  delimited=True
+UAT-05/run2-block3-SessionStart-compact.txt               468 units  inline=True  delimited=True
+UAT-06/A-block2-SessionStart-compact.txt                 2852 units  inline=True  delimited=True
+UAT-06/B-block2-SessionStart-compact.txt                 3021 units  inline=True  delimited=True
+UAT-06/C-block2-SessionStart-compact.txt                 3223 units  inline=True  delimited=True
+UAT-06/C-block3-SessionStart-compact.txt                 3745 units  inline=True  delimited=True
+UAT-06/C-block4-SessionStart-compact.txt                 3306 units  inline=True  delimited=True
+UAT-06/D-block2-SessionStart-compact.txt                 2618 units  inline=True  delimited=True
+17 injections; max 3745 units (cap 9,500)

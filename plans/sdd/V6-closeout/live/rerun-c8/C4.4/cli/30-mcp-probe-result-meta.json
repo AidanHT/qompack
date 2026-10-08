@@ -1,0 +1,449 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22"
+   },
+   "jsonrpc_line_bytes": 1977,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1403,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 19,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:ed1ab83dd7979d5e02ba887c6ce95f4998c19d4c7262c9b0d9de26f2d87e598d",
+     "promoted": true,
+     "span": [
+      0,
+      1103
+     ],
+     "tool_use_id": "qompack-mcp:7f334e8d51b0",
+     "total_bytes": 1103,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22",
+     "span": [
+      0,
+      1103
+     ],
+     "total_bytes": 1103,
+     "truncated": false,
+     "widened": false,
+     "expansions": 3,
+     "promoted": true,
+     "content": "{\"filePath\":\"<tmp>\",\"oldString\":\"const driftLimit = 25\",\"newString\":\"const driftLimit = 40\",\"originalFile\":\"package ledger\\n\\n// The phrase amber quill horizon marks the reconciliation path for the UAT-07 run.\\n\\nconst driftLimit = 25\\n\\n// ReconcileBalances compares the ledger's running totals with...[1103 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01TZD8oqPvpVy685kfWdYc4u"
+   },
+   "jsonrpc_line_bytes": 2049,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1444,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 20,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:00a440d785953b525b534f9ad03bbaf4996ac27b4b18ee41904cd708157b89ae",
+     "path": "src/ledger.go",
+     "promoted": true,
+     "span": [
+      0,
+      1103
+     ],
+     "tool_use_id": "qompack-mcp:b8d34e950f08",
+     "total_bytes": 1103,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22",
+     "path": "src/ledger.go",
+     "tool": "FileEdit",
+     "span": [
+      0,
+      1103
+     ],
+     "total_bytes": 1103,
+     "truncated": false,
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"filePath\":\"<tmp>\",\"oldString\":\"const driftLimit = 25\",\"newString\":\"const driftLimit = 40\",\"originalFile\":\"package ledger\\n\\n// The phrase amber quill horizon marks the reconciliation path for the UAT-07 run.\\n\\nconst driftLimit = 25\\n\\n// ReconcileBalances compares the ledger's running totals with...[1103 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "src/ledger.go"
+   },
+   "jsonrpc_line_bytes": 1551,
+   "isError": false,
+   "error": null,
+   "text_bytes": 985,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 23,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:919a38a08860636b39af3d1b67e2becc71f73baaa5adec9ef35352f46de250be",
+     "path": "src/ledger.go",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      666
+     ],
+     "tool_use_id": "qompack-mcp:0f2876884d4b",
+     "total_bytes": 666,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:9ffb1d3f62e2a8ac88c883b069c96b5990355624eb7b4a55312e9cc9f0582fab",
+     "path": "src/ledger.go",
+     "source": "store",
+     "turn": 7,
+     "span": [
+      0,
+      666
+     ],
+     "total_bytes": 666,
+     "truncated": false,
+     "widened": false,
+     "expansions": 3,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// The phrase amber quill horizon marks the reconciliation path for the UAT-07 run.\\n\\nconst driftLimit = 40\\n\\n// ReconcileBalances compares the ledger's running totals with the bank feed and returns the\\n// accounts whose diffe...[666 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:5b0e1d9c8a7f6e5d4c3b2a1908f7e6d5c4b3a29180f7e6d5c4b3a2918070605f"
+   },
+   "jsonrpc_line_bytes": 488,
+   "isError": false,
+   "error": null,
+   "text_bytes": 210,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:5ad9931fd0d37bdb4e6651623fd29f20d780b1cb28446f18d64a2bdcefea56cc",
+     "tool_use_id": "qompack-mcp:b53a72de494f"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "searched": "the root index, including every indexed root's chunk list",
+     "available": false,
+     "reason": "no indexed root or chunk carries this hash, so its content provenance could not be established"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "ops/runbook.md"
+   },
+   "jsonrpc_line_bytes": 406,
+   "isError": false,
+   "error": null,
+   "text_bytes": 131,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 13,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:b9ffefe5c4f2"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "denied": true,
+     "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/vault.txt"
+   },
+   "jsonrpc_line_bytes": 406,
+   "isError": false,
+   "error": null,
+   "text_bytes": 131,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 13,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:6a1ae86ff77e"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "denied": true,
+     "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+    }
+   ]
+  },
+  {
+   "tool": "dropped",
+   "args": {},
+   "jsonrpc_line_bytes": 7313,
+   "isError": false,
+   "error": null,
+   "text_bytes": 6560,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 87,
+     "ephemeral": true,
+     "hash": "sha256:bed65ac0b181e448ef6f02fb408a297b4743a17d7e433952aa9c0fc7865a1b15",
+     "tool_use_id": "qompack-mcp:7382eb4d408c"
+    }
+   },
+   "json": [
+    {
+     "count": 40,
+     "denied": 2,
+     "drops": [
+      {
+       "detail": "modified since index on master; path withheld: the host's permission rules refuse it, or it is outside the project; restore: expand(hash=sha256:3a792571e070ff02795820803f55c123481be03ba08d11f1ce030f0b6eb703cb)",
+       "id": "sha256:3a792571e070ff02795820803f55c123481be03ba08d11f1ce030f0b6eb703cb",
+       "kind": "pointer_dirty"
+      },
+      {
+       "detail": "modified since index on master",
+       "id": "src/ledger.go",
+       "kind": "pointer_dirty"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[17])",
+       "id": "17",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[16])",
+       "id": "16",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[15])",
+       "id": "15",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[14])",
+       "id": "14",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[13])",
+       "id": "13",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[12])",
+       "id": "12",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[11])",
+       "id": "11",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[10])",
+       "id": "10",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[9])",
+       "id": "9",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[8])",
+       "id": "8",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[7])",
+       "id": "7",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[6])",
+       "id": "6",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[5])",
+       "id": "5",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[4])",
+       "id": "4",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[3])",
+       "id": "3",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])",
+       "id": "2",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])",
+       "id": "1",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])",
+       "id": "0",
+       "kind": "user_intent_evolution"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01FapV33wWMiqc2YSY44YPRx)",
+       "id": "toolu_01FapV33wWMiqc2YSY44YPRx",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01FcmYCUweuAzHU3JRdnaWzF)",
+       "id": "toolu_01FcmYCUweuAzHU3JRdnaWzF",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01JzUU3nzu8unHxwzrSjXpYx)",
+       "id": "toolu_01JzUU3nzu8unHxwzrSjXpYx",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01LYD12TN9BvwBdQZrnBEoej)",
+       "id": "toolu_01LYD12TN9BvwBdQZrnBEoej",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Lqji4u7vcKi5r3y7W9D1ZV)",
+       "id": "toolu_01Lqji4u7vcKi5r3y7W9D1ZV",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01LtH1rJqtXYXqM7UNGvGFqJ)",
+       "id": "toolu_01LtH1rJqtXYXqM7UNGvGFqJ",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01MSjeZhpUe9kJWF1QSwampQ)",
+       "id": "toolu_01MSjeZhpUe9kJWF1QSwampQ",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01MqkxL2wTpnsbiYFjGAAXHx)",
+       "id": "toolu_01MqkxL2wTpnsbiYFjGAAXHx",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01MvKFnBNb5LepqrCPDwtbnp)",
+       "id": "toolu_01MvKFnBNb5LepqrCPDwtbnp",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01N4ZNFBLpmGFiWZfXhusc7Y)",
+       "id": "toolu_01N4ZNFBLpmGFiWZfXhusc7Y",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01NxLeqaXREwZbZLVVn4KVq6)",
+       "id": "toolu_01NxLeqaXREwZbZLVVn4KVq6",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01PxkfK3BtRaJcF9QRHDTXwE)",
+       "id": "toolu_01PxkfK3BtRaJcF9QRHDTXwE",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Qc727SDStsx1UzfzYQaJuG)",
+       "id": "toolu_01Qc727SDStsx1UzfzYQaJuG",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01R2t2JRt6p9jBjWgTcdeLxb)",
+       "id": "toolu_01R2t2JRt6p9jBjWgTcdeLxb",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01RQPrCC4E1Z7ULDw6KzH7vw)",
+       "id": "toolu_01RQPrCC4E1Z7ULDw6KzH7vw",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01RraThViWf9Wpvpsbk6BHi7)",
+       "id": "toolu_01RraThViWf9Wpvpsbk6BHi7",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01S97sPdfAFXzyMFeyU2sThn)",
+       "id": "toolu_01S97sPdfAFXzyMFeyU2sThn",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01SsQTZCHG3Dq8tecB98i69U)",
+       "id": "toolu_01SsQTZCHG3Dq8tecB98i69U",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01TZD8oqPvpVy685kfWdYc4u)",
+       "id": "toolu_01TZD8oqPvpVy685kfWdYc4u",
+       "kind": "pointer"
+      },
+      {
+       "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01TZqfJzDa9hApynZhX15PaG)",
+       "id": "toolu_01TZqfJzDa9hApynZhX15PaG",
+       "kind": "pointer"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

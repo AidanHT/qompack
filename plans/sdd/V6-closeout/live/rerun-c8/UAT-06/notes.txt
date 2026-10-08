@@ -1,0 +1,84 @@
+UAT-06 re-run on candidate 8 (D59, D62 forkwork), with C4.3. Its fork session also carries C4.5's six slash commands
+and a final /compact (rerun-c8/C4.5/notes.txt), and a fourth session restarts the parent for F-C48-1's second route
+(rerun-c8/F-C48-1/notes.txt). Agent-executed on the owner's real host per owner decision D3 by a Claude Code
+workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-10-07 America/Toronto: A 10:54:18, B 10:55:41, C 10:56:34, D 11:02:18 EDT. Sessions used: 3 for the row
+(sessions.tsv sessions-c8 n=2 A, n=3 B, n=4 C), plus n=5 D for F-C48-1. Model claude-haiku-4-5-20251001, Claude
+Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle qompack-bundles/c8 (BUNDLE.json sha256
+61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, commit 3ec62ad2) via --plugin-dir; CLI steps
+with the bundle's bin/qompack.exe (cli/00-version 0.3.0). Each init: plugin qompack 0.3.0, plugin:qompack:qompack
+connected, 8 MCP tools, the six /qompack: commands, no qompack:checkpoint.
+
+Preconditions (cli/00-preconditions.txt): fresh project uat06/proj (config/limits.txt, src/limiter.py, docs/notes.md,
+docs/design.md, README.md; git init + add), defaults, DEFAULT idle exit (1800 s), QOMPACK_HOME moves calibration.json
+only. Initial absence: cli/00-backup-create-absent exit 1 "source project has no existing store". No daemon was
+ended in this row.
+
+Steps (every session exit 0; stderr.txt 0 bytes in all four; hooks.json 17 + 10 + 32 + 5 pairs, all success, exit 0;
+every "/compact" turn reads "Compacted PreCompact [...] completed successfully"):
+ 1. Session A (sessionA/, id 7f96ea69): original intent "allow 100 requests per minute per client" + `cat
+    config/limits.txt`; correction "must be 60 ..., not 100 ... superseded"; record_eliminated -> elim_f421b9be1a51
+    (scope session); Read src/limiter.py; "/compact" -> checkpoint 0001, block A-block2 (2,852 units, inline); then
+    "What is the current ... requirement" -> "60 ...; the original was 100".
+ 2. Session B (sessionB-resume/, --resume A): SessionStart:resume injected only the probe (B-block1, 61 units);
+    "/qompack:why dec_991dbff588ec" -> the attributed record (what, why, rejected alternative, evidence 50 bytes,
+    turn 5); Read docs/notes.md;
+ 3. "/compact" -> checkpoint 0002, block B-block2 (3,021 units); then the same question -> 60 / 100.
+ 4. Session C (sessionC-fork/, --resume A --fork-session, id daf8fe7b): SessionStart:fork injected only the probe
+    (C-block1); "checkpoint: forked session recorded ... parent_seq=2" in the day log; Read docs/design.md;
+    "/compact" -> checkpoint 0004, block C-block2 (3,223 units), the fork's first block; already_tried -> active,
+    scope session; "/qompack:why" -> found, checkpoint_seq 4;
+ 5. second correction "must be 45 ..., not 60 ... superseded"; "/compact" -> 0005, C-block3 (3,745 units); the
+    question -> "45 ...; the original was 100 (first corrected to 60)". Then C4.5's six commands and "/compact" ->
+    0006, C-block4 (3,306 units), and "done".
+ 6. Section 2 of every block, in order, with its Current work: section2-in-order.txt. /qompack:why responses: B's T1
+    (sessionB-resume/stream.jsonl), C's T4 and the C4.5 why turn (C4.5/uat06/session-commands/why.txt), and
+    cli/post-why-json (found, checkpoint_seq 3).
+ 7. steps/step7-postcompact-search.txt: 0 matches over the 17 log lines. No LOUD.log in this project.
+
+Expected result, field by field:
+ - Section 2 carries the verbatim original from L0 capture, rendered as D50 orders it: "Evolution (most recent
+   first):" then "Original:", whole, last, in every compact block (A2, B2, C2, C3, C4, and D2). Met.
+ - The fork's first block (C-block2) carries the parent's verbatim original under "(forked session: the original
+   request of session 7f96ea69, which this session continues)" AND the 60 correction in force above it; the parent's
+   session-scoped elimination of "100" (section 3, [active]) and its decision dec_991dbff588ec (section 4); the fork
+   provenance in section 7 (user_intent_source fork, restore expand(tool_use_id=prompt_7f96ea69-..._0)). Met.
+ - Current work comes from the fork's own newest prompt, never an inherited parent prompt (D59, forkwork): C-block2
+   "goal: Use the Read tool to read docs/design.md ..." (the fork's only prompt then); C-block3 "goal: Correction:
+   the limit must be 45 requests per minute per client, not 60." (the fork's newest prompt; candidate 7's 0005 took
+   the inherited record_eliminated prompt here, F-C7-UAT06-1). Met; F-C7-UAT06-1 is fixed.
+ - The parent's session-scoped elimination and decision are visible in the fork through the tools: already_tried
+   answers active, scope session, recorded_at 14:54:35Z (session A's call); why finds dec_991dbff588ec (checkpoint_seq
+   4, then 5). Met.
+ - After --resume, the session's second checkpoint still carries its earlier decision: steps/afterB-0002.json
+   decisions = [dec_991dbff588ec, turn 5], and B-block2 section 4 shows it. Met.
+ - Across steps 2-5 the newest correction stays above the older ones and no superseded restatement is promoted:
+   45 above 60 in C-block3 and C-block4, 60 above the 100 original everywhere. The parent's restart block D-block2
+   (checkpoint 0003, after the fork) keeps the parent's own line: the 60 correction newest-correction, no 45 (the
+   fork's correction does not leak into the parent), Current work = the parent's newest own prompt. Met.
+ - /qompack:why returns an attributed record, not a claim about the model. Met.
+ - Step 7 finds nothing. Met.
+ - Fork diff (to be confirmed at execution; diff-block-B2-vs-fork-C2.txt): besides seq, checkpoint number, session
+   id and probe token, section 2 gains the fork's own prompt and the provenance line (and B's last question moves to
+   its newest position: the evolution keeps one entry per distinct text, at its newest occurrence), current work and
+   pointers are the fork's, and section 7 appears; sections 3-4 are identical.
+ - Store: MANIFEST seq 1, 2, 4, 5, 6, 3 (seq 3 is the parent restart's 0003, written after the fork's; candidate 7
+   also skipped a seq at the fork); every artifact re-hashes (steps/afterD-checkpoints.txt MATCH x6);
+   cli/post-fsck-json exit 0, 18/18 checks ok.
+
+Observations (no documented contract broken):
+ - O-1: B-block2 section 6 lists the compaction subagent's tool_use pointer subagent_7f96ea69-..._8 as "(summary
+   withheld)", while C-block3 shows a later subagent summary in full. Withholding a summary that names no refused or
+   outside path is the over-withholding D66(e) accepts; the header line "Withheld entries name a path the host's
+   permission rules refuse, or one outside the project" is shown with it, though no rule exists in this project.
+ - O-2: every status read carries counter checkpoint.decision_read_error 2-3 (an unreadable explaining node skipped
+   one decision candidate, internal/checkpoint/decisions.go). Candidate 7's UAT-06 store read 3 too; no decision is
+   missing from any block.
+ - The /qompack:eval invocation sent no UserPromptSubmit (the host's `!` expansion failed first), so it is not in
+   C-block4's evolution; the five other slash commands are, as D62 keeps every prompt verbatim in user intent.
+
+Result: pass. F-C7-UAT06-1 (fork current work from an inherited parent prompt) is fixed.
+
+Rollback verified: not applicable — initial state absent (recorded); the run is retained as evidence; no backup or
+restore was run in this row.

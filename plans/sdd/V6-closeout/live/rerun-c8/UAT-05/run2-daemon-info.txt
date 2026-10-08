@@ -1,0 +1,16 @@
+{
+ "lock": {
+  "pid": 21744,
+  "started": 1791384604954,
+  "addr": "\\\\.\\pipe\\qompack.c80311373bb0",
+  "version": "0.3.0",
+  "owner": "93cb498cf5e825f69f0b28b095b28f2c7516bf846bd4e36c6f9a1b1870aab20f",
+  "root": "<scratch>\\sessions\\c8\\uat05\\proj"
+ },
+ "pid": 21744,
+ "proc": {
+  "Name": "qompack.exe",
+  "Path": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe",
+  "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe daemon --project <scratch>\\sessions\\c8\\uat05\\proj"
+ }
+}

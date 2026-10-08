@@ -1,0 +1,5 @@
+ts=2026-10-07T17:06:27.2887193Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T17:06:27.3393682Z level=info msg="observer: session registered" session=4b302420-c8b4-4b8e-a998-86ee24c6babf source=startup turn=0 segment=1
+ts=2026-10-07T17:06:27.3393682Z level=info msg="scheduler: session bound" session=4b302420-c8b4-4b8e-a998-86ee24c6babf effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T17:06:44.8075622Z level=info msg="rehydrate: injection disabled by runtime.migration.reinjection.sessionStartCompact" session=4b302420-c8b4-4b8e-a998-86ee24c6babf
+ts=2026-10-07T17:06:58.0194589Z level=info msg="observer: gc" scanned=12 deleted=0 freed=0 truncated=false

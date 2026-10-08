@@ -1,0 +1,56 @@
+UAT-08 - candidate 8 live re-check, carried part (decisions D58-D67): steps 1-5 before any compaction, /compact,
+then why; then the session-scope isolation check in a later, different session. Agent-executed on the owner's real
+host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Build as ../UAT-07/notes.txt (qompack 0.3.0, BUNDLE.json sha256 61ba9c37...dcd8b, commit 3ec62ad2, Windows 11 Home 25H2
+build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the frozen bundle, claude-haiku-4-5-20251001). Date 2026-10-07
+13:03-13:05 America/Toronto. Sessions carried-c8 n=4 (session1/, id b45418e4, 7 turns, 71 s) and n=5
+(session2-isolation/, id 723c6e42, a NEW session, not a resume, 3 turns, 17 s), both exit 0. No spare was used.
+
+SETUP (setup-facts.json, files/): <scratch>/carried/uat08/proj, git init + one commit of README.md, src/pool.go,
+config/pool.yaml (both depends_on files unchanged for the whole run; files/*.at-record are their contents).
+Preconditions (cli/02-config-print-provenance, all `default`): eliminations.requireEvidence true, defaultScope session,
+staleResponse flag, rebuildOnStale nextIdle; runtime.phase7.reuse.scopedCandidates false. Env:
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 (not a row key), QOMPACK_HOME. Pre-run backup: cli/01 exit 1 "source
+project has no existing store" (initial absence). snap/eliminations.before-step1: ABSENT before step 1.
+
+SESSION 1 (session1/tool-calls.txt; T1 Read src/pool.go and config/pool.yaml):
+ STEP 1-2 (T2) record_eliminated {target src/pool.go:DialPool, approach "widen pool timeout", reason, scope "session",
+   depends_on [src/pool.go, config/pool.yaml]} -> {"id":"elim_dcaf507717d5","descriptor":{normalized_path src/pool.go,
+   symbol DialPool, approach_class widen-pool-timeout, reason_hash},"scope":"session","evidence":"sha256:af7fcd07...",
+   "depends_on":[config/pool.yaml sha256:9f2751ea..., src/pool.go sha256:c10864c9...],"depends_on_unresolved":[],
+   "status":"active"} - every field the row names; no `warnings` key (none were raised).
+ STEP 3 (T3) already_tried same target and approach -> {"state":"active","reason":...,"evidence":"sha256:af7fcd07...",
+   "scope":"session","recorded_at":"2026-10-07T17:03:34Z","depends_on":[both]} - RFC 3339 UTC; no stale_because.
+ STEP 4 (T4) already_tried "add a client retry loop" -> {"state":"absent"} (plain absent, no _meta.qompack.bloom_only
+   in the result text; the host does not show result-level _meta to the model).
+ STEP 5 snap/eliminations.step5-after-steps1-4.jsonl.txt (copied by a before-step, before any compaction): the record,
+   stored with the calling session's id b45418e4-..., scope session, status active.
+ Then (T5) a project-scoped record for the isolation check: elim_a12667de081c, "switch to a per-request dialer", scope
+   project, same depends_on, status active.
+ /compact (T6): checkpoint 0001 (store-after-sessions/checkpoints_0001.json). SessionStart:compact injected the block
+   (session1/injected-2-SessionStart-compact.txt, 5,139 chars): section 3 lists both eliminations, section 4 both
+   decisions, [dec_e760c8bbf50a] for "widen pool timeout" and [dec_40078f251763] for the per-request dialer.
+ why (T7): the model found dec_e760c8bbf50a in the block; why -> found true, checkpoint_seq 1, what 'rejected "widen
+   pool timeout" for src/pool.go:DialPool', why (the reason), evidence sha256:af7fcd07..., evidence_bytes 145,
+   alternatives_rejected ["widen pool timeout"], turn 3, hint. already_tried after the compaction: still active, same
+   fields.
+
+SESSION 2 (session2-isolation/, a later, different session of the same project, no file read):
+ already_tried "widen pool timeout" (the SESSION-scoped record of session 1) -> {"state":"absent"};
+ already_tried "switch to a per-request dialer" (the PROJECT-scoped record) -> active with reason, evidence, scope
+   project, recorded_at 2026-10-07T17:03:50Z, depends_on;
+ already_tried "add a client retry loop" -> absent.
+ Session scope isolates, run in this row's own project this time (candidate 4 had to borrow the C4.4 project because
+ its record had gone stale). snap/eliminations.session2.jsonl.txt: both records on disk, unchanged (append-only).
+
+Diagnostics after the daemon's own idle exit (cli/40-daemon-ended.txt: 117 s, no process terminated by the lane):
+doctor --json exit 0, no degraded row; fsck --json and --seal-check exit 0, negknow "eliminations: 2 record(s), 2
+active, 0 stale"; status last. index/sessions.jsonl: both sessions with end set (SessionEnd ran). Hooks: session 1 26
+pairs, session 2 11, every one success exit 0, measured arrival deltas at most 204 ms; stderr.txt empty in both; no
+host-reported hook failure or timeout (D53(i) holds).
+
+Result: pass - no fail condition (the acknowledgement has id and evidence; active carries reason, evidence, scope,
+recorded_at and depends_on; the recorded approach never answered absent in its own session).
+Rollback: not applicable - initial state absent (recorded); the run is retained as evidence; no restore was run.
+Guard: guard/carried.txt ("after session 4 ...", "after session 5 ...").

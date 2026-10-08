@@ -1,0 +1,4 @@
+fresh project <scratch>/resilience/c8/c16/proj (git init, 4 files staged, see setup-facts.json); no
+config file; session env: ENABLE_CLAUDEAI_MCP_SERVERS=false, QOMPACK_HOME=<scratch>/resilience/qhome,
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 (candidate 3's recipe; the brief's preferred idle exit).
+.qompack present before the session: False

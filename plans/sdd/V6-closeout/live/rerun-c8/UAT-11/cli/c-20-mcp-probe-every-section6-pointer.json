@@ -1,0 +1,827 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c"
+   },
+   "jsonrpc_line_bytes": 16527,
+   "isError": false,
+   "error": null,
+   "text_bytes": 15827,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 20,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:15b841eec3f8d4df69eb0bbeea73bf3dcea4ea284200d9ef901821be8f969b77",
+     "next_span": "15452:16384",
+     "promoted": true,
+     "span": [
+      0,
+      15452
+     ],
+     "tool_use_id": "qompack-mcp:b62b9eb5c813",
+     "total_bytes": 366102,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c",
+     "span": [
+      0,
+      15452
+     ],
+     "total_bytes": 366102,
+     "truncated": true,
+     "next_span": "15452:16384",
+     "widened": false,
+     "expansions": 3,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"ROW-00001 status=ok shard=001 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW-00002 status=ok shard=002 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW...[15452 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "big.log"
+   },
+   "jsonrpc_line_bytes": 16614,
+   "isError": false,
+   "error": null,
+   "text_bytes": 15870,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 15,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:dbfd233403e110ccc1c2967c7814fa879fa89338d7b4f76be2495e5abbc34331",
+     "next_span": "15452:16384",
+     "path": "big.log",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      15452
+     ],
+     "tool_use_id": "qompack-mcp:343f9ff43da0",
+     "total_bytes": 366102,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c",
+     "path": "big.log",
+     "source": "store",
+     "turn": 1,
+     "span": [
+      0,
+      15452
+     ],
+     "total_bytes": 366102,
+     "truncated": true,
+     "next_span": "15452:16384",
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"ROW-00001 status=ok shard=001 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW-00002 status=ok shard=002 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW...[15452 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d"
+   },
+   "jsonrpc_line_bytes": 861,
+   "isError": false,
+   "error": null,
+   "text_bytes": 427,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 28,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:d95652947b5e85697e02081b39ef8a70edefeec5a3b10cf6ebc872038c1b7a2d",
+     "promoted": true,
+     "span": [
+      0,
+      198
+     ],
+     "tool_use_id": "qompack-mcp:091a2519b63c",
+     "total_bytes": 198,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d",
+     "span": [
+      0,
+      198
+     ],
+     "total_bytes": 198,
+     "truncated": false,
+     "widened": false,
+     "expansions": 3,
+     "promoted": true,
+     "content": "{\"file\":{\"content\":\"# fake, planted for the run\\nAWS_ACCESS_KEY_ID=«redacted:aws_access_key_id»\\nREGION=ca-central-1\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "creds.env"
+   },
+   "jsonrpc_line_bytes": 952,
+   "isError": false,
+   "error": null,
+   "text_bytes": 472,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 18,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:42f237d91721269096c2cffdc1740f3ef1261192c4d57e3e57761fbde0d23a24",
+     "path": "creds.env",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      198
+     ],
+     "tool_use_id": "qompack-mcp:2efed24d9561",
+     "total_bytes": 198,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d",
+     "path": "creds.env",
+     "source": "store",
+     "turn": 3,
+     "span": [
+      0,
+      198
+     ],
+     "total_bytes": 198,
+     "truncated": false,
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"file\":{\"content\":\"# fake, planted for the run\\nAWS_ACCESS_KEY_ID=«redacted:aws_access_key_id»\\nREGION=ca-central-1\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055"
+   },
+   "jsonrpc_line_bytes": 812,
+   "isError": false,
+   "error": null,
+   "text_bytes": 378,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 17,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:5ce5c2be56bc164df11c7493f5be58c7d74a4930ca1f32425e0daa522bd5d793",
+     "promoted": true,
+     "span": [
+      0,
+      149
+     ],
+     "tool_use_id": "qompack-mcp:89f9e3d22691",
+     "total_bytes": 149,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055",
+     "span": [
+      0,
+      149
+     ],
+     "total_bytes": 149,
+     "truncated": false,
+     "widened": false,
+     "expansions": 3,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe export codename is MAROON-LYNX-64.\\n\",\"numLines\":4,\"startLine\":1,\"totalLines\":4}}"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "notes.md"
+   },
+   "jsonrpc_line_bytes": 901,
+   "isError": false,
+   "error": null,
+   "text_bytes": 422,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 14,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:e25e45bccc6c7b416a58c52ce4de911ec62dd87e318d7200e338d96678c5364d",
+     "path": "notes.md",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      149
+     ],
+     "tool_use_id": "qompack-mcp:6b8994f32406",
+     "total_bytes": 149,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055",
+     "path": "notes.md",
+     "source": "store",
+     "turn": 1,
+     "span": [
+      0,
+      149
+     ],
+     "total_bytes": 149,
+     "truncated": false,
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe export codename is MAROON-LYNX-64.\\n\",\"numLines\":4,\"startLine\":1,\"totalLines\":4}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4"
+   },
+   "jsonrpc_line_bytes": 3118,
+   "isError": false,
+   "error": null,
+   "text_bytes": 2528,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 20,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:8b0176b63262014ac498e8287aa3d6bf84df57770e34f921ab4ec4706f2f89ab",
+     "promoted": true,
+     "span": [
+      0,
+      2220
+     ],
+     "tool_use_id": "qompack-mcp:8bbc5538ae54",
+     "total_bytes": 2220,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4",
+     "span": [
+      0,
+      2220
+     ],
+     "total_bytes": 2220,
+     "truncated": false,
+     "widened": false,
+     "expansions": 3,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"tab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭,...[1960 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "odd.txt"
+   },
+   "jsonrpc_line_bytes": 3205,
+   "isError": false,
+   "error": null,
+   "text_bytes": 2571,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 19,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:62052d2cb6ed48530ba5b7638cf8bdb05e44f38ece9e3b51c895a2117bec97bd",
+     "path": "odd.txt",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      2220
+     ],
+     "tool_use_id": "qompack-mcp:d9f02773e981",
+     "total_bytes": 2220,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4",
+     "path": "odd.txt",
+     "source": "store",
+     "turn": 3,
+     "span": [
+      0,
+      2220
+     ],
+     "total_bytes": 2220,
+     "truncated": false,
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"tab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭,...[1960 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055"
+   },
+   "jsonrpc_line_bytes": 813,
+   "isError": false,
+   "error": null,
+   "text_bytes": 378,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 19,
+     "ephemeral": true,
+     "expansions": 5,
+     "hash": "sha256:88cfbba892a9854d9c98f26327976dbaa3dfa2155efcf7267ac8c881ffa90379",
+     "promoted": true,
+     "span": [
+      0,
+      149
+     ],
+     "tool_use_id": "qompack-mcp:bd64339ab5c6",
+     "total_bytes": 149,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055",
+     "span": [
+      0,
+      149
+     ],
+     "total_bytes": 149,
+     "truncated": false,
+     "widened": false,
+     "expansions": 5,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe export codename is MAROON-LYNX-64.\\n\",\"numLines\":4,\"startLine\":1,\"totalLines\":4}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_018BMk4GzvwXWNMQmgFgfSXA"
+   },
+   "jsonrpc_line_bytes": 875,
+   "isError": false,
+   "error": null,
+   "text_bytes": 414,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 14,
+     "ephemeral": true,
+     "expansions": 6,
+     "hash": "sha256:cade96ee7f4d64e3e676fbff6910ea5bff82bd8f1a760804d2c436bacad85057",
+     "path": "notes.md",
+     "promoted": true,
+     "span": [
+      0,
+      149
+     ],
+     "tool_use_id": "qompack-mcp:6fa3b39bfa54",
+     "total_bytes": 149,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055",
+     "path": "notes.md",
+     "tool": "FileRead",
+     "span": [
+      0,
+      149
+     ],
+     "total_bytes": 149,
+     "truncated": false,
+     "widened": false,
+     "expansions": 6,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe export codename is MAROON-LYNX-64.\\n\",\"numLines\":4,\"startLine\":1,\"totalLines\":4}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d"
+   },
+   "jsonrpc_line_bytes": 862,
+   "isError": false,
+   "error": null,
+   "text_bytes": 427,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 15,
+     "ephemeral": true,
+     "expansions": 5,
+     "hash": "sha256:8f438835d20a334e400e1ec24299de58837633eecb0f5b5cb59a5c406d3b5d5d",
+     "promoted": true,
+     "span": [
+      0,
+      198
+     ],
+     "tool_use_id": "qompack-mcp:7c829ff46c45",
+     "total_bytes": 198,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d",
+     "span": [
+      0,
+      198
+     ],
+     "total_bytes": 198,
+     "truncated": false,
+     "widened": false,
+     "expansions": 5,
+     "promoted": true,
+     "content": "{\"file\":{\"content\":\"# fake, planted for the run\\nAWS_ACCESS_KEY_ID=«redacted:aws_access_key_id»\\nREGION=ca-central-1\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01CALN2GWEmwCEkfRFqugJWT"
+   },
+   "jsonrpc_line_bytes": 926,
+   "isError": false,
+   "error": null,
+   "text_bytes": 464,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 15,
+     "ephemeral": true,
+     "expansions": 6,
+     "hash": "sha256:a000089b8e4bc7659890e96e06a3070faf4487586ef85f9eb7712cd7ea47da49",
+     "path": "creds.env",
+     "promoted": true,
+     "span": [
+      0,
+      198
+     ],
+     "tool_use_id": "qompack-mcp:8e88fd33fd22",
+     "total_bytes": 198,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d",
+     "path": "creds.env",
+     "tool": "FileRead",
+     "span": [
+      0,
+      198
+     ],
+     "total_bytes": 198,
+     "truncated": false,
+     "widened": false,
+     "expansions": 6,
+     "promoted": true,
+     "content": "{\"file\":{\"content\":\"# fake, planted for the run\\nAWS_ACCESS_KEY_ID=«redacted:aws_access_key_id»\\nREGION=ca-central-1\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:76d37db04cd722b3c35960a0b758f9eb45069e163dc35ba7cebb70b2f45138bd"
+   },
+   "jsonrpc_line_bytes": 1265,
+   "isError": false,
+   "error": null,
+   "text_bytes": 866,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:4be9ca9488026ccbabe525033b730c5aec1a95003f88f0fd3ef430e457c450eb",
+     "promoted": true,
+     "span": [
+      0,
+      649
+     ],
+     "tool_use_id": "qompack-mcp:17d9c724b1f2",
+     "total_bytes": 649,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:76d37db04cd722b3c35960a0b758f9eb45069e163dc35ba7cebb70b2f45138bd",
+     "span": [
+      0,
+      649
+     ],
+     "total_bytes": 649,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'big.log', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'creds.env', LF will be replaced by CRLF the next time Git touches...[649 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01Ms9iy3PFSjdDVABxwGJhqu"
+   },
+   "jsonrpc_line_bytes": 1283,
+   "isError": false,
+   "error": null,
+   "text_bytes": 880,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:273cf4d520aa9982f2e7dff008eed06e13c7d5a82a9cdf2e556b37cb898344b4",
+     "promoted": true,
+     "span": [
+      0,
+      649
+     ],
+     "tool_use_id": "qompack-mcp:7ba9924185b5",
+     "total_bytes": 649,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:76d37db04cd722b3c35960a0b758f9eb45069e163dc35ba7cebb70b2f45138bd",
+     "tool": "Bash",
+     "span": [
+      0,
+      649
+     ],
+     "total_bytes": 649,
+     "truncated": false,
+     "widened": false,
+     "expansions": 3,
+     "promoted": true,
+     "content": "warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'big.log', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'creds.env', LF will be replaced by CRLF the next time Git touches...[649 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c"
+   },
+   "jsonrpc_line_bytes": 16528,
+   "isError": false,
+   "error": null,
+   "text_bytes": 15827,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 19,
+     "ephemeral": true,
+     "expansions": 5,
+     "hash": "sha256:eebfc4e23c2b17dd7312093f6a6855dba0b8ac3fa262b8dce24141fe8ab21c87",
+     "next_span": "15452:16384",
+     "promoted": true,
+     "span": [
+      0,
+      15452
+     ],
+     "tool_use_id": "qompack-mcp:3b945ca09cbe",
+     "total_bytes": 366102,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c",
+     "span": [
+      0,
+      15452
+     ],
+     "total_bytes": 366102,
+     "truncated": true,
+     "next_span": "15452:16384",
+     "widened": false,
+     "expansions": 5,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"ROW-00001 status=ok shard=001 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW-00002 status=ok shard=002 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW...[15452 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01PzPHRu7NV2EoZgNZELGFWx"
+   },
+   "jsonrpc_line_bytes": 16588,
+   "isError": false,
+   "error": null,
+   "text_bytes": 15862,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 18,
+     "ephemeral": true,
+     "expansions": 6,
+     "hash": "sha256:b6485b3384cea8aaf7e3b3a1c8ffe2a6ea64aca547b8fe7d22b1a13b1817af89",
+     "next_span": "15452:16384",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      0,
+      15452
+     ],
+     "tool_use_id": "qompack-mcp:f1b01e65f2ca",
+     "total_bytes": 366102,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c",
+     "path": "big.log",
+     "tool": "FileRead",
+     "span": [
+      0,
+      15452
+     ],
+     "total_bytes": 366102,
+     "truncated": true,
+     "next_span": "15452:16384",
+     "widened": false,
+     "expansions": 6,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"ROW-00001 status=ok shard=001 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW-00002 status=ok shard=002 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\nROW...[15452 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4"
+   },
+   "jsonrpc_line_bytes": 3119,
+   "isError": false,
+   "error": null,
+   "text_bytes": 2528,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 15,
+     "ephemeral": true,
+     "expansions": 5,
+     "hash": "sha256:79503d3f1956f5c6f4eed1af47dd058e2cc1dde68c645debf778434f858b8368",
+     "promoted": true,
+     "span": [
+      0,
+      2220
+     ],
+     "tool_use_id": "qompack-mcp:b26792cc187f",
+     "total_bytes": 2220,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4",
+     "span": [
+      0,
+      2220
+     ],
+     "total_bytes": 2220,
+     "truncated": false,
+     "widened": false,
+     "expansions": 5,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"tab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭,...[1960 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01VASyQENDkDnTz5tj5N1vn9"
+   },
+   "jsonrpc_line_bytes": 3179,
+   "isError": false,
+   "error": null,
+   "text_bytes": 2563,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 11,
+     "ephemeral": true,
+     "expansions": 6,
+     "hash": "sha256:4609df93f6173faa9ec15f94e3c29e7cc71b3e6e01a962a6c5c2b8e7b9062968",
+     "path": "odd.txt",
+     "promoted": true,
+     "span": [
+      0,
+      2220
+     ],
+     "tool_use_id": "qompack-mcp:a5f4afee9477",
+     "total_bytes": 2220,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4",
+     "path": "odd.txt",
+     "tool": "FileRead",
+     "span": [
+      0,
+      2220
+     ],
+     "total_bytes": 2220,
+     "truncated": false,
+     "widened": false,
+     "expansions": 6,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"tab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭,...[1960 chars total]"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

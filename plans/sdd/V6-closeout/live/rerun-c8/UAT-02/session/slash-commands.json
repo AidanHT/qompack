@@ -1,0 +1,23 @@
+{
+ "session_id": "d9d2442d-1a06-41ee-a49d-bf5d817fc1ff",
+ "source": "host transcript, extracted by slashx.py",
+ "commands": [
+  {
+   "command": "/qompack:recall",
+   "args": "indigo walrus cadence",
+   "timestamp": "2026-10-07T16:49:31.398Z",
+   "expanded_body": "Run the Qompack recall command and report its output verbatim to the user.\n\n{\"hits\":[{\"hash\":\"sha256:748125c3cecf07e934669f667f8c9024f3725bc9e17f9b138036bf3b25bbe395\",\"path\":\"notes.md\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"<tmp>\\\",\\\"content\\\":\\\"# Notes\\\\n\\\\nThe project codename is SABLE-HERON-73.\\\\nThe release …\",\"ts\":\"2026-10-07T16:49:07Z\",\"score\":0.27666666666666667,\"tool_use_id\":\"toolu_01PGEFms2TnYaUKfcr8eybjt\",\"span\":[0,249]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"indigo walrus cadence\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}\n\nevidence\n  elapsed_ms           18\n  hash                 sha256:f9a745012d3d5ce1e60b9481afec73b5635d9c0d7e05e50634e000c0d19bb335\n  tool_use_id          qompack-mcp:b063aa44a37b\n  untrusted            true\n\nmarked ephemeral by Qompack; this says nothing about host eviction\n",
+   "permissions": [
+    "Bash(qompack recall:*)"
+   ],
+   "is_meta": true
+  },
+  {
+   "command": "/compact",
+   "args": "",
+   "timestamp": "2026-10-07T16:50:03.840Z",
+   "expanded_body": null,
+   "permissions": null
+  }
+ ]
+}

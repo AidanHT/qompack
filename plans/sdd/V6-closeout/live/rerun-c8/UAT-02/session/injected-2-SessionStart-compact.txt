@@ -1,0 +1,55 @@
+# stream line 194, hook SessionStart:compact, exit 0, 6097 chars
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session d9d2442d
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> <task-notification>
+> <task-id>a09709f7688179a00</task-id>
+> <tool-use-id>toolu_01K5xktVNQTNTtrbhz9kY2J7</tool-use-id>
+> <output-file>C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-AppData-Local-Temp-claude-qompack-live-carried-uat02-proj\d9d2442d-1a06-41ee-a49d-bf5d817fc1ff\tasks\a09709f7688179a00.output</output-file>
+> <status>completed</status>
+> <summary>Agent "Read config.ini and return port number" finished</summary>
+> <note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+> <result>The port number in config.ini is **9137**.</result>
+> <usage><subagent_tokens>16109</subagent_tokens><tool_uses>1</tool_uses><duration_ms>3223</duration_ms></usage>
+> </task-notification>
+> Use the Task tool (it may be called Agent) to launch one general-purpose subagent with this instruction: 'Read config.ini with the Read tool and return the port number.' Then tell me the port number it returned.
+> Call mcp__plugin_qompack_qompack__recall with query "path:big.log", then with "path:creds.txt". For each first hit, call mcp__plugin_qompack_qompack__expand with {"hash": <that hit's hash>}. For each expand response report only these fields: span, total_bytes, truncated, next_span, fidelity, coverage (say 'absent' for a field that is not there), and whether its content contains a placeholder that starts with «redacted: (quote the placeholder names only, never any value).
+> Call the MCP tool mcp__plugin_qompack_qompack__recall with query "indigo walrus cadence". Then call mcp__plugin_qompack_qompack__expand with {"hash": <the hash of the hit whose path is notes.md>}. Report the expand response's raw JSON text word for word.
+> /qompack:recall indigo walrus cadence
+> Use the Read tool to read creds.txt and tell me only the names of the settings it defines, never their values.
+> Use the Read tool to read logo.png. Then use the Read tool to read blob.bin; if Read refuses blob.bin, run the Bash command `cat blob.bin` instead. Describe what each tool returned in one short sentence each.
+> Use the Read tool to read big.log with offset 1 and limit 1400. Reply with only the label of the last line you received (it looks like LINE-NNNN).
+Original:
+> Use the Read tool to read notes.md, then tell me the project codename in one sentence.
+
+## 5. Current work
+goal: <task-notification> <task-id>a09709f7688179a00</task-id> <tool-use-id>toolu_01K5xktVNQTNTtrbhz9kY2J7</tool-use-id> <output-file>C:\Users\Quant\AppData\Local\Tem
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- big.log sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027 — referenced
+- config.ini sha256:8258e4e70e5b96ceb6802edc818cb54467401804c54593ef422f3bab679fda6f — referenced
+- creds.txt sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1 — referenced
+- logo.png sha256:4b055b5c82a8622c529216cacac206f477a8eecc66598504d1be2d959dc86a6c — referenced
+- notes.md sha256:748125c3cecf07e934669f667f8c9024f3725bc9e17f9b138036bf3b25bbe395 — referenced
+- tool_use toolu_014mVLqAQj2D9EiAjoUiCLL1 sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027 — <scratch>\carried\uat02\proj\big.log
+- tool_use toolu_017GvCT8H4QwZv259Wzf3vYU sha256:f40d74a25ea17b6a92c343c9c9804abe4fbe9b5a3eea241ad33f0468b2eb50e1 — {"hash":"sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1"}
+- tool_use toolu_018SmDC8d1dgYnVERTepXjqT sha256:f71ff99c494db81280543ad6a531ec350529b428d5c71b62f7d285c47f6effca — {"query":"indigo walrus cadence"}
+- tool_use toolu_01A5E9Qa7BYNkV9npCFAP2qD sha256:5817c530323c142dccb56ab7f7f651ddee2c8425784928c1929752eefa7f86e8 — {"hash":"sha256:748125c3cecf07e934669f667f8c9024f3725bc9e17f9b138036bf3b25bbe395"}
+- tool_use toolu_01BtQmyGHwFvFE4ezePA5uf1 sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1 — <scratch>\carried\uat02\proj\creds.txt
+- tool_use toolu_01DRiKCP9XUv95bwz2JoeoFw sha256:9e60c8f24a970deff4abe6001b808e9a65dc1298ac68d640ea8c322c4a36cb62 — {"query":"path:creds.txt"}
+- tool_use toolu_01ETAZJNfAfspKDqVyeZN1JQ sha256:92340c84905c459537187524044ab55d99b9dc7f3f2cb35029b7477d4f49807b — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand"}
+- tool_use toolu_01FMzWpkHbE5a6Qh4rFNjL2R sha256:0cde219ba3da1b73b5a6c1e6f6020a99ba4631eb43ec571a04b5790ae6f5c93b — cat blob.bin
+- tool_use toolu_01GtzS3vzzp9DdJf6YVVtiNj sha256:8258e4e70e5b96ceb6802edc818cb54467401804c54593ef422f3bab679fda6f — <scratch>\carried\uat02\proj\config.ini
+- tool_use toolu_01H8oEGjJRT6qZaXqVHp4hgK sha256:ac75bf6203875bfd56fcb981091a802855ee3b7ea2f84dfee332a37a5c860148 — {"hash":"sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027"}
+- tool_use toolu_01K5xktVNQTNTtrbhz9kY2J7 sha256:8aa184276270921bf497905f9b58726c4442d1f39633bddf4afd4695f66a1ecb — {"description":"Read config.ini and return port number","prompt":"Read config.ini with the Read tool and return the p…
+- tool_use toolu_01PGEFms2TnYaUKfcr8eybjt sha256:748125c3cecf07e934669f667f8c9024f3725bc9e17f9b138036bf3b25bbe395 — <scratch>\carried\uat02\proj\notes.md
+- tool_use toolu_01UDNAXBJEbSkD3xo7S9nABZ sha256:4b055b5c82a8622c529216cacac206f477a8eecc66598504d1be2d959dc86a6c — <scratch>\carried\uat02\proj\logo.png
+- tool_use toolu_01WWmTqzRDoqstLsBaLav6FF sha256:3245e81230b132f20cabfba0f954d37a8919eb8f0f069b3a5bb9a2296ac7c6f4 — {"query":"path:big.log"}
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-3cbb9c7d93f0 -->

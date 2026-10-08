@@ -1,0 +1,22 @@
+{
+ "schema": 1,
+ "command": "recall",
+ "ok": true,
+ "data": {
+  "tool": "recall",
+  "is_error": false,
+  "ephemeral": true,
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"hits\":[{\"hash\":\"sha256:9ffb1d3f62e2a8ac88c883b069c96b5990355624eb7b4a55312e9cc9f0582fab\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-10-07T16:54:14Z\",\"score\":0.32,\"tool_use_id\":\"toolu_01EWoBLqzAVpGDbM7XpWn87E\",\"span\":[0,666]},{\"hash\":\"sha256:3a792571e070ff02795820803f55c123481be03ba08d11f1ce030f0b6eb703cb\",\"path\":\"ops/runbook.md\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-10-07T16:53:54Z\",\"score\":0.28,\"tool_use_id\":\"toolu_016YtAqFUewJ5cUrjrUBNK1t\",\"span\":[0,201]},{\"hash\":\"sha256:9a87424ba64c7f95de5c962c5dee88b7a4ad5f588c0b1fe0ae0cb59a192d565e\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-10-07T16:53:54Z\",\"score\":0.24000000000000002,\"tool_use_id\":\"toolu_01AEA21cT6i7zeZ5Pc2hgjcP\",\"span\":[0,666]}],\"count\":3,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"Read\"}}"
+   }
+  ],
+  "meta": {
+   "elapsed_ms": 25,
+   "hash": "sha256:401cb62ce44ce37a43b0715557543d16c01d1c98cc2bde00bbe2f27638d3e877",
+   "tool_use_id": "qompack-mcp:a4e209f96ce5",
+   "untrusted": true
+  }
+ }
+}

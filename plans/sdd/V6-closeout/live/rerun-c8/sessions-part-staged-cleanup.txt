@@ -1,0 +1,25 @@
+End of part sessions-c8 — run-created ~/.qompack cleanup under install.md §6 (D50), 2026-10-07 12:16:20 EDT
+guard snap at 10:46:22 EDT listed .qompack/ with 0 entries (~/.qompack absent); first created 10:48 by sessions-c8 n=1
+$ tasklist /FI "IMAGENAME eq qompack.exe"
+INFO: No tasks are running which match the specified criteria.
+$ listing of ~/.qompack (names only)
+.
+./bin
+./bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9
+./bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/qompack.exe
+$ sha256 of the staged copy and of the bundle bin
+93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9 *~/.qompack/bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/qompack.exe
+93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9 *<projects>/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe
+$ remove the staged copy (read-only attribute cleared first), then the empty run-created directories
+exit 0
+~/.qompack exists now: no
+$ homeguard.py clean; homeguard.py check (final, end of part)
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0

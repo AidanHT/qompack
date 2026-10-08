@@ -1,0 +1,87 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "8",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md and then plan.md. Reply only 'done'.",
+   "ok": true,
+   "wall_s": 5.616,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34536,
+    "WorkingSet64": 32526336,
+    "PeakWorkingSet64": 32526336,
+    "CPU": 0.265625,
+    "StartTime": "/Date(1791392787210)/"
+   },
+   "store_bytes": 108801
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 12.259,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34536,
+    "WorkingSet64": 34684928,
+    "PeakWorkingSet64": 34684928,
+    "CPU": 0.40625,
+    "StartTime": "/Date(1791392787210)/"
+   },
+   "store_bytes": 142793
+  },
+  {
+   "msg": "Without using any tool, what is the project codename? Answer in one sentence, or say you do not know.",
+   "ok": true,
+   "wall_s": 2.207,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34536,
+    "WorkingSet64": 35422208,
+    "PeakWorkingSet64": 35422208,
+    "CPU": 0.4375,
+    "StartTime": "/Date(1791392787210)/"
+   },
+   "store_bytes": 153166
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__recall with {\"query\": \"codename\"}. Reply with whether the host marked the result as an error (yes/no) and the result text verbatim (first 600 characters).",
+   "ok": true,
+   "wall_s": 7.024,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34536,
+    "WorkingSet64": 37859328,
+    "PeakWorkingSet64": 37859328,
+    "CPU": 0.484375,
+    "StartTime": "/Date(1791392787210)/"
+   },
+   "store_bytes": 199692
+  }
+ ],
+ "store_bytes_before": 72,
+ "started_ms": 1791392785995,
+ "pid": 5616,
+ "exit": 0,
+ "wall_s": 32.086,
+ "store_bytes_after": 264690
+}

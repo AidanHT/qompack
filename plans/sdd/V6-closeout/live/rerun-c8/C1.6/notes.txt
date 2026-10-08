@@ -1,0 +1,113 @@
+C1.6 (V6-RECOVERY-1) re-run on candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f): automatic
+startup accounting + fsck detection of publication gaps on the packaged bundle, with the daemon ended
+mid-session; and whether automatic RECOVERY exists. First live run since candidate 3 (D59, D67(f)).
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent
+(Opus 5.5) - not human UAT.
+
+Date 2026-10-07 14:17-14:20 America/Toronto. Sessions used: 1 (resilience-c8 n=3, session/,
+sessions.tsv). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build
+10.0.26200.9457, frozen bundle qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, bin/qompack.exe sha256
+93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9) via --plugin-dir; `qompack version`
+0.3.0 (cli/00-version). Project <scratch>/resilience/c8/c16/proj, fresh, git init, 4 files
+(setup-facts.json). Session env QOMPACK_HOME (calibration only) and
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 (cli/00-preconditions.txt). Recipe: candidate 3's
+(../../recovery/C1.6/notes.txt), with the daemon ended mid-session as the brief orders.
+
+Index
+- session/: driver config, stream.jsonl, stderr.txt (empty), meta.json (per-turn daemon samples and
+  the two "before" steps' output), hooks.json, transcript-facts.json (no message bodies).
+- cli/10-kill-daemon.txt, cli/11-down-step.txt: the termination and the down step (before turn 5).
+- cli/12-*: fsck --json and table with the daemon down, before the cuts.
+- cli/20-up-step.txt, cli/21-*, cli/23-*: who restarted the daemon, status --json/text, fsck --json
+  with the daemon up (before turn 6).
+- cli/30-*, 31-*: fsck --json/table and doctor --json after the idle exit.
+- store/: cuts.json; fingerprints fp1 (down, before cut), fp2 (after cut), fp3 (daemon up), fp4 (after
+  exit) and their diffs; LOUD.log and day log copies (22-daemon-up-*, 32-after-exit-*); listings;
+  post-state-daemon-up.json and post-state-after-exit.json (the cut items judged directly).
+
+Steps and observations
+1. Session turns: T1 Read readme.md; T2 Bash `git status --short`; T3 Read data.txt; T4 Bash `wc -l
+   ...`; [down step] T5 Read notes.md; [up step] T6 Read tool.py; T7 Bash `git status --short`. 7/7
+   turns answered, exit 0, stderr empty, 22 hook_response events all outcome success / exit 0
+   (SessionStart:startup 1, UserPromptSubmit 7, PostToolUse 7, Stop 7).
+2. Down step (cli/11-down-step.txt, 14:18:19): daemon.lock named pid 32980, process image qompack.exe
+   (the D10 staged copy ~/.qompack/bin/93eb09f3.../qompack.exe), command line "daemon --project
+   <this project>"; only then Stop-Process. "RESULT: stopped pid 32980"; tasklist finds no such pid;
+   the lock file stays (stale). No daemon came back before or during the cuts (checked again after
+   them, 14:18:25.055: no live process for the lock pid).
+3. fsck --json with the daemon down, before the cuts (cli/12-fsck-json-before-cut, table form beside
+   it): exit 1. Exactly ONE check fails: index.files (warn, 1 defect) "index/files.json is absent while
+   its log carries 2 path(s); the view is derived and --repair regenerates it" - the state D59
+   documents for a daemon killed mid-session. Every other check ok (daemon: "a lock file names pid
+   32980 whose listener does not answer: the lock is STALE"; publication ok, 22 scanned).
+4. Fingerprint fp1, then candidate 3's two cuts (store/cuts.json, store/diff-down-to-cut.txt shows
+   exactly two files changed, objects/ unchanged):
+   A: index/roots.jsonl's LAST line (10 -> 9 lines), root sha256:912bcd59..., tool Bash, naming chunk
+      sha256:177c6f4c..., which existed on disk (checked before the cut); no later line used it as base.
+   B: the first published observe.tool ok sidecar with durable bytes,
+      records/captures/01/014a8660....json (was root 2a53981a..., tool_use_id toolu_01NXofE3...),
+      returned to stage one: published false, root zero, tool_use_id removed (2243 -> 2197 bytes).
+5. Restart: turn 5's hooks (the session's next turn) started a new daemon, pid 58496, lock started
+   18:18:25.165Z; no bare session-start was needed (cli/20-up-step.txt). Day log: "daemon: took over
+   the project from a daemon that ended without releasing its lock" pid=32980, then "daemon: replayed
+   spooled deliveries at start" deliveries=1.
+6. Startup accounting (cli/21-status-json-daemon-up, exit 0): counters
+   daemon.publication.unindexed_object_candidates 1 and daemon.publication.unpublished_captures 1;
+   loud_tail[0] and store/22-daemon-up-logs_LOUD.log (the only LOUD line, LOUD.log created by this
+   startup): `daemon: unpublished captures or unindexed objects found at startup unpublished_captures=1
+   unindexed_object_candidates=1 pending_objects=0 captures_scanned=13 objects_scanned=11
+   incomplete=false truncated=false notes=none`. No "publication accounting incomplete" line anywhere
+   (0 in every LOUD.log and day log copy). The text status shows the same counters and loud line.
+7. fsck --json with the daemon up (cli/23, 14:18:28): exit 1, read_only true, daemon_running true,
+   attempts_daemon_lock false. publication FAIL "publication evidence includes 1 unlinked captures and
+   1 unindexed object candidates"; captures FAIL (sidecar 014a8660... "at stage 1 only: outcome ok with
+   bytes 340ac65cbb2b durable and no reference joined to it", and "published capture sidecar
+   toolu_01WkZSKo... names root 912bcd59969a, which does not resolve"); index.tool_use FAIL critical
+   ("tool_use toolu_01WkZSKo... points at root 912bcd59969a, which cannot be materialized"). Both gaps
+   named. Re-fingerprint (store/diff-cut-to-daemonup.txt, post-state-daemon-up.json): every file present
+   after the cut under objects/ and records/captures/ unchanged (3 objects and 3 sidecars added by
+   turn 5's captures); the removed roots line not re-added; the sidecar still published false, zero
+   root, no tool_use_id. Nothing reconstructed.
+8. After the idle exit (14:19:12; cli/30, 31): fsck --json exit 1, read_only true, daemon_running
+   false: captures FAIL (the same two details), index.tool_use FAIL critical (the same), publication
+   FAIL "1 unlinked captures and 0 unindexed object candidates". index.files is ok now (the takeover
+   daemon wrote the view; candidate 7's F-C7-C49-1 did not recur here). doctor exit 0.
+   Re-fingerprint (store/diff-cut-to-after.txt, post-state-after-exit.json): the roots line is still
+   absent, the sidecar is still at stage one; no pre-existing object or sidecar was changed; BUT the
+   chunk object sha256:177c6f4c... (60 bytes) is GONE: the day log's "observer: gc scanned=17
+   deleted=1 freed=60" at 18:18:37Z, 12 s after the startup report, inside the session. See
+   F-C8-C16-1.
+
+Automatic recovery: it does NOT exist, and the docs say so (backup.md: "This discovers incomplete
+state; it does not reconstruct missing content or replay captures"; troubleshooting section 9:
+"fsck inspects integrity but never promises that missing content was restored"). Nothing was
+reconstructed: the roots line was not re-added and the sidecar was not re-joined, with the daemon up
+and after it exited. Automatic startup accounting EXISTS on this bundle and completed (incomplete=false)
+with no operator command; fsck detection EXISTS (exit 1, both gaps named, read-only).
+
+Findings
+- F-C8-C16-1 (store/docs, minor): the store's first GC pass after the restart deleted the unindexed
+  object candidate that the startup accounting had reported 12 s earlier (chunk 177c6f4c..., the only
+  object the removed roots line named; gcrun.go's sweep deletes every object outside the live set that
+  is older than the pass). fsck after that pass reports "0 unindexed object candidates", so an operator
+  audit run after it no longer shows gap A as an unindexed object, and the object cannot be preserved
+  for diagnosis, although backup.md tells the operator to "preserve its failures before choosing a
+  verified backup" and test/fault's object_written_index_line_absent row says "the object is still
+  unindexed and NOTHING here repairs it". No capture content was lost: the affected capture's sidecar
+  (records/captures/f5/f5deb814....json) still holds its durable bytes inline (bytes, bytes_hash
+  8531fd52...), and gap A stays named after the pass through index.tool_use (critical) and captures. No
+  doc says GC sweeps a reported unindexed candidate. Evidence: store/32-after-exit-logs_qompack-20261007.log
+  (observer: gc deleted=1 freed=60), store/diff-cut-to-after.txt (removed objects/17/7c/177c6f4c...),
+  store/post-state-after-exit.json, cli/23 vs cli/30 publication rows. Candidate 3's run did not
+  observe this (its fingerprint after the idle exit kept objects/ byte-identical).
+- O1 (observation, unchanged since candidate 7's C4.9): after the mid-session takeover, `status` reads
+  "host contract: no assertions reported" (cli/21-status-text-daemon-up) without saying the daemon was
+  restarted.
+
+Result C1.6 on candidate 8: PASS on the row's claims - automatic startup accounting (counters, loud
+tail, LOUD.log line with incomplete=false, no "accounting incomplete" line) and fsck detection of both
+publication gaps (exit 1, read-only, with the daemon up and after it exited) exist on the packaged
+bundle, and the docs state honestly that automatic recovery does not exist (nothing reconstructed).
+Finding F-C8-C16-1 (minor) is recorded and routed. D53(i): 0 host-reported hook failures or timeouts.
+Rollback: disposable project, initial state absent (fresh directory); retained as evidence.
