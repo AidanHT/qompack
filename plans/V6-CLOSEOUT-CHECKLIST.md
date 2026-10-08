@@ -347,25 +347,25 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 
 ## Phase 4 — Prove it works as an installed Claude Code plugin (real host, real model)
 
-- [ ] **C4.1** Install the frozen bundle through the real marketplace flow into an isolated
+- [x] **C4.1** *(D80: the released bytes installed through the `qompack-windows-amd64` marketplace entry in an isolated profile and at local scope, its MCP server connected, six commands listed, four hook events ran; record: ledger row D80 and docs/install.md section 9 (no session files committed); candidate 7's C4.1 carry note in `sdd/V6-closeout/live/rerun-c8/CARRIED.md`)* Install the frozen bundle through the real marketplace flow into an isolated
       Claude Code profile; hooks, MCP server (`qompack mcp`) and the six commands (D36) discovered.
-- [ ] **C4.2** Real headless sessions: every hook event captured; `.qompack/` index counts match
+- [x] **C4.2** *(candidate 8, D76: UAT-02's counts (`sdd/V6-closeout/live/rerun-c8/UAT-02/c42-counts.json`))* Real headless sessions: every hook event captured; `.qompack/` index counts match
       the transcript; `status`, `doctor`, `fsck` clean.
-- [ ] **C4.3** Real compaction round trip: `PreCompact` checkpoint → `SessionStart source=compact`
+- [x] **C4.3** *(candidate 8, D76: `sdd/V6-closeout/live/rerun-c8/C4.3/`, with UAT-04's compactions)* Real compaction round trip: `PreCompact` checkpoint → `SessionStart source=compact`
       → bounded rehydration payload injected → the model recovers pre-compaction facts.
-- [ ] **C4.4** The real model uses each MCP tool (`recall`, `expand`, `re_read`, `already_tried`,
+- [x] **C4.4** *(candidate 8, D76: `sdd/V6-closeout/live/rerun-c8/C4.4/tool-matrix.md`)* The real model uses each MCP tool (`recall`, `expand`, `re_read`, `already_tried`,
       `record_eliminated`, `timeline`, `why`, `dropped`) with correct results and errors.
-- [ ] **C4.5** Slash commands run in a real session and match `docs/commands.md`.
-- [ ] **C4.6** Privacy in a real session: planted secrets never reach any durable surface;
+- [x] **C4.5** *(candidate 8, D76(b): met for the six commands with known issue 17 (`sdd/V6-closeout/live/rerun-c8/C4.5/`))* Slash commands run in a real session and match `docs/commands.md`.
+- [x] **C4.6** *(candidate 8, D76: `sdd/V6-closeout/live/rerun-c8/C4.6/` and UAT-12 sessions A and B (`sdd/V6-closeout/live/rerun-c8/UAT-12/`))* Privacy in a real session: planted secrets never reach any durable surface;
       out-of-project and deny-ruled archived reads are refused by every retrieval form.
-- [ ] **C4.7** Kill switches in a real session: recording off, reinjection off, each independent.
-- [ ] **C4.8** Upgrade from the previous build, uninstall, reinstall; project work preserved;
+- [x] **C4.7** *(candidate 8, D76: recording off and reinjection off, each alone (`sdd/V6-closeout/live/rerun-c8/C4.7/`))* Kill switches in a real session: recording off, reinjection off, each independent.
+- [x] **C4.8** *(carried from candidate 7's pass with its D53(f) note, D59, D76(f); not re-run on candidate 8 (`sdd/V6-closeout/live/rerun-c8/CARRIED.md`, C4.8))* Upgrade from the previous build, uninstall, reinstall; project work preserved;
       backup → restore → fsck certified.
-- [ ] **C4.9** Degraded paths: daemon killed mid-session, unknown schema, unavailable object —
+- [x] **C4.9** *(candidate 8, D76: leg (b) (`sdd/V6-closeout/live/rerun-c8/C4.9/`), and a daemon ended mid-session in C1.6 (`sdd/V6-closeout/live/rerun-c8/C1.6/`); legs (a) and (c) carried from candidate 7, D59, D53(f) (`sdd/V6-closeout/live/rerun-c8/CARRIED.md`))* Degraded paths: daemon killed mid-session, unknown schema, unavailable object —
       the host session is never broken.
-- [ ] **C4.10** UAT-01…12 executed per the owner decision (agent-run on the real host, or human),
+- [x] **C4.10** *(D3, D76: every UAT row's Result block in docs/uat.md reports candidate 8; eight rows re-run on it, UAT-01, -03, -09 and -10 carried from candidate 7 with notes (`sdd/V6-closeout/live/rerun-c8/`))* UAT-01…12 executed per the owner decision (agent-run on the real host, or human),
       results written into `docs/uat.md` with evidence.
-- [ ] **C4.11** Linux installed host if a Linux Claude Code can be run (Docker); macOS and
+- [x] **C4.11** *(D34(c), D80(c): Linux installed in the container without a model, `bin/qompack` kept its exec bit; Linux model sessions, macOS and windows/arm64 recorded `unknown` (`sdd/V6-closeout/live/rerun-c8/CARRIED.md`, C4.11))* Linux installed host if a Linux Claude Code can be run (Docker); macOS and
       windows/arm64 recorded `unknown` unless a runner is provided.
 
 ## Phase 5 — Benchmarks and evaluation that show it works well
