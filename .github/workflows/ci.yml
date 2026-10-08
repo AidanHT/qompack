@@ -189,15 +189,22 @@ jobs:
           set +e -u
           # -timeout is per test binary, and devtool's wholeTreeTestTimeout (30m) is sized for ONE
           # pass of the whole tree. -count=2 runs every test of a binary twice inside that one
-          # budget, so the Windows leg gets two passes' worth: 2 x 30m = 60m (owner ruling D55).
-          # Measured: internal/daemon was killed at 1800 s in run 36816905394's windows test job
-          # under -count=2; alone at -count=2 on a loaded local Windows host it took 527 s with no
-          # hang (plans/sdd/V6-closeout/w16-ci/runs/fix-daemon-count2-windows.log), so the kill is
-          # attributed to whole-tree co-load on the two-core runner. A hosted-only hang is not yet
-          # excluded: a real hang is still killed, and the reconciliation below names the tests it
-          # left unfinished (c697ed1e). The other legs make one pass and keep 30m.
+          # budget, so the Windows leg needs two passes' worth, each with the headroom a slow hosted
+          # runner takes: 2 x 2 x 30m = 120m (D70(b)). It is a hang guard, not a product budget.
+          # Measured: internal/daemon was killed at 1800 s in run 36816905394 (D55, which set 60m)
+          # and again at 3600 s in run 37365986864 attempt 2, still progressing both times: the
+          # second dump showed the second pass's parallel tests parked in t.Parallel behind a
+          # serial walk that had reached publication_startup_test.go. Locally, at the job's
+          # GOMAXPROCS=2 and -parallel 2, the package's two passes take 978 to 1078 s with no hang,
+          # and that runner was 4.2 to 4.7 times slower, which puts its two passes at about 5070 s
+          # (85 minutes); 120m is 1.4 times that. The pass count stays: -count=2 is the Windows
+          # leg's repeat-run coverage, the order-dependence and leaked-state check V1's DoD 6 set
+          # for Windows in place of the -race the other legs run, and one pass would also not fit
+          # 30m on that runner (about 2530 s). A real hang is still killed, and the reconciliation
+          # below names the tests it left unfinished (c697ed1e). The other legs make one pass and
+          # keep 30m.
           if [ "$RUNNER_OS" = "Windows" ]; then
-            flags='-count=2'; timeout='60m'
+            flags='-count=2'; timeout='120m'
           else
             flags='-race'; timeout='30m'
           fi
