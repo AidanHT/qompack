@@ -342,18 +342,38 @@ func settleReplay(dd *daemon) func(context.Context, ipc.Request) ipc.Response {
 }
 
 // settleGate holds the lane's publication of one delivery until it is opened. The caller registers
-// open as a cleanup after starting the worker pool, so it runs before the pool is joined.
-func settleGate(dd *daemon, nonce string) (func(context.Context, ipc.Request) ipc.Response, func()) {
-	release := make(chan struct{})
-	var once sync.Once
-	open := func() { once.Do(func() { close(release) }) }
-	run := func(ctx context.Context, req ipc.Request) ipc.Response {
+// open as a cleanup after starting the worker pool, so it runs before the pool is joined. held is
+// closed once the held publication has started: the worker running it then owns the delivery
+// (ingest.dispatch takes the delivery's seen ownership before it calls run), so a drain that meets a
+// copy of it leaves the copy to the lane. A row whose subject needs the live worker to own the
+// delivery waits for held (heldWithin); a worker that has not yet taken the job from the ring owns
+// nothing, and a drain then publishes the copy itself (D75(c)).
+func settleGate(dd *daemon, nonce string) (run func(context.Context, ipc.Request) ipc.Response, open func(),
+	held <-chan struct{},
+) {
+	release, started := make(chan struct{}), make(chan struct{})
+	var opened, began sync.Once
+	open = func() { opened.Do(func() { close(release) }) }
+	run = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == nonce {
+			began.Do(func() { close(started) })
 			<-release
 		}
 		return dd.runIngested(ctx, req)
 	}
-	return run, open
+	return run, open, started
+}
+
+// heldWithin reports whether held (settleGate's) closes within bound.
+func heldWithin(held <-chan struct{}, bound time.Duration) bool {
+	timer := time.NewTimer(bound)
+	defer timer.Stop()
+	select {
+	case <-held:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // settleStarted reports whether a PreCompact's settle has begun: it counts itself before it waits.
@@ -368,13 +388,12 @@ func TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing(t *testing.T) {
 	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const sess core.SessionID = "sess-precompact-leased"
 	tool := liveOrderTool(dd, root, sess, 1)
-	run, open := settleGate(dd, tool.Nonce)
+	run, open, held := settleGate(dd, tool.Nonce)
 	liveOrderWorkers(t, dd, 2, run)
 	t.Cleanup(open)
 
 	acceptPrompt(t, dd, tool)
-	require.Eventually(t, func() bool { _, running := liveOrderLane(dd, sess); return running },
-		liveOrderBound, liveOrderTick, "fixture sanity: the lane is publishing the Read")
+	require.True(t, heldWithin(held, liveOrderBound), "fixture sanity: the lane is publishing the Read")
 	writeHookSpool(t, root, "client-6868.ndjson", tool) // the copy a late ACK leaves
 	probe := bindSealProbe(dd, tool.Nonce)
 
@@ -404,13 +423,12 @@ func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T
 	const sess core.SessionID = "sess-precompact-leased-left"
 	tool := liveOrderTool(dd, root, sess, 1)
 	after := liveOrderTool(dd, root, sess, 2)
-	run, open := settleGate(dd, tool.Nonce)
+	run, open, held := settleGate(dd, tool.Nonce)
 	liveOrderWorkers(t, dd, 2, run)
 	t.Cleanup(open)
 
 	acceptPrompt(t, dd, tool)
-	require.Eventually(t, func() bool { _, running := liveOrderLane(dd, sess); return running },
-		liveOrderBound, liveOrderTick, "fixture sanity: the lane is publishing the Read")
+	require.True(t, heldWithin(held, liveOrderBound), "fixture sanity: the lane is publishing the Read")
 	writeHookSpool(t, root, "client-6969.ndjson", tool)
 	probe := bindSealProbe(dd, tool.Nonce)
 

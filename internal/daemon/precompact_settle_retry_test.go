@@ -36,7 +36,7 @@ func TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes(t *testing
 	const sess core.SessionID = "sess-precompact-live-copy-ahead"
 	first := liveOrderTool(dd, root, sess, 1)
 	next := liveOrderTool(dd, root, sess, 2)
-	run, open := settleGate(dd, first.Nonce)
+	run, open, held := settleGate(dd, first.Nonce)
 	liveOrderWorkers(t, dd, 2, run)
 	t.Cleanup(open)
 
@@ -44,7 +44,11 @@ func TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes(t *testing
 	probe := bindSealProbe(dd, first.Nonce, next.Nonce)
 
 	// The live line is accepted once the settle has taken its look at the leases: inside its first
-	// read of the spool. The lane then publishes it, held by the gate.
+	// read of the spool. The lane then publishes it, held by the gate, and the look goes on only once
+	// that publication has started: the live worker then owns the delivery, which is the row's subject.
+	// Accepted is not enough: a worker that has not yet taken the job from the ring owns nothing, and
+	// the settle's replay then publishes the copy itself, both Reads in order with nothing to defer
+	// (D75(c): on a loaded runner the fixture's deferral count read 0 while the product was correct).
 	var once sync.Once
 	var acceptErr error
 	dd.spoolHeads.read = func(_ context.Context, path string) ([]byte, error) {
@@ -52,6 +56,9 @@ func TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes(t *testing
 			line, err := ipc.EncodeRequest(first)
 			if err == nil {
 				err = dd.ing.Accept(first, line)
+			}
+			if err == nil && !heldWithin(held, liveOrderBound) {
+				err = errors.New("the live worker never began publishing the Read")
 			}
 			acceptErr = err
 		})
@@ -75,7 +82,8 @@ func TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes(t *testing
 	pre.TS = next.TS + 1
 	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
 
-	require.NoError(t, acceptErr, "fixture sanity: the live Read was accepted during the settle's first look")
+	require.NoError(t, acceptErr,
+		"fixture sanity: the live Read was accepted, and its lane owned it, during the settle's first look")
 	require.Positive(t, dd.m.Counter(counterDrainOrderingDeferred).Value(),
 		"fixture sanity: the settle's replay met the next Read behind the live one")
 	require.Equal(t, 1, probe.calls)
