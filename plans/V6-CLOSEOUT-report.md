@@ -13,12 +13,14 @@ TestGC_DeadlineTruncatesAndResumes and TestPromptWarning_SlowDurableAcceptIsLate
 10). Neither blocks 0.3.0, and both are fixed for 0.3.1 on branch fix/v031-flakes. The independent
 final review of this report (C6.4, section 9) ran three rounds, all needs-fixes, and between the
 second and third the coordinator's D81 was applied. The findings and their resolutions are in
-`plans/sdd/V6-closeout/c6-final-review.md`. One is open: D81(c)(4) found D73(b)'s PreCompact settle
-lead real in 0.3.0, a fidelity-reporting defect in released code that no ledger row has yet
-dispositioned (section 13). C6.4 stays unticked until the coordinator rules on it.
+`plans/sdd/V6-closeout/c6-final-review.md`, and every finding is resolved. The last, round 3's 3.2,
+is resolved by D82: D81(c)(4) found D73(b)'s PreCompact settle lead real in 0.3.0, a drop report that
+can leave out captures still waiting to be stored, with nothing lost. D82 rules it a minor, not a
+blocker, discloses it as known issue 20 in CHANGELOG.md's 0.3.0 Known issues and
+`docs/release-notes/v0.3.0.md`, and has it fixed in 0.3.1 (section 13). C6.4 is ticked.
 
 `plans/V6-report.md` (the 2026-09-20 BLOCKED checkpoint) stays immutable. This report records the
-close-out that followed it. The working ledger is `plans/V6-CLOSEOUT-CHECKLIST.md` (decisions D1-D81,
+close-out that followed it. The working ledger is `plans/V6-CLOSEOUT-CHECKLIST.md` (decisions D1-D82,
 the dispatch log, phases C0-C7), and every ruling cited here as Dnn is a row of that table.
 Evidence paths written without a prefix are relative to `plans/sdd/V6-closeout/`.
 
@@ -38,8 +40,9 @@ Evidence paths written without a prefix are relative to `plans/sdd/V6-closeout/`
 
 Every commit quoted in this report was checked with `git merge-base --is-ancestor`: all are ancestors
 of `develop` (`7fbb8a40`) except C6.2's and C6.3's own commits `36dc82e4`, `920f9269` and `e404673c`,
-which are on `closeout/c6-final`, and the 0.3.1 test fixes `c7f1dd38` and `352aec9b`, which are on
-`fix/v031-flakes` (D81(a)); `6d1def7c` and `4f3deaf4` are tree ids, not commits.
+which are on `closeout/c6-final`, the 0.3.1 test fixes `c7f1dd38` and `352aec9b`, which are on
+`fix/v031-flakes` (D81(a)), and the 0.3.1 settle fix `8fceae1e`, `3f30dfd7` and `f12dd56f`, which is
+on `fix/v031-settle` (D82(b)); `6d1def7c` and `4f3deaf4` are tree ids, not commits.
 
 ## 1. Date and environment
 
@@ -241,7 +244,7 @@ in full on candidate 8, all eight chunks (D62(b), D75(b), D78(a)).
 | SP17-M7, SP18-M7, UAT-01-12 on the shipped package | NOT MET in full: UAT-02, -04, -05 run 2, -06, -07, -08, -11 and UAT-12 steps 1-5 and 8 ran on the frozen bundle, whose `bin/` the release ships (D76, D80). UAT-01, -03, -09, -10, UAT-05 run 1 and UAT-12's upgrade leg were not re-run on candidate 8; they carry candidate 7's pass by diff, with notes naming the changed files (D53(f), D59, D76(f); `docs/uat.md`, `live/rerun-c8/CARRIED.md`). 1.17.10, 1.17.14 and the F-5 rows 1.18.x are `partial_verified` (section 4). D79 accepted the release on that evidence |
 | M0-M6 enabled capabilities with target evidence | Met: the enabled adapter `runtime.migration.reinjection.sessionStartCompact` is `verified_in_target` (live round trip C4.3 and kill switches C4.7 on candidate 8); delivery-journal rollover ships enabled with SP20-D4's evidence test green; the gated switches are recorded `experimental` or `unsupported`, never passed (`inventory-c8-map.md`, "SP-19, SP-20 and SP-21 switches") |
 | Old/new readers, backup, cutover, rollback rehearsed | Met by rehearsal, with the upgrade carried: release-check's rollback rehearsal step passed on candidate 8 (`phase3/c8/release-check.json`); a C1.7 restore smoke (backup create, verify, restore, fsck of source and destination, all exit 0) ran on candidate 8, and the post-new-write restore carries from candidate 7 with its note (`live/rerun-c8/CARRIED.md`, "C1.7"; D53(f)); C1.7's full run passed on candidate 4 |
-| No hidden mandatory privacy, fidelity, recovery or regression blocker | Met except one item, NOT MET pending a ruling (last clause): the five V6-report blockers are closed (section 7); the live re-check's audit found no blocker or major (D76); known issues 3, 15, 16 and 19 are disclosed residuals; C5.5 quoted verbatim: "inconclusive — interval [-0.214, 0.214] straddles -0.200", with no H2 regression (constraint-clean +0.050) (D77, section 8); the two reds of ci.yml `37746311073` after the release are test defects, not product defects (D81(a), section 10). NOT MET, pending a ruling: D81(c)(4) found D73(b) real, a 0.3.0 PreCompact settle that could leave ring-held, WAL-only and predecessor-leased captures out of its drop report. It is a fidelity-reporting defect in released code, fixed for 0.3.1, and no ledger row yet says whether 0.3.0 discloses it as known issue 20 or keeps it ledger-only (section 13) |
+| No hidden mandatory privacy, fidelity, recovery or regression blocker | Met, with known issue 20 disclosed (D82): the five V6-report blockers are closed (section 7); the live re-check's audit found no blocker or major (D76); known issues 3, 15, 16, 19 and 20 are disclosed residuals; C5.5 quoted verbatim: "inconclusive — interval [-0.214, 0.214] straddles -0.200", with no H2 regression (constraint-clean +0.050) (D77, section 8); the two reds of ci.yml `37746311073` after the release are test defects, not product defects (D81(a), section 10). D81(c)(4) found D73(b) real: a 0.3.0 PreCompact settle can leave ring-held, WAL-only and predecessor-leased captures out of its drop report. Nothing is lost, and D82 rules it a minor of the class D45 names, not a blocker: known issue 20, disclosed in CHANGELOG.md's 0.3.0 Known issues and the release notes, and fixed in 0.3.1 (section 13) |
 
 ## 5. Cross-component integration identifiers (V6 plan section 3)
 
@@ -390,7 +393,7 @@ never become constants (Q1).
 | Live re-check C4.x and UAT (`mkrecheck8.py`, about 8 sessions plus D60(f)'s rows) | Passed (D76): `wf_090ea750-b1e`, 20 real sessions of a 25-session budget on the frozen bundle (`live/rerun-c8/`): UAT-05 run 2; UAT-12 sessions A and B with C4.6; UAT-06 with C4.5; status after a mid-session compaction (F-C48-1, `live/rerun-c8/F-C48-1/`); C4.9 settingsVersion leg; the rehydrate privacy and notice rows under a deny rule (UAT-12); two status reads with two sessions in the store (C4.5, `live/rerun-c8/C4.5/uat06/`); C1.6's resilience part. The audit returned 5 minors and 4 nits, no blocker or major; known issues 17 and 18 (D76(b), D76(c)) |
 | C5.5 | Executed: "inconclusive — interval [-0.214, 0.214] straddles -0.200"; allows the release under A8 item 1 (D77) |
 | C6.2 inventory dispositions | Done: `c8_result` and `c8_evidence` for all 304 rows (`36dc82e4`, `inventory-c8-map.md`) |
-| C6.4 independent final review | Reviewed in three rounds; NOT MET for one finding (below). Record: `plans/sdd/V6-closeout/c6-final-review.md`, every finding with its resolution and commit. Non-authoring seats reviewed in three rounds. Round 1: needs-fixes (1 major, 5 minors, 1 nit). Round 2: needs-fixes (2 majors, 2 minors, 3 nits). The one finding the fix seats could not resolve, the TestGC_DeadlineTruncatesAndResumes red (1.1, 2.1), is dispositioned by D81(a), and the D81 pass applied it. Round 3 review: needs-fixes (2 majors, 1 minor); 3.1 and 3.3 are fixed. NOT MET: 3.2, the D73(b) settle defect found real by D81(c)(4), has no ledger disposition (section 13), so C6.4 is unticked until the coordinator's row exists |
+| C6.4 independent final review | Done: reviewed in three rounds, every finding resolved (D81(b), D82(c)). Record: `plans/sdd/V6-closeout/c6-final-review.md`, every finding with its resolution and commit. Non-authoring seats reviewed in three rounds. Round 1: needs-fixes (1 major, 5 minors, 1 nit). Round 2: needs-fixes (2 majors, 2 minors, 3 nits). The one finding the fix seats could not resolve, the TestGC_DeadlineTruncatesAndResumes red (1.1, 2.1), is dispositioned by D81(a), and the D81 pass applied it. Round 3 review: needs-fixes (2 majors, 1 minor); 3.1 and 3.3 are fixed, and 3.2, the D73(b) settle defect found real by D81(c)(4), is resolved by D82: known issue 20, disclosed, and fixed in 0.3.1 (section 13). C6.4 is ticked |
 | Pre-release, HTTPS install rehearsal, bin/ byte comparison (D53(h)) | Done (D80): published `bin/` byte-identical to `qompack-bundles/c8` (`phase3/c8/release-bin-compare.txt`); HTTPS install rehearsed with Claude Code 2.1.293 on Linux (container, no model, `bin/qompack` kept `-rwxr-xr-x`) and on Windows (isolated profile, then the real profile at local scope, where one session loaded 0.3.0, connected its MCP server, listed six commands and ran four hook events); then promoted. This rehearsal's record is ledger row D80 and `docs/install.md` section 9; no session files of it are committed |
 
 ## 10. Regression preservation, skips, failures and waivers
@@ -490,8 +493,9 @@ None was made to turn a red green without a recorded reason:
   45-minute guard while the host slept (D72). On candidate 8, release-check ran its 18 steps with none
   skipped (`phase3/c8/release-check.json`).
 
-**Reds dispositioned as test defects.** D70(b) and D73 (section 13's test-only residuals). On the
-second freeze and after it:
+**Reds dispositioned as test defects.** D70(b), D73(1) and D73(2) (section 13's test-only residuals;
+D73(b)'s settle lead is not one of them, and is known issue 20 by D82). On the second freeze and
+after it:
 - linux-timing and linux-e2e-timing: D53(b)'s container class, not judged (D75(a)).
 - ci.yml `37562946379` attempt 1, test (macos-latest): the settle row's fixture-sanity count, a test
   defect (D75(c), with ci.yml `37559750996`'s Windows job on `e8c62191`); a forced-schedule overlay
@@ -579,8 +583,8 @@ What 0.3.0 ships, read from `docs/config-reference.md` and `docs/release-notes/v
 
 ## 13. Known issues and test-only residuals
 
-The user-facing items are in CHANGELOG.md and `docs/release-notes/v0.3.0.md` (D79); the full text is
-`plans/sdd/V6-closeout/w22-known-issues.md`.
+The user-facing items are in CHANGELOG.md and `docs/release-notes/v0.3.0.md` (D79; item 20 by D82);
+the full text is `plans/sdd/V6-closeout/w22-known-issues.md`.
 
 1. Idle windows across two daemon idle exits can degrade a project to passive recording.
 2. On a score tie a fork's checkpoint can keep a parent decision ahead of its own (named in `dropped()`).
@@ -607,6 +611,20 @@ The user-facing items are in CHANGELOG.md and `docs/release-notes/v0.3.0.md` (D7
 19. On Windows, hook processes that share a reused pid share one fallback spool; once it reaches its
     64 MiB cap while unconsumed, a capture whose hook cannot reach the daemon is dropped, loudly
     (D78(c)).
+20. A checkpoint's drop report can leave out captures still waiting to be stored: when a compaction's
+    checkpoint is sealed while some of the session's captures are queued for a busy worker, held only
+    in the write-ahead log or leased by an earlier daemon, the rehydration block's section 7 and
+    `dropped()` do not name them. Nothing is lost: the daemon stores them right after, and `recall`
+    and `expand` find them then. Fixed in 0.3.1 (D73(b), D82).
+
+Known issue 20 is D82's ruling on the C6.4 review's finding 3.2. D73(b) listed the PreCompact settle
+lead as unverified, and D81(c)(4) found it real in 0.3.0 (`internal/daemon/precompact_settle.go`). D82
+rules it a minor of the class D45 names (it under-reports dropped context), not a blocker, and it does
+not reopen the published 0.3.0. It is disclosed in CHANGELOG.md's 0.3.0 Known issues, in
+`docs/release-notes/v0.3.0.md` and in `w22-known-issues.md` (D82(a)), and fixed in 0.3.1 on
+fix/v031-settle (`8fceae1e`, `3f30dfd7`, `f12dd56f`; D82(b)), where a settle names every capture it
+leaves and the summary names no cause it cannot know (D81(c)(4)). The published 0.3.0 release body
+is not edited: 0.3.1 supersedes it, and its notes list the fix.
 
 Test-only residuals (ledger only, never the release notes): the hook-path connect budget rows (cliwork
 FR1-2); drain rows applying `drainLineDeadline` to a real dispatch; wall-clock margins in the spawn rows;
@@ -621,16 +639,6 @@ rig's shared spool identity and the unprovable
 Read target persisted nowhere (D78(b), D78(d)). After the release: the two reds of ci.yml
 `37746311073`, TestGC_DeadlineTruncatesAndResumes's budget priced from one cold mark and
 TestPromptWarning_SlowDurableAcceptIsLateForTheClient's missing join (D81(a), section 10).
-
-Released-product residual awaiting the coordinator's ruling (not test-only, and not yet in the known
-issues above): D73(b) listed a PreCompact settle lead as unverified, and D81(c)(4) has found it real.
-In 0.3.0 a settle (`internal/daemon/precompact_settle.go`) could leave ring-held, WAL-only and
-predecessor-leased captures out of its drop report, so the report could under-state what the
-compaction left behind. 0.3.1 names every capture it leaves (section 18, item 3). No ledger row yet
-rules whether 0.3.0 discloses it as known issue 20 in CHANGELOG.md and the release notes or keeps it
-ledger-only with a stated reason. Until that row exists, section 4's no-hidden-blocker row is NOT MET
-for this item and C6.4 is unticked (`plans/sdd/V6-closeout/c6-final-review.md`, finding 3.2;
-`w22-known-issues.md`).
 
 ## 14. Carried defects (C6.3)
 
@@ -709,14 +717,21 @@ do not split cache writes between the 5-minute and 1-hour TTLs.
   ran against the real profile once, when a wrapper dropped CLAUDE_CONFIG_DIR; its clone failed before
   it wrote anything, and the real profile's files matched their baseline.
 - **After the release (D81).** develop's hosted CI is green on `7fbb8a40`, and the two reds before it
-  are test defects (D81(a)). The v0.3.1 wave, on fix/v031-* branches not yet merged, fixes known issues 17 and 19, D73(b)'s settle report,
-  D76(d)'s diagnostic and the test-only residuals, keeps known issue 18, and sets 0.3.1's release
-  gate (D81(c)).
+  are test defects (D81(a)). The v0.3.1 wave, on fix/v031-* branches not yet merged into `develop`,
+  fixes known issues 17 and 19, D73(b)'s settle report (known issue 20, D82), D76(d)'s diagnostic
+  and the test-only residuals, keeps known issue 18, and sets 0.3.1's release gate (D81(c)).
+- **Known issue 20 (D82).** D73(b)'s settle defect, found real in 0.3.0 by D81(c)(4), is a minor of
+  the class D45 names, not a blocker: a checkpoint's drop report can leave out captures still waiting
+  to be stored, and nothing is lost. It is disclosed as known issue 20 in CHANGELOG.md's 0.3.0 Known
+  issues, `docs/release-notes/v0.3.0.md` and `w22-known-issues.md`, and fixed in 0.3.1 on
+  fix/v031-settle. The published 0.3.0 release body is not edited; 0.3.1's notes list the fix. The
+  row resolves the C6.4 review's finding 3.2 (D82(c)).
 
 ## 18. Post-release work
 
 The v0.3.1 wave (`wf_50d07daa-d92`, five seats on fix/v031-* branches, D81(c)) has taken items 2, 3,
-5 and part of 6 below. Those branches are not merged or released; 0.3.1's release gate is D81(c)(8).
+5 and part of 6 below. Those branches are not merged into `develop` or released; 0.3.1's release
+gate is D81(c)(8).
 
 1. **Fail-closed handling of the remaining path spellings** (D72(a), known issue 16): treat the four
    minors and the nit from wave 23's fourth review as one class and withhold it whole, rather than
@@ -736,8 +751,9 @@ The v0.3.1 wave (`wf_50d07daa-d92`, five seats on fix/v031-* branches, D81(c)) h
 3. **The PreCompact settle lead** (D73(b)): D81(c)(4) found it real. A settle could leave ring-held,
    WAL-only and predecessor-leased captures out of its drop report
    (`internal/daemon/precompact_settle.go`); for 0.3.1 it names every capture it leaves, and the
-   summary names no cause it cannot know. Its 0.3.0 disposition awaits the coordinator's ruling
-   (section 13).
+   summary names no cause it cannot know (fix/v031-settle `8fceae1e`, `3f30dfd7`, `f12dd56f`;
+   D82(b)). In 0.3.0 it is known issue 20, disclosed in CHANGELOG.md and the release notes (D82(a),
+   section 13).
 4. **The per-prompt history.json fsync and capWentOn** (D71(d)): the ledger records contract r2's
    per-prompt history.json fsync, which sits off the hook reply path but inside the session's ordering
    gate, and capWentOn's quadratic trim, as known daemon minors. It records no remedy. Proposed, not
@@ -769,17 +785,18 @@ the frozen candidate, the HTTPS install rehearsed on Windows and Linux, then pro
 merged as `fff45a45`. Every red known when D79 ruled was fixed or dispositioned, and so are the two
 found after the release on code identical to the tag's: D81(a) classes TestGC_DeadlineTruncatesAndResumes
 and TestPromptWarning_SlowDurableAcceptIsLateForTheClient, from ci.yml `37746311073`, as test defects
-that do not block 0.3.0 (section 10). No release blocker is open.
+that do not block 0.3.0 (section 10). D73(b)'s settle defect, which D81(c)(4) found real in 0.3.0,
+is a minor, not a blocker: D82 discloses it as known issue 20 and has it fixed in 0.3.1 (section 13).
+No release blocker is open.
 
-**Close-out record: one item open.** C6.4's independent review is recorded in
+**Close-out record (C6): complete.** C6.4's independent review is recorded in
 `plans/sdd/V6-closeout/c6-final-review.md` (section 9): three review rounds, with D81 applied between
-the second and third. Round 3's finding 3.2 is open: D73(b)'s settle defect, which D81(c)(4) found real
-in 0.3.0, has no ledger disposition (section 13). C6.4 is unticked until the coordinator rules on it.
+the second and third, and every finding resolved. Round 3's finding 3.2 is resolved by D82: known
+issue 20, disclosed in CHANGELOG.md's 0.3.0 Known issues and `docs/release-notes/v0.3.0.md`, and fixed
+in 0.3.1 on fix/v031-settle (section 13). C6.4 is ticked, and section 4's no-hidden-blocker row is met
+with known issue 20 disclosed.
 
 What remains:
-- **The coordinator's ruling on D73(b)'s settle defect in 0.3.0** (section 13, review finding 3.2):
-  either known issue 20 in CHANGELOG.md and the release notes, or ledger-only with its reason. Then
-  section 4's no-hidden-blocker row and this section cite that row, and C6.4 is ticked.
 - **NOT MET parts, dispositioned and disclosed:** the Linux fsync-bound halves (D53(b), D75(a)); the
   installed upgrade, UAT-01, -03, -09, -10, UAT-05 run 1 and UAT-12's upgrade leg carried from
   candidate 7 (D53(f), D59, D76(f)); macOS, arm64 and Linux model sessions `unknown` (C4.11, D34(c),

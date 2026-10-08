@@ -10,17 +10,20 @@ the V6 plan's section 8 template and section 10 gate. The fixes are the `fix:clo
 
 Commits quoted here are on `closeout/c6-final`, and none is on `develop` (`7fbb8a40`) yet:
 `9325fc86`, `54c13eca` and `912e71c4` (round 1's fixes), `c99a7794` (the inventory seat) and
-`1555353b` (round 2's fixes, which added this file) and `9ded0cfd` (the D81 pass). Round 3's fixes
-are in the commit that adds the "Round 3 review" section below. The 0.3.1 test fixes `c7f1dd38` and `352aec9b` that D81(a) cites are on
-branch `fix/v031-flakes`, not on `closeout/c6-final`.
+`1555353b` (round 2's fixes, which added this file), `9ded0cfd` (the D81 pass), `004b169f` (round
+3's fixes), and `8b17d6fe` and the D82 pass commit named in "Round 3 resolution" below. The 0.3.1
+test fixes `c7f1dd38` and `352aec9b` that D81(a) cites are on branch `fix/v031-flakes`, and the
+0.3.1 settle fix `8fceae1e`, `3f30dfd7` and `f12dd56f` that D82(b) cites is on branch
+`fix/v031-settle`; none of them is on `closeout/c6-final`.
 
-**Status.** One major is open, 3.2, so C6.4 is unticked in `plans/V6-CLOSEOUT-CHECKLIST.md`. Rounds
-1 and 2 are resolved: the one finding their fix seats could not resolve, the
-TestGC_DeadlineTruncatesAndResumes red (1.1, 2.1), is dispositioned by the coordinator's ledger row
-D81(a) as a test defect that does not block 0.3.0, and the D81 pass applied that row. Round 3's 3.1
-and 3.3 are fixed. 3.2 needs a ledger row this seat may not write: D81(c)(4) found D73(b)'s settle
-defect real in 0.3.0, and no row says whether 0.3.0 discloses it as known issue 20 or keeps it
-ledger-only. The report now carries it as a released-product residual awaiting that ruling.
+**Status.** Every finding of rounds 1-3 is resolved, and C6.4 is ticked in
+`plans/V6-CLOSEOUT-CHECKLIST.md`. Rounds 1 and 2: the one finding their fix seats could not resolve,
+the TestGC_DeadlineTruncatesAndResumes red (1.1, 2.1), is dispositioned by the coordinator's ledger
+row D81(a) as a test defect that does not block 0.3.0, and the D81 pass applied that row. Round 3:
+3.1 and 3.3 are fixed, and 3.2 is resolved by the coordinator's ledger row D82. D81(c)(4) found
+D73(b)'s settle defect real in 0.3.0, and D82 rules it a minor, not a blocker: it is disclosed as
+known issue 20 in CHANGELOG.md's 0.3.0 Known issues, `docs/release-notes/v0.3.0.md` and
+`w22-known-issues.md`, and fixed in 0.3.1.
 
 ## Round 1, report at `88f2cbf4`: needs-fixes (1 major, 5 minors, 1 nit)
 
@@ -102,7 +105,7 @@ No `[OWED` marker remains in the report.
 | # | Severity | Finding | Resolution |
 |---|---|---|---|
 | 3.1 | major | `docs/release.md` section 1 step 7 still contradicted D80. It ended "A pre-release is tested by adding its `marketplace.json` asset by URL instead (`docs/install.md` §9)", which D80(a) rules does not work and which install §9 now says fails. The same step named `claude plugin marketplace add AidanHT/qompack` without `--sparse .claude-plugin`, although D80(b) says every install instruction carries it. The text was outside `1555353b`'s hunks, so round 2's 2.2 "Fixed" and the record's "Every finding is resolved" overclaimed, and the C6.1 and C6.4 ticks rested on it. | **Fixed.** Step 7 now gives the post-merge command in install §9's form, `claude plugin marketplace add --sparse .claude-plugin -- https://github.com/AidanHT/qompack.git`, and says a pre-release is not in the marketplace yet and its asset cannot be added by URL (install §9), so its install is rehearsed from a temporary branch whose `.claude-plugin/marketplace.json` is the release's own asset, added in the repository form with `--sparse .claude-plugin` (D80(a), D80(b)). No branch-form command is given, because D80 records none. No other GitHub install instruction in README.md, CHANGELOG.md, `docs/` or the release notes lacks `--sparse`: the remaining `marketplace add` lines in `docs/install.md` add local directories, or are the shorthand paragraph that already says to pass it. 2.2's resolution is amended to say so. C6.1's tick text now names this round's `docs/release.md` changes, and C6.1 stays ticked on them. C6.4 is unticked for 3.2, not for this finding. |
-| 3.2 | major | Report section 13 kept D73(b), which D81(c)(4) found real (in 0.3.0 a PreCompact settle could leave ring-held, WAL-only and predecessor-leased captures out of its drop report), in the list headed "Test-only residuals (ledger only, never the release notes)". A shipped fidelity-reporting defect was labelled test-only and kept out of known issues 1-19, with no ledger row making that classification. Section 4's no-hidden-blocker row was marked Met without addressing it, and C6.4's tick rested on it. | **Partly fixed; open for the coordinator.** Section 13 no longer lists it as test-only: a new paragraph carries it as a released-product residual awaiting the coordinator's ruling. Section 4's row reads "Met except one item, NOT MET pending a ruling" and names it. Section 18 item 3 and section 19 say its 0.3.0 disposition awaits the ruling, and section 19's "What remains" lists the ruling first. The header and the section 9 C6.4 cell say the finding is open. `w22-known-issues.md` moves the D73(b) bullet out of its test-only list into a new "Released-product residual awaiting a ruling" section. The V6 plan's section 2 no-hidden-blocker box and section 10 independent-review box are unticked with the reason, so C6.5's tick now counts 43 ticked and 10 open. **Not fixable here:** the ledger row (known issue 20 in CHANGELOG.md and the release notes, or ledger-only with its reason) is the coordinator's, and this seat may not write D rows. CHANGELOG.md and `docs/release-notes/v0.3.0.md` are unchanged, because adding a known issue 20 would pre-empt that ruling. **C6.4 is unticked.** Once the row exists: cite it in sections 4, 13 and 19, re-tick the two V6 plan boxes and C6.4, and restore C6.5's counts to 45 and 8. |
+| 3.2 | major | Report section 13 kept D73(b), which D81(c)(4) found real (in 0.3.0 a PreCompact settle could leave ring-held, WAL-only and predecessor-leased captures out of its drop report), in the list headed "Test-only residuals (ledger only, never the release notes)". A shipped fidelity-reporting defect was labelled test-only and kept out of known issues 1-19, with no ledger row making that classification. Section 4's no-hidden-blocker row was marked Met without addressing it, and C6.4's tick rested on it. | **Partly fixed; open for the coordinator.** Section 13 no longer lists it as test-only: a new paragraph carries it as a released-product residual awaiting the coordinator's ruling. Section 4's row reads "Met except one item, NOT MET pending a ruling" and names it. Section 18 item 3 and section 19 say its 0.3.0 disposition awaits the ruling, and section 19's "What remains" lists the ruling first. The header and the section 9 C6.4 cell say the finding is open. `w22-known-issues.md` moves the D73(b) bullet out of its test-only list into a new "Released-product residual awaiting a ruling" section. The V6 plan's section 2 no-hidden-blocker box and section 10 independent-review box are unticked with the reason, so C6.5's tick now counts 43 ticked and 10 open. **Not fixable here:** the ledger row (known issue 20 in CHANGELOG.md and the release notes, or ledger-only with its reason) is the coordinator's, and this seat may not write D rows. CHANGELOG.md and `docs/release-notes/v0.3.0.md` are unchanged, because adding a known issue 20 would pre-empt that ruling. **C6.4 is unticked.** Once the row exists: cite it in sections 4, 13 and 19, re-tick the two V6 plan boxes and C6.4, and restore C6.5's counts to 45 and 8. **Resolved by D82** (see "Round 3 resolution" below): known issue 20, disclosed in CHANGELOG.md's 0.3.0 Known issues, `docs/release-notes/v0.3.0.md` and `w22-known-issues.md`, and fixed in 0.3.1 on `fix/v031-settle`. The report cites D82 in its header and sections 0, 4, 9, 10, 13, 17, 18 and 19, the two V6 plan boxes are re-ticked, C6.5 counts 45 and 8, and C6.4 is ticked. |
 | 3.3 | minor | `docs/release.md` after the generated scope table said "Everything outside `windows/amd64` is **untested at the deployment level**", but D80 records a deployment-level install of the published 0.3.0 on linux/amd64 in the container, and README's "Installed in Claude Code" row and release.md's own capability rows and section 7 say so. | **Fixed.** The sentence now scopes the table's claim to the artifacts it names, and says that outside `windows/amd64` no Claude Code session has run: linux/amd64 was installed only, from the published marketplace in a container with no model, where `bin/qompack` kept its executable bit and ran (D80(c)), and macOS and the arm64 targets were never installed. |
 
 ### Checks run for round 3's fixes
@@ -113,3 +116,23 @@ No `[OWED` marker remains in the report.
   the commit.
 - No D row of `plans/V6-CLOSEOUT-CHECKLIST.md` was edited; the checklist diff touches only C6.1, C6.4
   and C6.5.
+
+## Round 3 resolution, after ledger row D82: no new review
+
+Every round 3 finding is resolved:
+
+- **3.1 and 3.3:** fixed in `004b169f` (round 3's fixes, above).
+- **3.2:** resolved by D82 (2026-10-08). `8b17d6fe` adds the row and discloses the defect as known
+  issue 20 in CHANGELOG.md's 0.3.0 Known issues, `docs/release-notes/v0.3.0.md` and
+  `w22-known-issues.md`. The published 0.3.0 release body is not edited (D82(a)). The fix is 0.3.1's,
+  on `fix/v031-settle` (D82(b)). The D82 pass (the commit that adds this section) applies the row: the report cites D82
+  in its header and sections 0, 4, 9, 10, 13, 17, 18 and 19, and its ledger range reads D1-D82. The V6 plan's
+  section 2 no-hidden-blocker box and section 10 independent-review box are ticked, so the plan counts
+  45 boxes ticked and 8 open. The checklist ticks C6.4 and corrects C6.5's counts. No D row was edited.
+
+### Checks run for the D82 pass
+
+- `go test -p 1 -count=1 ./test/docs/... ./test/guards/...` and
+  `go run ./tools/devtool lint --only=docmarkers,runpatterns` on that tree, both passing.
+- Every SHA quoted in the report and in this file was checked with `git cat-file -e`, and every path
+  cited exists.
