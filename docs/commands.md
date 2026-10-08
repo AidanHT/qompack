@@ -25,7 +25,7 @@ artifacts, and `/qompack:recall` with no query, look like that. Run the same
 
 | Command | Subcommand | Arguments | Description |
 |---|---|---|---|
-| `/qompack:status` | `qompack status` | `[--json]` | Qompack status — mode, contracts, store, latency, last decision |
+| `/qompack:status` | `qompack status` | `[--json]` | Qompack status — mode, contracts, store, latency |
 | `/qompack:recall` | `qompack recall` | `<query> [--k N]` | Search stored tool output and file versions by content |
 | `/qompack:pin` | `qompack pin` | `<text>` | Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; the host's summary can still drop it |
 | `/qompack:why` | `qompack why` | `<decision-id>` | Explain a recorded decision and the evidence behind it |
@@ -34,10 +34,10 @@ artifacts, and `/qompack:recall` with no query, look like that. Run the same
 
 ## `/qompack:status`
 
-Qompack status — mode, contracts, store, latency, last decision
+Qompack status — mode, contracts, store, latency
 
 ```
-qompack status — Qompack status — mode, contracts, store, latency, last decision
+qompack status — Qompack status — mode, contracts, store, latency
 
 usage: qompack status [--json]
        /qompack:status [--json]

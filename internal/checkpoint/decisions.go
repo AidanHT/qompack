@@ -153,9 +153,10 @@ func MintDecisionID(what, why string, evidence core.Hash) core.DecisionID {
 // and emitted into the DAG as KindDecision nodes with an explains edge from their evidence node.
 //
 // Failures degrade rather than propagate: an unreadable explaining node skips one decision and
-// counts on checkpoint.decision_read_error, an unavailable ledger or pin store skips its source
-// with a Warn, and a failed emission is logged and ignored. Only a SourceSet.Validate failure or
-// a ctx cancellation returns an error.
+// counts on checkpoint.decision_read_error (an elimination node, which carries no content root,
+// is skipped without counting: its explains edge is source (b)'s own, drawn by emission), an
+// unavailable ledger or pin store skips its source with a Warn, and a failed emission is logged
+// and ignored. Only a SourceSet.Validate failure or a ctx cancellation returns an error.
 func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) ([]Decision, error) {
 	cands, err := extractDecisions(ctx, src, from, "", nil)
 	if err != nil {
@@ -315,7 +316,9 @@ func (x *decisionExtractor) fromExplains(ctx context.Context, nodes []dag.Node) 
 }
 
 // explainCandidate derives one candidate from one explains edge, reporting false when the edge is
-// dangling or the backing content cannot be read (the read path counts the failure).
+// dangling, when it leaves an elimination node with no content root (source (b)'s own edge, which
+// is not a read failure), or when the backing content cannot be read (the read path counts the
+// failure).
 func (x *decisionExtractor) explainCandidate(ctx context.Context, e dag.Edge) (decisionCandidate, bool) {
 	expl, ok := x.src.Graph.Node(e.From)
 	if !ok {
@@ -323,6 +326,13 @@ func (x *decisionExtractor) explainCandidate(ctx context.Context, e dag.Edge) (d
 	}
 	tgt, ok := x.src.Graph.Node(e.To)
 	if !ok {
+		return decisionCandidate{}, false
+	}
+	if expl.Kind == dag.KindElimination && expl.Root.IsZero() {
+		// emitDecisions draws an elimination--explains-->decision edge for every source (b)
+		// decision, and dag.BuildElimination gives the elimination node no content root. The
+		// edge is source (b)'s own record, not an explanation with text behind it, so there is
+		// nothing to read and nothing failed: skip it without counting a read error (D76(d)).
 		return decisionCandidate{}, false
 	}
 	explText, ok := x.text(ctx, expl.Root)

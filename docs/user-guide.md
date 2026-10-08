@@ -72,8 +72,7 @@ Reports mode, the host contract assertions, the hot-path mode, the sessions the 
 files, the counters (the `store.*` ones among them), per-hook latency and the latency budgets. Takes
 no positional arguments; `[--json]` for the envelope ([schema](commands.md#qompackstatus)).
 
-The command's description also promises the last decision, but 0.3.0 does not show one, on the
-page or in `--json` (a known issue in the release notes). To see a recorded decision, run
+Status does not show decisions, on the page or in `--json`. To see a recorded decision, run
 [`/qompack:why <decision-id>`](#qompackwhy).
 
 Status always succeeds where there is a report to show, because "nothing could be reached" is one
