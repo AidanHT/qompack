@@ -272,13 +272,16 @@ jobs:
                 cat pkg-level.txt
               fi
               # test2json hands a crash's lines to whichever test it last saw start, so the cause of a
-              # panic, a runtime fatal error or a -timeout kill is usually inside a TEST's output,
-              # thousands of goroutine-dump lines above its end. Each block is printed from a few
-              # lines before its first line (a fatal error's "runtime:" preamble) to well after it
-              # (the panic value, "running tests:", the first goroutine). -m bounds a package whose
-              # passing tests print the words; grep exits 1 when nothing matched, which is fine.
-              echo "--- crash blocks in $pkg's output (panic:, fatal error:, test timed out) ---"
-              grep -n -m 5 -B 5 -A 30 -E '^(panic: |fatal error: )|test timed out after ' pkg-output.txt
+              # panic, a runtime fatal error, a -timeout kill or a Windows exception is usually inside
+              # a TEST's output, thousands of goroutine-dump lines above its end. A Windows exception
+              # the runtime does not turn into a panic (winthrow, runtime/signal_windows.go) prints
+              # "Exception 0x<code> ..." and "PC=" and then the traceback, with no "panic:" or
+              # "fatal error:" line at all. Each block is printed from a few lines before its first
+              # line (a fatal error's "runtime:" preamble) to well after it (the panic value,
+              # "running tests:", the first goroutine). -m bounds a package whose passing tests print
+              # the words; grep exits 1 when nothing matched, which is fine.
+              echo "--- crash blocks in $pkg's output (panic, fatal error, timeout, Windows exception) ---"
+              grep -n -m 5 -B 5 -A 30 -E '^(panic: |fatal error: |Exception 0x)|test timed out after ' pkg-output.txt
               # A build failure's compiler errors are not the package's output at all: go test -json
               # reports them as build-output events keyed by ImportPath, and the package's fail event
               # names that ImportPath in FailedBuild.
