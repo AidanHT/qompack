@@ -57,11 +57,12 @@ func TestDrainOrder_ClientSpoolsReplayByFirstRecordHostTS(t *testing.T) {
 	}, got)
 }
 
-// TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord: a client spool is named by pid alone
-// and opened for append, so a later hook that reuses the pid appends to a file an earlier pass has
-// already partly consumed. What the next pass replays from that file starts at its consumed offset,
-// so that is the record whose host timestamp places it: client-9's consumed record says 100, but
-// the first record it still has to replay says 900, which is after client-10's 300.
+// TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord: a 0.3.0 hook's client spool is named
+// by pid alone and opened for append, so a later 0.3.0 hook that reused the pid appended to a file an
+// earlier pass had already partly consumed (any writer appending after a pass does the same). What
+// the next pass replays from that file starts at its consumed offset, so that is the record whose
+// host timestamp places it: client-9's consumed record says 100, but the first record it still has
+// to replay says 900, which is after client-10's 300.
 func TestDrainOrder_PartlyConsumedClientSpoolOrdersByNextRecord(t *testing.T) {
 	root := t.TempDir()
 	spool := paths.Of(root).Spool

@@ -23,19 +23,28 @@ const hostTSKey = "t"
 // record order within a file stands.
 //
 // "Still has to replay" is the record at the file's consumed offset in st, the progress the pass
-// has already validated against the spool (byte 0 for a file st has no entry for). A client spool
-// is named by pid alone and opened for append, and a file stays until a drain consumes it, so a
-// later hook that reuses the pid appends to an earlier hook's file; the record an earlier pass
-// consumed says when that earlier hook ran, not the appended one. Within one pass the same reuse
-// can put a later host prompt ahead of another file's earlier one, and file order cannot undo that;
-// the observer's host-order notice names what it causes (docs/cannot-do.md).
+// has already validated against the spool (byte 0 for a file st has no entry for). A file stays
+// until a drain has consumed all of it, and its writer can append after a pass consumed its earlier
+// records; the record an earlier pass consumed says when the earlier append was made, not the
+// later one.
 //
-// ipc.SpoolFiles sorts client-<pid>.ndjson by name, and a pid says nothing about time (nor does an
-// unpadded decimal sort as a number: "client-10" precedes "client-9"). A client spool line is leased
-// when a drain reaches it, so its prompt's turn is its place in the drain. HotSpool and
-// runtime.daemon.enabled=false spool every prompt, one file per hook pid, and read in name order
-// the host's later prompt could become prompt_<s>_0, the id the rehydrator serves as the verbatim
-// original.
+// From 0.3.1 every writer has a file of its own (ipc's client-<pid>-<writer id>.ndjson). A hook
+// process spools only what its own invocation sends, in the order it sends it, so placing each file
+// by its next record puts the hooks' spooled prompts in host order, whatever pids the host reused
+// (D78(c) closes D38's residual for them). A 0.3.0 hook named its file by pid alone (client-<pid>.ndjson) and opened it for append,
+// so a later 0.3.0 hook that reused the pid appended to an earlier hook's undrained file, which then
+// holds two hooks' records in file order. Within one pass such a legacy file can put a later host
+// prompt ahead of another file's earlier one, and file order cannot undo that. An upgraded project
+// can still hold one, so D38's residual stands for legacy files, and the observer's host-order counter
+// and notice name what it causes (docs/cannot-do.md); they also name the live-versus-spool race
+// (D35(b)), which no file naming touches.
+//
+// ipc.SpoolFiles sorts client spools by name, and a name says nothing about time: not its pid (nor
+// does an unpadded decimal sort as a number: "client-10" precedes "client-9"), and not its writer
+// id, which is random. A client spool line is leased when a drain reaches it, so its prompt's turn is
+// its place in the drain. HotSpool and runtime.daemon.enabled=false spool every prompt, one file per
+// hook process, and read in name order the host's later prompt could become prompt_<s>_0, the id the
+// rehydrator serves as the verbatim original.
 //
 // A file whose next record has no readable host timestamp — a record its hook is still writing, a
 // corrupt line, a zero stamp — sorts after every stamped file, by name. The newest file is the

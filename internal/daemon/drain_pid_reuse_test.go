@@ -15,10 +15,12 @@ import (
 	"github.com/qompack/qompack/internal/rehydrate"
 )
 
-// SP08-D3 under pid reuse. ipc names a hook's client spool client-<pid>.ndjson and opens it for
-// append, and a file stays until a drain consumes it, so a later hook that reuses the pid appends to
-// an earlier hook's file. D35 orders client spools by file and keeps record order within a file, so
-// one file can then carry prompts that belong on either side of another file's.
+// SP08-D3 under pid reuse, for the legacy name. A 0.3.0 hook named its client spool
+// client-<pid>.ndjson and opened it for append, and a file stays until a drain consumes it, so a later
+// 0.3.0 hook that reused the pid appended to an earlier hook's file. D35 orders client spools by file
+// and keeps record order within a file, so one file can then carry prompts that belong on either side
+// of another file's. From 0.3.1 every writer has a file of its own (drain_spool_identity_test.go), so
+// these rows pin what the daemon still does with a legacy file an upgraded project holds (D38).
 
 // spD3PidReuseDaemon wires a daemon with a drainer over root, as the SP08-D3 evidence test does.
 func spD3PidReuseDaemon(t *testing.T, root string) (*daemon, *Options) {

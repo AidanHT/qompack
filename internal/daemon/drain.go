@@ -169,8 +169,9 @@ const (
 	drainFileExt   = ".ndjson"
 )
 
-// isClientSpoolName reports whether base names a hook's client spool (ipc's client-<pid>.ndjson), as
-// opposed to one of the ingest's WAL segments or anything else in the spool directory.
+// isClientSpoolName reports whether base names a hook's client spool (ipc's
+// client-<pid>-<writer id>.ndjson, or the client-<pid>.ndjson a 0.3.0 hook left), as opposed to one
+// of the ingest's WAL segments or anything else in the spool directory.
 func isClientSpoolName(base string) bool {
 	return ipc.SpoolFileKindOf(base) == ipc.SpoolFileClient
 }
@@ -385,11 +386,11 @@ type DrainConfig struct {
 	// ClientSpoolRemoving is told the base name of every hook client spool a pass is about to remove
 	// once it was fully replayed (removeCompletedFile), and the drain calls the done it returns once the
 	// removal has returned, whatever its outcome. The daemon wires its spool index's removing
-	// (spool_heads.go): a hook whose pid was reused can write the same name again at the same size and
-	// time the instant the unlink returns, and the index must read that file, not serve the removed
-	// one's heads, so its entry must be gone from before the unlink to after it. Both calls are made
-	// with the drain's mutex held, so neither may block or drain. A nil ClientSpoolRemoving tells
-	// nobody.
+	// (spool_heads.go): a name can be written again at the same size and time the instant the unlink
+	// returns (a 0.3.0 hook that reused a pid recreates its legacy client-<pid>.ndjson), and the index
+	// must read that file, not serve the removed one's heads, so its entry must be gone from before the
+	// unlink to after it. Both calls are made with the drain's mutex held, so neither may block or
+	// drain. A nil ClientSpoolRemoving tells nobody.
 	ClientSpoolRemoving func(base string) (done func())
 	// SpooledPromptSettled is told every observe.prompt a pass consumes through its delivery stages
 	// (absorbed, replayed or retired) from a hook's client spool. A later pass that consumes the line
@@ -497,7 +498,7 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	return dr.pass(ctx, false)
 }
 
-// DrainClientSpools is one pass over the hooks' client spools alone (client-<pid>.ndjson), the pass
+// DrainClientSpools is one pass over the hooks' client spools alone (client-*.ndjson), the pass
 // the client-spool watcher runs while sessions are active (spool_watch.go, C1.13). Every line it reads
 // goes through exactly what Drain does with it: admission, lease, the ordering gate, publication and
 // the committed frontier, under the same mutex. It reads no WAL segment: those are the worker pool's,
@@ -1585,9 +1586,11 @@ func (dr *drainer) removeSpoolFile(remove func(string, int64) (bool, error), pat
 // pass read to EOF are not deleted along with the file. With no writer-side exclusion it narrows the
 // window rather than closing it: an append landing between the stat and the unlink is still lost on
 // POSIX, while on Windows a writer that still holds the file makes the remove fail and a later pass
-// retries. For a client-<pid>.ndjson file that residual is a hook process appending in that instant,
-// or appending again after its earlier lines were drained (and, on POSIX, into a file already
-// unlinked under it); the ingest's WAL segments do not rely on it (ingest.removeDrainedWAL).
+// retries. For a client spool that residual is its writer appending in that instant, or appending
+// again after its earlier lines were drained (and, on POSIX, into a file already unlinked under it).
+// From 0.3.1 the file is its writer's own, so that writer is the only process that can; a legacy
+// client-<pid>.ndjson could also take a 0.3.0 hook that reused the pid. The ingest's WAL segments do
+// not rely on it (ingest.removeDrainedWAL).
 func removeIfUnchanged(path string, drained int64) (bool, error) {
 	fi, err := os.Stat(paths.Long(path))
 	if err != nil {
