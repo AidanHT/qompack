@@ -71,10 +71,6 @@
 - Hosted release-dry-run's release-version bundles (ci.yml `37562946379`) equal the frozen bundles byte for
   byte: all 91 files, the six zips and checksums.txt among them, in both directions
   (`c8/hosted-release-bundles.txt`, D53(h)(4)).
-- Owed on this candidate:
-  1. the C5.2 night for c116-rig, c52-linux-checkpoint and c52-linux-other, and docs/architecture.md §7's
-     C1.16 figure restated from c116-rig;
-  2. the live re-check (`coordinator/mkrecheck8.py`, 25 sessions), C5.6 included;
-  3. C5.5 under A8 with this bundle (its BUNDLE.json SHA above);
-  4. the pre-release, the HTTPS install rehearsal and the bin/ byte comparison (D53(h)).
-  `release-check --tag v0.3.0` on the reference host, on AC (C3.12), is done: the overnight release-check step.
+- Done since the freeze: the C5.2 night (D78), the live re-check (D76) and C5.5 (D77). Release 0.3.0 is
+  cut from this candidate (D79). Still owed after the tag: the pre-release, the HTTPS install rehearsal and
+  the bin/ byte comparison (D53(h)).
