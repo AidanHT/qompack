@@ -307,6 +307,32 @@ func TestUnreplayedDrops_CountsEveryCaptureAndNamesEachToolResult(t *testing.T) 
 	}, unreplayedDrops(left, 0, est))
 }
 
+// TestUnreplayedDrops_ClaimsNoCauseTheSettleCannotKnow: the summary counts the captures the settle
+// left wherever it found them (unreplayedCaptures): a hook client spool, the session's lane, the ring
+// a busy worker had not yet reached, the WAL alone after a full ring or lane, or a lease a daemon
+// before this one took (D73(b)). Only a spooled one can owe its wait to a slow disk, and the others
+// never do, so the detail, which section 7 hands the model and dropped() the user, gives no cause: it
+// says what holds for every one of them. Here a Read still in the ring, a spooled prompt and a lease
+// only the journal knows are left together, and the text is pinned as the model reads it. (Until
+// v0.3.1 it said '(durable writes on this disk were slower than their budget)' of all of them.)
+func TestUnreplayedDrops_ClaimsNoCauseTheSettleCannotKnow(t *testing.T) {
+	left := []pendingCapture{
+		{op: ipc.OpObserveTool, nonce: "nonce-ring", toolUseID: "toolu_ring", ts: 3}, // in the ring, no spool file
+		{op: ipc.OpObservePrompt, nonce: "nonce-spooled", ts: 2, file: "client-spool.jsonl"},
+		{nonce: "nonce-lease-only"}, // a predecessor's lease: no op, no name
+	}
+	got := unreplayedDrops(left, unreplayedNamesAllowance(testConfig()), tokens.New(testConfig(), ""))
+	require.Equal(t, []checkpoint.DropEntry{
+		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: "3 capture(s) of this session (1 tool result(s), " +
+			"1 prompt(s), 1 other) were still waiting to be replayed into the store when this checkpoint was " +
+			"sealed; the newest 1 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays " +
+			"them, and recall or expand finds them then; 1 of the other capture(s) are known here only by " +
+			"their delivery lease, not by their kind"},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: "toolu_ring"},
+	}, got)
+	require.NotContains(t, got[0].Detail, "disk", "a Read waiting for a worker owes nothing to the disk")
+}
+
 // settleTestDaemon is laneTestDaemon with B-E set so that the settle's bound is bound: the rows that
 // assert what the settle waits FOR, not how long, give it a bound no co-loaded host can exhaust.
 func settleTestDaemon(t *testing.T, bound time.Duration) (*daemon, string) {

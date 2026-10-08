@@ -119,11 +119,14 @@ const counterPrecompactSpoolReads = "precompact_settle_spool_reads"
 
 // unreplayedDetailFormat is the summary drop entry's detail, as the checkpoint and section 7 carry it:
 // how many captures were left, of which kinds, how many of the tool results are named, and what that
-// means.
+// means. It gives no cause: the captures it counts were in a hook client spool, the session's lane,
+// the ring, the WAL alone or a predecessor's lease (unreplayedCaptures), and only a spooled one can
+// owe its wait to a slow disk, so a cause would be wrong for the others (docs/troubleshooting.md says
+// which is which).
 const unreplayedDetailFormat = "%d capture(s) of this session (%d tool result(s), %d prompt(s), %d other) were " +
-	"still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk " +
-	"were slower than their budget); the newest %d tool result(s) are named by tool_use_id; nothing is lost: " +
-	"the daemon replays them, and recall or expand finds them then"
+	"still waiting to be replayed into the store when this checkpoint was sealed; the newest %d tool " +
+	"result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand " +
+	"finds them then"
 
 // unknownKindClauseFormat is added to the summary's detail when some of the captures it counts are
 // known to the settle only by their delivery lease (unreplayedCaptures): leased arrivals of the session
