@@ -2,7 +2,6 @@ package ipc
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -105,15 +104,17 @@ func TestSpoolAppend_WritesExactlyOneNewlinePerRecord(t *testing.T) {
 // 10 failing Append calls.
 func TestSpoolWriteFailureDropsAndLoudsOnce(t *testing.T) {
 	dir := t.TempDir()
-	p := filepath.Join(dir, fmt.Sprintf("%s%d%s", spoolFilePrefix, os.Getpid(), spoolFileExt))
-	require.NoError(t, os.WriteFile(p, nil, 0o600))
-	require.NoError(t, os.Chmod(p, 0o400))
-	t.Cleanup(func() { _ = os.Chmod(p, 0o600) })
-
 	lg := &loudCountingLogger{}
 	reg := obs.New(core.SystemClock())
 	s := newSpool(dir, lg, reg)
 	t.Cleanup(func() { _ = s.Close() })
+
+	// The writer's own file, made unwritable before its first Append. Its name carries an id the
+	// writer drew at construction, so Path is the only way to know it.
+	p := s.Path()
+	require.NoError(t, os.WriteFile(p, nil, 0o600))
+	require.NoError(t, os.Chmod(p, 0o400))
+	t.Cleanup(func() { _ = os.Chmod(p, 0o600) })
 
 	for i := 0; i < 10; i++ {
 		err := s.Append(Request{Op: OpObserveTool, Session: core.SessionID("s"), TS: core.UnixMilli(i)})
@@ -198,12 +199,14 @@ func TestSpoolFiles_MissingDirIsEmpty(t *testing.T) {
 // results (this package's own blob names) included, as other.
 func TestSpoolFileKindOf_ClassifiesAsSpoolFilesDoes(t *testing.T) {
 	for name, want := range map[string]SpoolFileKind{
-		"wal-sess.ndjson":                       SpoolFileWAL,
-		"client-4242.ndjson":                    SpoolFileClient,
-		blobFilePrefix + "4242-1" + blobFileExt: SpoolFileOther,
-		"wal-sess.ndjson.tmp":                   SpoolFileOther,
-		"client-4242.txt":                       SpoolFileOther,
-		"ignored.txt":                           SpoolFileOther,
+		"wal-sess.ndjson":                                     SpoolFileWAL,
+		"client-4242.ndjson":                                  SpoolFileClient, // a 0.3.0 hook's file
+		clientSpoolName(4242, newSpoolWriterID()):             SpoolFileClient, // one writer's file
+		filepath.Base(newSpool(t.TempDir(), nil, nil).Path()): SpoolFileClient,
+		blobFilePrefix + "4242-1" + blobFileExt:               SpoolFileOther,
+		"wal-sess.ndjson.tmp":                                 SpoolFileOther,
+		"client-4242.txt":                                     SpoolFileOther,
+		"ignored.txt":                                         SpoolFileOther,
 	} {
 		require.Equal(t, want, SpoolFileKindOf(name), name)
 	}

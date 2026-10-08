@@ -18,13 +18,14 @@ import (
 // The heads of the hook client spools, read once per file version (V6 close-out D55, wave 16b).
 //
 // The PreCompact settle (precompact_settle.go) must know which client spools hold the compacting
-// session's captures, and a client-<pid> name says nothing about its session: only the lines do.
+// session's captures, and a client spool's name says nothing about its session: only the lines do.
 // Reading every client spool on every PreCompact made a healthy session pay for every other
 // session's backlog, before its bound and again after it. So the daemon remembers what each client
 // spool holds, as the settle reads it: every complete hot-path line's head (spoolLineHead) and where
 // the line starts, for the file's size and modification time when it was read. A hook client spool
-// only grows (its hook appends; a reused pid's hook appends to the same name) until a drain releases
-// it, and a drain records its progress in state/drain.json, never in the file. A file listed at the
+// only grows (its writer appends; to a 0.3.0 hook's client-<pid>.ndjson, a later 0.3.0 hook that
+// reused the pid appended too) until a drain releases it, and a drain records its progress in
+// state/drain.json, never in the file. A file listed at the
 // size and time it was read at has therefore not changed, and its heads are taken from memory. A file
 // that has changed, or is new, is read again whole: one read per file version, not per PreCompact.
 //
@@ -32,11 +33,14 @@ import (
 // pass leaves behind (lookAtClientSpools): the backlog another session's spools form is then already
 // indexed, off the hook path, when a healthy session compacts, and its settle pays the listing alone.
 //
-// The size and time are not the file's identity, though. A drain releases client-<pid>.ndjson, and a
-// hook whose pid was reused can write the same name again, at the same size and, on the slow
-// filesystems spool submode is for (network shares, drvfs), at the same coarse modification time,
-// before any listing has shown the file gone. So the daemon's own removal of a client spool brackets
-// its unlink in the index (removing, which the drain calls through DrainConfig.ClientSpoolRemoving):
+// The size and time are not the file's identity, though. A drain releases a client spool, and a file
+// of the same name can be written again, at the same size and, on the slow filesystems spool submode
+// is for (network shares, drvfs), at the same coarse modification time, before any listing has shown
+// the file gone: a 0.3.0 hook whose pid was reused recreates its legacy client-<pid>.ndjson. From
+// 0.3.1 a writer's file name carries an id the writer drew (ipc's client-<pid>-<writer id>.ndjson),
+// so no other hook comes back under it, and only a legacy name needs what follows; it is kept for
+// every client spool all the same. The daemon's own removal of a client spool brackets its unlink
+// in the index (removing, which the drain calls through DrainConfig.ClientSpoolRemoving):
 // the entry is dropped before the unlink and again after it returned, no look serves the name from
 // memory in between, and a read under way at either end is not remembered. A look that lists the
 // recreated file lists it after the unlink, so it finds no entry, or the bracket still open, and reads

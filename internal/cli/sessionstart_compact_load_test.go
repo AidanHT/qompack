@@ -379,6 +379,12 @@ func TestSessionStartCompact_UnderSameSessionIngest(t *testing.T) {
 // the Reads into indexed, in the daemon's WAL only, and in a client spool, the ratio a C1.16
 // re-measurement can cite.
 //
+// It also counts the spool drops the rig's hooks announced in LOUD.log, and requires none (D78(b)).
+// Every hook runs in the test process, and until 0.3.1 they all shared one client spool,
+// client-<pid>.ndjson, and its 64 MiB cap: under co-load the ACK lapses' copies filled it, and a hook
+// whose Read never reached the daemon then dropped it at the cap. From 0.3.1 each hook's spool writer
+// has a file of its own (internal/ipc newSpoolFor), as a hook process in the field does.
+//
 // It reads files only after stop returned, when no hook or daemon of the rig writes any more.
 func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
 	t.Helper()
@@ -392,6 +398,7 @@ func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
 	var wal, client strings.Builder
 	files, err := filepath.Glob(filepath.Join(paths.Of(r.root).Spool, "*.ndjson"))
 	require.NoError(t, err)
+	clientFiles := 0
 	for _, f := range files {
 		b, rerr := os.ReadFile(f)
 		require.NoError(t, rerr)
@@ -399,6 +406,7 @@ func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
 			wal.Write(b)
 		} else {
 			client.Write(b)
+			clientFiles++
 		}
 	}
 	indexed, inWAL, inClient := 0, 0, 0
@@ -415,11 +423,27 @@ func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
 			missing = append(missing, id)
 		}
 	}
+	drops := r.spoolDrops(t)
 	require.Zero(t, len(missing), "%d of the rig's %d Reads reached neither its index nor its spool, "+
-		"the first %v", len(missing), len(ids), missing[:min(len(missing), 3)])
+		"the first %v; LOUD.log holds %d spool drop(s)", len(missing), len(ids), missing[:min(len(missing), 3)], drops)
 	require.Positive(t, indexed, "none of the rig's %d Reads was indexed by its daemon", len(ids))
-	t.Logf("of the rig's %d Reads: %d indexed, %d in its daemon's WAL only, %d in a client spool",
-		len(ids), indexed, inWAL, inClient)
+	t.Logf("of the rig's %d Reads: %d indexed, %d in its daemon's WAL only, %d in a client spool, in %d "+
+		"client spool file(s); %d spool drop(s) in LOUD.log", len(ids), indexed, inWAL, inClient, clientFiles, drops)
+	require.Zero(t, drops, "a hook dropped a capture its spool could not take (LOUD.log 'spool write failed'): "+
+		"each in-process hook has a spool file and a cap of its own (D78(b)), so none may reach the cap")
+}
+
+// spoolDrops counts the rig's LOUD.log lines that say a hook's spool write failed and dropped its
+// capture (internal/ipc spool.Append): the 'spool file at cap' drops D78(b) found when the rig's
+// in-process hooks shared one client spool, and any other refused spool write.
+func (r *compactLoadRig) spoolDrops(t *testing.T) int {
+	t.Helper()
+	b, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(r.root).Logs, "LOUD.log")))
+	if os.IsNotExist(err) {
+		return 0
+	}
+	require.NoError(t, err)
+	return strings.Count(string(b), "spool write failed")
 }
 
 func envInt(name string, def int) int {

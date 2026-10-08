@@ -209,8 +209,8 @@ func TestDrainDoesNotRemoveAWALThatGrewBeforeTheRemovalDecision(t *testing.T) {
 // TOCTOU: bytes appended after drainFile's stat but BEFORE the pass reaches EOF. The pass used to
 // read them too, so its consumed offset overtook the size it had recorded — and loadState refuses
 // progress whose offset exceeds its size, so every later Drain failed before reading a single spool
-// file. A client-<pid>.ndjson file grows exactly like this when a hook process appends to its own
-// spool mid-pass (or a reused pid reopens the name).
+// file. A client spool grows exactly like this when its writer appends to it mid-pass (or, under a
+// 0.3.0 hook's legacy client-<pid>.ndjson, a later hook that reused the pid reopens the name).
 func TestDrainPassIsBoundedByItsOwnSnapshotOfAGrowingSpoolFile(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

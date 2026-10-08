@@ -136,7 +136,7 @@ func TestCarriedDefect_SP08D3_ReplayedPromptIsCapturedAtTurnZero(t *testing.T) {
 // and makes the product say so where it cannot:
 //
 //   - spool_file_order: both prompts were spooled, each by its own hook process into its own
-//     client-<pid>.ndjson (HotSpool, runtime.daemon.enabled=false). The drain replays client
+//     client spool (HotSpool, runtime.daemon.enabled=false). The drain replays client
 //     spools by their first record's req.TS, not by file name ("client-10" sorts before
 //     "client-9"), so the host-first prompt is prompt_<s>_0 and nothing is flagged.
 //   - live_second: the first prompt's hook could not reach the daemon and spooled it; the second

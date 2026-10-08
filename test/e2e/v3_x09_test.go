@@ -291,9 +291,9 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// and the WAL fully drained before the flush, yet an object still appeared, from a client
 	// fallback copy of an ALREADY-ACKNOWLEDGED delivery. A hook whose one-byte transport ACK is
 	// lost after the daemon has leased and acknowledged its delivery appends the same request to
-	// spool/client-<pid>.ndjson (ipc.awaitACK -> spoolAndReturn); the flush-time daemon's startup
-	// Drain then consulted the acknowledged frontier only for a key its in-memory seenSet already
-	// held, which is empty on a fresh daemon, so every such copy was dispatched again through
+	// its client spool, spool/client-*.ndjson (ipc.awaitACK -> spoolAndReturn); the flush-time
+	// daemon's startup Drain then consulted the acknowledged frontier only for a key its in-memory
+	// seenSet already held, which is empty on a fresh daemon, so every such copy was dispatched again through
 	// fresh handlers with turn=0: a fifth SubagentStop record under SubagentCaptureID(session, 0)
 	// and supersede marks against records newer than the replayed content. The drain now asks the
 	// frontier for every leased line before the seen set (internal/daemon/drain.go, pinned by

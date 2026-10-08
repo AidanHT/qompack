@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -42,14 +44,17 @@ func TestMain(m *testing.M) {
 // no Event). When the store did not exist before the run, any store the run leaves behind fails
 // it, whatever wrote it: a spooled delivery, an externalized blob, a log, a daemon spawned at the
 // checkout root. When it did exist, a real Qompack session may be working in the same checkout, so
-// the guard watches only the one file an in-process hook of this test binary appends to there,
-// <root>/.qompack/spool/client-<this pid>.ndjson; that session's hooks are other processes and can
-// never make it fail.
+// the guard watches only the files an in-process hook of this test binary can write there: this
+// process's client spools, <root>/.qompack/spool/client-<this pid>-<writer id>.ndjson, one per
+// spool writer, and client-<this pid>.ndjson, the name a 0.3.0 writer of this pid used. That
+// session's hooks are other processes, and their spools carry their own pids, so they can never
+// make it fail.
 type checkoutSpoolGuard struct {
 	dot        string
 	dotExisted bool // whether <root>/.qompack existed before the run
-	path       string
-	before     int64 // the file's size before the run; -1 when it did not exist
+	spool      string
+	pid        int
+	before     map[string]int64 // this process's client spools before the run, by name, with their sizes
 }
 
 func newCheckoutSpoolGuard() (checkoutSpoolGuard, error) {
@@ -63,47 +68,84 @@ func newCheckoutSpoolGuard() (checkoutSpoolGuard, error) {
 // newCheckoutSpoolGuardAt is newCheckoutSpoolGuard for a given root.
 func newCheckoutSpoolGuardAt(root string) (checkoutSpoolGuard, error) {
 	layout := paths.Of(root)
-	g := checkoutSpoolGuard{
-		dot:  layout.Dot,
-		path: filepath.Join(layout.Spool, fmt.Sprintf("client-%d.ndjson", os.Getpid())),
-	}
+	g := checkoutSpoolGuard{dot: layout.Dot, spool: layout.Spool, pid: os.Getpid()}
 	if _, err := os.Lstat(g.dot); err == nil {
 		g.dotExisted = true
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return g, err
 	}
-	size, err := fileSizeOrAbsent(g.path)
-	g.before = size
+	before, err := g.ownSpools()
+	g.before = before
 	return g, err
 }
 
-// check reports a store the run created, or a spool file of this process that appeared or grew
-// during the run.
+// check reports a store the run created, or a client spool of this process that appeared, changed
+// size or went away during the run.
 func (g checkoutSpoolGuard) check() error {
 	if !g.dotExisted {
 		return g.checkNoStore()
 	}
-	after, err := fileSizeOrAbsent(g.path)
+	after, err := g.ownSpools()
 	if err != nil {
 		return err
 	}
-	if after == g.before {
-		return nil
+	names := map[string]bool{}
+	for name := range g.before {
+		names[name] = true
 	}
-	return fmt.Errorf("a test spooled hook deliveries into the checkout's store: %s went from %d to "+
-		"%d bytes (-1 is absent). Pin QOMPACK_PROJECT_ROOT to the test's temp project in its Env, "+
-		"then delete the file", g.path, g.before, after)
+	for name := range after {
+		names[name] = true
+	}
+	for _, name := range slices.Sorted(maps.Keys(names)) {
+		was, is := sizeOrAbsent(g.before, name), sizeOrAbsent(after, name)
+		if was == is {
+			continue
+		}
+		return fmt.Errorf("a test spooled hook deliveries into the checkout's store: %s went from %d to "+
+			"%d bytes (-1 is absent). Pin QOMPACK_PROJECT_ROOT to the test's temp project in its Env, "+
+			"then delete the file", filepath.Join(g.spool, name), was, is)
+	}
+	return nil
 }
 
-func fileSizeOrAbsent(p string) (int64, error) {
-	fi, err := os.Stat(p)
+// ownSpools lists this process's client spools in the guarded spool directory, by name, with their
+// sizes. A directory that does not exist holds none.
+func (g checkoutSpoolGuard) ownSpools() (map[string]int64, error) {
+	entries, err := os.ReadDir(g.spool)
 	if errors.Is(err, fs.ErrNotExist) {
-		return -1, nil
+		return map[string]int64{}, nil
 	}
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return fi.Size(), nil
+	legacy := fmt.Sprintf("client-%d.ndjson", g.pid)
+	perWriter := fmt.Sprintf("client-%d-", g.pid)
+	out := map[string]int64{}
+	for _, e := range entries {
+		name := e.Name()
+		if name != legacy && (!strings.HasPrefix(name, perWriter) || !strings.HasSuffix(name, ".ndjson")) {
+			continue
+		}
+		// A stat of the file itself, not the listing's entry: on Windows the directory record's size
+		// can lag behind a file a writer still holds open.
+		fi, err := os.Stat(filepath.Join(g.spool, name))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue // gone between the listing and its stat: absent
+		}
+		if err != nil {
+			return nil, err
+		}
+		out[name] = fi.Size()
+	}
+	return out, nil
+}
+
+// sizeOrAbsent is name's size in sizes, or -1 when sizes has no such file.
+func sizeOrAbsent(sizes map[string]int64, name string) int64 {
+	if size, ok := sizes[name]; ok {
+		return size
+	}
+	return -1
 }
 
 // checkNoStore reports a store the run created where there was none, naming every file in it.

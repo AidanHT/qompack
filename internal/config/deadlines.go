@@ -201,11 +201,12 @@ const (
 // # This number is a REAL PRODUCTION DEADLINE
 //
 // Unlike L0IngestMsPortable above, the hot path runs on it: it is how long ipc.Client waits for the
-// daemon's one-byte ACK before giving up and spooling the delivery to spool/client-<pid>.ndjson
-// (internal/ipc/client.go, reading the AckDeadlineMs field of the 32-byte state record
-// internal/ipc/state.go writes from this default). Setting it below the daemon's service time
-// loses no data — the daemon has already accepted the delivery — but it makes the hook spool a
-// duplicate copy of work that is already done, which the next daemon start has to drain and skip.
+// daemon's one-byte ACK before giving up and spooling the delivery to its own client spool,
+// spool/client-<pid>-<writer id>.ndjson (internal/ipc/client.go, reading the AckDeadlineMs field of
+// the 32-byte state record internal/ipc/state.go writes from this default). Setting it below the
+// daemon's service time loses no data — the daemon has already accepted the delivery — but it makes
+// the hook spool a duplicate copy of work that is already done, which the next daemon start has to
+// drain and skip.
 // That is CARRIED-DEFECTS.tsv's SP05-D2, measured at 13 % of hooks with the old 8 ms.
 //
 // # The derivation (2026-09-13, Windows)
