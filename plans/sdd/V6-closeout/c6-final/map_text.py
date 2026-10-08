@@ -116,13 +116,13 @@ own symbols resolve as they did on candidate 6).
 | 3.7 DoctorAgreesWithStatus+Subsystems | TestDoctor_AgreesWithStatusOnModeAndProvenance, TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt | `verified_in_target` | `verified_in_target` | W8, L8; C4.5's paired status, doctor and fsck reads agree (LIVE8) |
 | 3.8 ConfigReferenceDescribesTheBinary | TestGenConfigDocs_LeavesMatchDefaultsOneToOne, TestUserGuideCoversEveryGeneratedCommandAndTool | `verified_in_target` | `verified_in_target` | W8, L8, GATE8, DOCS8 |
 | 3.9 InstallUpgradeUninstallByteIdentical | TestInstall_HostCLIInstallUpgradeUninstall, TestRollbackOrderIsFixed, TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite, internal/store TestMaintenance_* | `partial_verified` | `partial_verified` | W8, LE2E8; release-check's rollback rehearsal (REL8); install and uninstall on the released bytes (REH8). Open: the installed upgrade (C4.8, UAT-12's upgrade leg) was not re-run on c8 (CARRY-L7); TestInstall_HostCLIInstallUpgradeUninstall skips without the claude CLI on hosted and container lanes |
-| 3.10 DegradedPassiveFromPackagedBundle | TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent, TestPlatform_UnknownSettingsVersion, TestPlatform_UnsupportedOptimizationsDisabled | `partial_verified` | `verified_in_target` | W8, L8, LE2E8; from the packaged bundle on c8: C4.9 (b) (a newer `runtime.migration.settingsVersion` in the project config) and C1.6 (a daemon killed mid-session is taken over) (LIVE8); C4.9 (c), the unavailable object, is carried (CARRY-L7) |
+| 3.10 DegradedPassiveFromPackagedBundle | TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent, TestPlatform_UnknownSettingsVersion, TestPlatform_UnsupportedOptimizationsDisabled | `partial_verified` | `partial_verified` | W8, L8, LE2E8; from the packaged bundle on c8: C4.9 (b) (a newer `runtime.migration.settingsVersion` in the project config) and C1.6 (a daemon killed mid-session is taken over) (LIVE8). Open: C4.9 (c), a packaged unavailable object (an indexed object whose bytes are gone), was not re-run on c8 and is carried (CARRY-L7, `live/rerun-c8/CARRIED.md`, "C4.9 legs (a) and (c)"); UAT-07's step 7 on c8 answered a never-stored hash `available:false`, which is a different case, so it does not stand in for the leg |
 | 3.11 NoSecretAndNoNetworkFullPackaged | TestSecurity_NoSecretReachesAnyDurableSurface, TestSecurity_TelemetryCannotBeTurnedOn, TestSecurity_MCPServerNeverImportsOSExec, TestV6_ArchivedReadRetainsItsAuthorizationBoundary, TestV6_HashAddressesDoNotBypassPathAuthorization | `partial_verified` | `verified_in_target` | W8, L8, SEC8; the full packaged session ran on c8 (LIVE8: C4.6, UAT-12 with planted credentials and deny-ruled files) |
 | 3.12 CheckpointToRehydrationRoundTripBundle | TestE2E_SessionStartCompactAfterFailedSummary, the TestE2E_Checkpoint* rows, TestFault_CheckpointDropsAnUnresolvablePointer | `partial_verified` | `verified_in_target` | W8, LE2E8, CHILD8; real compactions on the frozen bundle (LIVE8: C4.3, UAT-04's eight compactions, UAT-05 run 2, UAT-06's six) |
 | 3.13 ReleaseArtifactsReproducible | TestAssembleBundle_Deterministic, TestAssembleBundle_ChecksumsFormat, TestWriteArchiveChecksums, TestReleaseCheckDeterminismVersion, TestBundle_OnDiskMatchesGenerator, TestCanary_PackagingShape | `verified_in_target` | `verified_in_target` | BUNDLES8 (two builds byte-identical; hosted release-dry-run's equal), W8, L8; release-check's determinism step PASS (REL8); the published bin/ equal the frozen ones (TAG8) |
 | 3.14 HotPathHoldsEverySubsystemResident | TestIntegration_HotPathWarmWithRealResidentState, TestIntegration_HotPathDegradesRatherThanBlocks, TestV3_HotPathUnchangedWithLedgerResident | `partial_verified` | `partial_verified` | Windows verified on AC: the integration row isolated (WTIME8) and X11 alone (WE2ET8) pass, and C51-8 passes (B-A p99 16.4 ms, B-B 11.3 ms against 50); TestIntegration_HotPathDegradesRatherThanBlocks green (W8, L8). Open half: Linux, where both rows fail B-A/B-B fsync-bound in the container (LTIME8, LE2E8), not verified in target (D53(b)) |
 
-Counts: 10 `verified_in_target`, 3 `partial_verified`, 1 `unsupported` (candidate 7: 4, 9 and 1).
+Counts: 9 `verified_in_target`, 4 `partial_verified`, 1 `unsupported` (candidate 7: 4, 9 and 1).
 
 ## SP-19, SP-20 and SP-21 switches
 
@@ -154,8 +154,12 @@ notes' Known limits; SP20-D4 is `fixed`, and its evidence test is green on candi
 ## Corrections to earlier records
 
 - The c6 and c7 cells of 1.17.18 said actionlint runs at the tag. No actionlint step exists in
-  release.yml or in release-check; the tag runs release-check `--tag`, the assembly, the marketplace,
-  the release notes and the goreleaser draft (TAG8).
+  release.yml, ci.yml or release-check; the tag runs release-check `--tag`, the assembly, the marketplace,
+  the release notes and the goreleaser draft (TAG8). The row's actionlint half therefore has no
+  artifact, no ruling retires it, and the row is `partial_verified` (C6.4 review, round 1).
+- Section 3.10 was first written `verified_in_target` while its own cell carried C4.9 (c), the packaged
+  unavailable object, from candidate 7. By this page's rule that is `partial_verified`; the cell and
+  the counts are corrected (C6.4 review, round 1).
 - 1.17.19 was to close on branch protection (C7.3). `develop` and `main` are now protected against force
   pushes and deletion, but neither requires a status check, so no ci.yml job is "required"; the row stays
   `partial_verified` (`c6-final/runs/c8-hosted-runs.txt`).
@@ -170,10 +174,11 @@ Every row that is not `verified_in_target` is in the two tables above with its r
   section 3.14.
 - Live parts not re-run on candidate 8 (CARRY-L7): 1.17.8, 1.17.9 (with the unproven execution of
   TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting) and sections 3.4 and 3.9, all on the
-  installed upgrade (C4.8, UAT-12's upgrade leg).
+  installed upgrade (C4.8, UAT-12's upgrade leg); section 3.10, on C4.9 (c), the packaged unavailable
+  object.
 - No possible artifact: 1.11.16 (no rehydrate benchmark), 1.14.10 (no commandstest package or commands
-  benchmark), 1.17.10 (arm64 and darwin/amd64 cross-compile only; no non-Windows Claude Code session,
-  D34(c)), 1.17.14 (F-4's per-row mapping), 1.18.1, 1.18.3, 1.18.4, 1.18.8 and 1.18.11 (F-5), and the
+  benchmark), 1.17.18 (no actionlint step), 1.17.10 (arm64 and darwin/amd64 cross-compile only; no
+  non-Windows Claude Code session, D34(c)), 1.17.14 (F-4's per-row mapping), 1.18.1, 1.18.3, 1.18.4, 1.18.8 and 1.18.11 (F-5), and the
   seven `unknown` rows.
 - A repository setting: 1.17.19 (no required status checks).
 """

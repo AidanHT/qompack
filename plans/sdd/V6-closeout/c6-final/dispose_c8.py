@@ -316,10 +316,11 @@ o("1.17.16", "verified_in_target", "doctor tests green (W8, L8); the real-sessio
 o("1.17.17", "verified_in_target", "version units green (W8); release-check --tag v0.3.0 on c8: 'tag v0.3.0, "
   "internal/core.Version 0.3.0, HEAD's exact tag agrees' (REL8); release.yml's release-check --tag at the tag "
   "passed (TAG8)", codes="W8+REL8+TAG8")
-o("1.17.18", "verified_in_target", "release-check --tag v0.3.0 on c8 on the reference host, all 18 steps PASS and "
-  "none skipped (REL8); hosted release-dry-run green on c8 (CI8); release.yml at the tag passed: release-check "
-  "--tag, assembly, marketplace, release notes and the goreleaser draft (TAG8). Correction: no actionlint step "
-  "exists in release.yml or release-check; the c6/c7 cells' 'actionlint at the tag' was wrong",
+o("1.17.18", "partial_verified", "goreleaser half: release-check --tag v0.3.0 on c8 on the reference host, all "
+  "18 steps PASS and none skipped (REL8); hosted release-dry-run green on c8 (CI8); release.yml at the tag "
+  "passed: release-check --tag, assembly, marketplace, release notes and the goreleaser draft (TAG8). Open: the "
+  "actionlint half has no artifact, because no actionlint step exists in release.yml, ci.yml or release-check "
+  "(the c6/c7 cells' 'actionlint at the tag' was wrong) and no ruling retires it",
   codes="REL8+CI8+TAG8")
 o("1.17.19", "partial_verified", "all 21 ci.yml jobs green on c8 (CI8; the four SP-17-era job names never existed, "
   "their scope runs inside test, test-e2e, crossbuild, plugin-validate and release-dry-run). Open: develop and "
