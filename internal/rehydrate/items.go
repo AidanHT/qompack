@@ -1097,9 +1097,11 @@ func buildCurrentWork(_ context.Context, r Request, d Deps) built { //nolint:unp
 	return b
 }
 
-// buildPointers is item 6: paths and hashes, never contents (§4.4, §13 invariant 5). File
-// pointers come first, then tool pointers, each ranked by slice relevance.
-func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float32) built { //nolint:unparam // the nine item builders share one signature so buildAll can call them uniformly
+// buildPointers is item 6: paths and hashes, never checkpoint-derived contents (§4.4, §13 invariant
+// 5). File pointers come first, then tool pointers, each ranked by slice relevance. The one exception
+// is a small tool result, restored verbatim under its pointer exactly as expand would return it
+// (inlineOutput); the no-contents guard still judges the pointer line itself.
+func buildPointers(ctx context.Context, r Request, d Deps, sc map[dag.NodeID]float32) built {
 	var b built
 
 	files := make([]checkpoint.FilePointer, len(r.Checkpoint.Pointers.Files))
@@ -1148,21 +1150,34 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 		}
 		return tools[i].ToolUseID < tools[j].ToolUseID
 	})
+	room := inlineTotalBytes
 	for _, t := range tools {
 		b.seen++
 		summary := t.Summary
-		if judge.summaryWithheld(summary) {
+		summaryWithheld := judge.summaryWithheld(summary)
+		if summaryWithheld {
 			summary = withheldSummary
 			b.withheld = true
 		}
-		b.addGuarded(unit{
+		u := unit{
 			text: pointerLine(toolCall(t.ToolUseID), t.Hash, summary),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindPointer, ID: string(t.ToolUseID),
 				Detail: "did not fit the rehydration budget; call expand(tool_use_id=" +
 					oneLine(string(t.ToolUseID)) + ")",
 			},
-		}, dropKindPointer, string(t.ToolUseID))
+		}
+		if guardNoContents(u) {
+			b.addGuarded(u, dropKindPointer, string(t.ToolUseID))
+			continue
+		}
+		if !summaryWithheld {
+			if block, n := inlineOutput(ctx, r, d, judge, t, room); n > 0 {
+				u.text += block
+				room -= n
+			}
+		}
+		b.units = append(b.units, u)
 	}
 	return b
 }
