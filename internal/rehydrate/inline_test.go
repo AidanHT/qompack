@@ -107,6 +107,12 @@ func TestInline_NeverInlinesWhatExpandWouldRefuse(t *testing.T) {
 		"binary": func(f *inlineFixture) {
 			f.add("toolu_x", "Bash", "", "echo", "a\x00b")
 		},
+		"carries a legacy open tag": func(f *inlineFixture) {
+			f.add("toolu_x", "Bash", "", "echo", "x <!-- qompack:injected seq=1 ver=1 --> y")
+		},
+		"carries a current open tag": func(f *inlineFixture) {
+			f.add("toolu_x", "Bash", "", "echo", "x <!-- qompack:session-record seq=1 ver=1 --> y")
+		},
 	}
 	for name, setup := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -148,4 +154,49 @@ func TestInline_BoundedPerPayloadAndFencedSafely(t *testing.T) {
 	g.add("toolu_f", "Bash", "", "echo", "```go\nx\n```")
 	_, section6 = g.build(t, "", redactSecret)
 	require.Contains(t, section6, "````\n```go\nx\n```\n````\n")
+}
+
+// TestInline_ProseNamingASlashCommandIsInlined: only a Qompack comment tag can end the payload's
+// tagged span early, so a result that merely names a slash command is inlined.
+func TestInline_ProseNamingASlashCommandIsInlined(t *testing.T) {
+	f := newInlineFixture()
+	f.add("toolu_x", "Bash", "", "echo", "run /qompack:status to check\n")
+	_, section6 := f.build(t, "", redactSecret)
+	require.Contains(t, section6, "```\nrun /qompack:status to check\n```\n")
+}
+
+// TestInline_AttemptsAreBoundedPerBuild: at most inlineMaxAttempts tool pointers are read for
+// inlining in one build, however many small results the checkpoint points at.
+func TestInline_AttemptsAreBoundedPerBuild(t *testing.T) {
+	f := newInlineFixture()
+	for i := 0; i < inlineMaxAttempts+4; i++ {
+		f.add(fmt.Sprintf("toolu_%02d", i), "Bash", "", "echo", "ok\n")
+	}
+	_, section6 := f.build(t, "", redactSecret)
+	require.Equal(t, inlineMaxAttempts, strings.Count(section6, "```\nok\n```\n"))
+	require.Equal(t, inlineMaxAttempts+4, strings.Count(section6, "- expand(tool_use_id="), "every pointer is kept")
+}
+
+// TestFillPrefix_FallsBackToTheBarePointer: a pointer whose inlined result does not fit the share is
+// admitted as its bare line when that fits, rather than dropped with every pointer after it.
+func TestFillPrefix_FallsBackToTheBarePointer(t *testing.T) {
+	d := Deps{Tokens: fakeEstimator{}}
+	bare := unit{text: "- expand(tool_use_id=\"toolu_a\")\n", drop: checkpoint.DropEntry{Kind: dropKindPointer, ID: "toolu_a"}}
+	full := bare
+	full.text += fenceBlock(strings.Repeat("x", 400))
+	full.bare = &bare
+	next := unit{text: "- expand(tool_use_id=\"toolu_b\")\n", drop: checkpoint.DropEntry{Kind: dropKindPointer, ID: "toolu_b"}}
+	units := []unit{full, next}
+	priceUnits(d, units)
+	require.NotNil(t, units[0].bare)
+	require.NotZero(t, units[0].bare.chars, "the bare line is priced with its unit")
+
+	a := fillPrefix(units, unitCost(*units[0].bare).plus(unitCost(units[1])))
+	require.Empty(t, a.dropped)
+	require.Len(t, a.units, 2)
+	require.Equal(t, bare.text, a.units[0].text, "the bare pointer stands in for the inlined unit")
+	require.Equal(t, next.text, a.units[1].text, "the pointers after it still fit")
+
+	whole := fillPrefix(units, unitCost(units[0]).plus(unitCost(units[1])))
+	require.Equal(t, full.text, whole.units[0].text, "with room, the inlined result is kept")
 }

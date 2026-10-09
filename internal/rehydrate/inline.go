@@ -35,6 +35,10 @@ const (
 	// cannot balloon whatever a checkpoint holds. Every inlined byte is also priced against the
 	// budget and the host ceiling like any other unit text.
 	inlineTotalBytes = 4096
+	// inlineMaxAttempts bounds the inline reads of one build: each is an index lookup, a store read
+	// and a path resolution on the SessionStart(compact) path, paid whether or not the budget later
+	// keeps the pointer, so a checkpoint's tool-pointer count must not set their number.
+	inlineMaxAttempts = 16
 )
 
 // inlinePathless are the producers of a pathless record whose result may be inlined: the pathless
@@ -76,12 +80,19 @@ func inlineOutput(ctx context.Context, r Request, d Deps, j pathJudge, t checkpo
 	if len(out) == 0 || len(out) > inlineMaxBytes || len(out) > room {
 		return "", 0
 	}
-	if !utf8.Valid(out) || bytes.IndexByte(out, 0) >= 0 || bytes.Contains(out, []byte("qompack:")) {
+	if !utf8.Valid(out) || bytes.IndexByte(out, 0) >= 0 || hasQompackTag(out) {
 		// Binary bytes do not belong in a text payload, and a Qompack tag inside the payload would
 		// end the tagged span early when the transcript is next read.
 		return "", 0
 	}
 	return fenceBlock(string(out)), len(out)
+}
+
+// hasQompackTag reports whether b holds the start of a Qompack comment tag, open or close, in any
+// spelling: only a tag can end the payload's tagged span early. Prose naming a slash command
+// (/qompack:status) is not one.
+func hasQompackTag(b []byte) bool {
+	return bytes.Contains(b, []byte("<!-- qompack:")) || bytes.Contains(b, []byte("<!-- /qompack:"))
 }
 
 // inlineOriginAllowed is expand's origin rule for rec (internal/mcp authorizeOrigin), judged with

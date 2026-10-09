@@ -46,27 +46,54 @@ func BenchmarkBuild(b *testing.B) {
 					Ref: checkpoint.Ref{Seq: cp.Seq, Path: filepath.Join(root, ".qompack", "checkpoints", "0001.json")},
 					Cfg: testCfg(),
 				}
-				d := Deps{HostPaths: rules.host()}
-				if _, err := Build(context.Background(), r, d); err != nil {
-					b.Fatal(err)
-				}
-				took := make([]time.Duration, 0, b.N)
-				b.ReportAllocs()
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					start := time.Now()
-					if _, err := Build(context.Background(), r, d); err != nil {
-						b.Fatal(err)
-					}
-					took = append(took, time.Since(start))
-				}
-				b.StopTimer()
-				sort.Slice(took, func(i, j int) bool { return took[i] < took[j] })
-				b.ReportMetric(float64(took[len(took)/2].Nanoseconds()), "p50-ns")
-				b.ReportMetric(float64(took[(len(took)*99)/100].Nanoseconds()), "p99-ns")
+				benchBuild(b, r, Deps{HostPaths: rules.host()})
 			})
 		}
 	}
+	// inline: the norules drops0 row with every tool pointer's result small enough to inline, so the
+	// inline reads (index lookup, store read, redaction) are measured; at most inlineMaxAttempts of
+	// them run per build.
+	b.Run("inline/mix200_files50_drops0", func(b *testing.B) {
+		cp := benchCheckpoint(b, root, 0, 1)
+		st := newFakeStore()
+		for _, tp := range cp.Pointers.Tools {
+			st.records[tp.ToolUseID] = store.ToolUseRecord{ID: tp.ToolUseID, Session: cp.Session, Tool: "Bash", Root: tp.Hash, Bytes: 12}
+			st.content[tp.Hash] = []byte("ok: 7f3a9c\n")
+		}
+		r := Request{
+			Session: cp.Session, Source: "compact", ProjectRoot: root, Budget: 0, Checkpoint: cp,
+			Ref: checkpoint.Ref{Seq: cp.Seq, Path: filepath.Join(root, ".qompack", "checkpoints", "0001.json")},
+			Cfg: testCfg(),
+		}
+		benchBuild(b, r, Deps{
+			HostPaths: func() HostRules { return HostRules{Refuses: func(string) bool { return false }} },
+			Store:     st,
+			Redact:    func(p []byte) []byte { return p },
+		})
+	})
+}
+
+// benchBuild runs Build for r and d once to warm, then b.N times, and reports each build's p50 and
+// p99 wall time beside ns/op.
+func benchBuild(b *testing.B, r Request, d Deps) {
+	b.Helper()
+	if _, err := Build(context.Background(), r, d); err != nil {
+		b.Fatal(err)
+	}
+	took := make([]time.Duration, 0, b.N)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		start := time.Now()
+		if _, err := Build(context.Background(), r, d); err != nil {
+			b.Fatal(err)
+		}
+		took = append(took, time.Since(start))
+	}
+	b.StopTimer()
+	sort.Slice(took, func(i, j int) bool { return took[i] < took[j] })
+	b.ReportMetric(float64(took[len(took)/2].Nanoseconds()), "p50-ns")
+	b.ReportMetric(float64(took[(len(took)*99)/100].Nanoseconds()), "p99-ns")
 }
 
 // benchCheckpoint is BenchmarkBuild's checkpoint for root: ckUAT05's records, 50 file pointers, 200

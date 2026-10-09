@@ -147,6 +147,10 @@ func fillPrefix(units []unit, allowance cost) admitted {
 			owed = owed.minus(unitCost(u))
 			continue
 		}
+		if !truncating && u.bare != nil && !out.used.plus(unitCost(u)).plus(owed).within(allowance) {
+			// The unit with its inlined result does not fit; its bare pointer line may.
+			u = *u.bare
+		}
 		if truncating || !out.used.plus(unitCost(u)).plus(owed).within(allowance) {
 			truncating = true
 			out.dropped = append(out.dropped, u.drop)
@@ -393,6 +397,11 @@ func priceUnits(d Deps, units []unit) {
 			units[i].tokens = estimate(d, units[i].text)
 		}
 		units[i].chars = hostChars(units[i].text)
+		if units[i].bare != nil {
+			bare := []unit{*units[i].bare}
+			priceUnits(d, bare)
+			units[i].bare = &bare[0]
+		}
 	}
 }
 
