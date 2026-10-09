@@ -205,32 +205,31 @@ var commandSpecs = []CommandDoc{
 	},
 	{
 		Name:         "recall",
-		Description:  "Search stored tool output and file versions by content",
+		Description:  "Search stored tool output and file versions",
 		ArgumentHint: "<query> [--k N]",
 		Subcommand:   "recall",
 	},
 	{
-		Name: "pin",
-		Description: "Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; " +
-			"the host's summary can still drop it",
+		Name:         "pin",
+		Description:  "Pin an invariant to re-inject after each compaction (9,500-char cap; the host summary may still drop it)",
 		ArgumentHint: "<text>",
 		Subcommand:   "pin",
 	},
 	{
 		Name:         "why",
-		Description:  "Explain a recorded decision and the evidence behind it",
+		Description:  "Explain a recorded decision and its evidence",
 		ArgumentHint: "<decision-id>",
 		Subcommand:   "why",
 	},
 	{
 		Name:         "dropped",
-		Description:  "Report what the last compaction dropped and how to get it back",
+		Description:  "Show what the last compaction dropped and how to restore it",
 		ArgumentHint: "[--json]",
 		Subcommand:   "dropped",
 	},
 	{
 		Name:         "eval",
-		Description:  "Report the latest replay and live evaluation results",
+		Description:  "Show the latest replay and live eval results",
 		ArgumentHint: "[--corpus <path>]",
 		Subcommand:   "eval",
 	},

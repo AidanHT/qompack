@@ -1,5 +1,5 @@
 ---
-description: Explain a recorded decision and the evidence behind it
+description: Explain a recorded decision and its evidence
 argument-hint: "<decision-id>"
 allowed-tools: Bash(qompack why:*)
 ---

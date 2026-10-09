@@ -1,5 +1,5 @@
 ---
-description: Report what the last compaction dropped and how to get it back
+description: Show what the last compaction dropped and how to restore it
 argument-hint: "[--json]"
 allowed-tools: Bash(qompack dropped:*)
 ---
