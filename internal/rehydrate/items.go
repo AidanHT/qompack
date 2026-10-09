@@ -50,6 +50,10 @@ type unit struct {
 	// is never consulted for a discretionary unit, whose drop already does that job, and it does not
 	// make a unit discretionary — isFixedUnit reads drop alone.
 	overflow checkpoint.DropEntry
+	// bare, when set, is the shorter unit the budget admits in this unit's place when this one does
+	// not fit but bare does: a tool pointer's line without its inlined result, so inlining never
+	// costs a pointer that fit on its own. It carries the same drop.
+	bare *unit
 }
 
 // built is what every item builder returns.
@@ -1150,7 +1154,7 @@ func buildPointers(ctx context.Context, r Request, d Deps, sc map[dag.NodeID]flo
 		}
 		return tools[i].ToolUseID < tools[j].ToolUseID
 	})
-	room := inlineTotalBytes
+	room, attempts := inlineTotalBytes, inlineMaxAttempts
 	for _, t := range tools {
 		b.seen++
 		summary := t.Summary
@@ -1171,8 +1175,11 @@ func buildPointers(ctx context.Context, r Request, d Deps, sc map[dag.NodeID]flo
 			b.addGuarded(u, dropKindPointer, string(t.ToolUseID))
 			continue
 		}
-		if !summaryWithheld {
+		if !summaryWithheld && attempts > 0 {
+			attempts--
 			if block, n := inlineOutput(ctx, r, d, judge, t, room); n > 0 {
+				bare := u
+				u.bare = &bare
 				u.text += block
 				room -= n
 			}
