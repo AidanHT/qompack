@@ -86,7 +86,7 @@ needs **2.1.224 or later**. The host version 0.3.0 was tested with is **Claude C
 2.1.280**; the install of the published 0.3.0 was rehearsed with 2.1.293 (D80). See [docs/install.md](docs/install.md).
 
 The following checks are configured in `.github/workflows/ci.yml`. Go jobs pin
-`1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
+`1.26.9` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
 disagree):
 
 | Job | Runners | What it does |

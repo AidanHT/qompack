@@ -833,7 +833,7 @@ Reproduced from `LICENSE`:
 
 Every released binary is compiled by the Go toolchain and carries the Go runtime and the
 standard library packages it uses, including the `golang.org/x` packages the standard
-library vendors under the same licence. `go.mod` pins `toolchain go1.26.6`; each bundle's
+library vendors under the same licence. `go.mod` pins `toolchain go1.26.9`; each bundle's
 `BUNDLE.json` names the toolchain that compiled it in its `go` field.
 
 Licence: BSD-3-Clause
