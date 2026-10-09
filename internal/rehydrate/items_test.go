@@ -1053,7 +1053,7 @@ func TestPointers_FilesBeforeTools(t *testing.T) {
 	require.Equal(t, []string{
 		"- docker-compose.yml sha256:1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d — pins the pgbouncer version and pool mode the elimination depends on\n",
 		"- src/auth.ts sha256:0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c — refreshToken lives here; the lock-across-IO pattern is at the top of the function\n",
-		"- tool_use toolu_01A2B3C4D5E6F7G8H9J0K1L2 sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts\n",
+		"- expand(tool_use_id=\"toolu_01A2B3C4D5E6F7G8H9J0K1L2\") sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts\n",
 	}, unitTexts(got), "files first, each group ordered by score then by path/id ascending")
 
 	// Each pointer's drop carries the exact retrieval call for that record (D5), not a list of tools

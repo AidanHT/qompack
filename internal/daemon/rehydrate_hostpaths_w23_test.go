@@ -385,7 +385,7 @@ func TestRehydrateHostPaths_BraceListAlternativesCostABoundedNumberOfHostJudgeme
 		res, err := rehydrate.Build(context.Background(), toolPointerRequest(root, tools), rehydrate.Deps{HostPaths: counting})
 		require.NoError(t, err)
 		for _, tp := range tools {
-			line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
+			line := "- expand(tool_use_id=\"" + string(tp.ToolUseID) + "\") " + tp.Hash.String() + " — "
 			switch {
 			case strings.Contains(res.Text, line+tp.Summary+"\n"):
 				shown++

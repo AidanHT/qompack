@@ -1156,7 +1156,7 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 			b.withheld = true
 		}
 		b.addGuarded(unit{
-			text: pointerLine("tool_use "+string(t.ToolUseID), t.Hash, summary),
+			text: pointerLine(toolCall(t.ToolUseID), t.Hash, summary),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindPointer, ID: string(t.ToolUseID),
 				Detail: "did not fit the rehydration budget; call expand(tool_use_id=" +
@@ -1178,6 +1178,14 @@ func pointerLine(label string, h core.Hash, why string) string {
 		line += " — " + why
 	}
 	return line + "\n"
+}
+
+// toolCall is a tool pointer's label: the call that returns the stored result, with internal/mcp's
+// real tool and argument names and the id Go-quoted, so that the line reads as a call to copy as
+// written — expand(tool_use_id="toolu_1"). A file pointer's label stays its path, which is already
+// re_read's whole argument. The live eval (c55-c8) found no pointer followed in 20 sessions.
+func toolCall(id core.ToolUseID) string {
+	return "expand(tool_use_id=" + strconv.Quote(string(id)) + ")"
 }
 
 // addGuarded appends u unless the no-contents guard rejects it, in which case it records the

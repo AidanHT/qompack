@@ -107,11 +107,11 @@ func TestBuild_ArgumentSummariesNeverShowAWithheldPath(t *testing.T) {
 
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	for _, tp := range withheldTools {
-		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+		require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+withheldSummary,
 			"a summary naming a withheld path is withheld, and the pointer still points by id and hash")
 	}
 	for _, tp := range allowedTools {
-		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+tp.Summary,
+		require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+tp.Summary,
 			"a summary that names no withheld path is shown as recorded")
 	}
 }
@@ -138,8 +138,8 @@ func TestBuild_ArgumentSummariesFailClosedWithoutHostRules(t *testing.T) {
 	require.NoError(t, err)
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	require.NotContains(t, section6, "Makefile", "a selector's value is a path, dot or none")
-	require.Contains(t, section6, "- tool_use toolu_selector "+hashOf("s1").String()+" — "+withheldSummary)
-	require.Contains(t, section6, "- tool_use toolu_query "+hashOf("s2").String()+" — "+withheldSummary,
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_selector\") "+hashOf("s1").String()+" — "+withheldSummary)
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_query\") "+hashOf("s2").String()+" — "+withheldSummary,
 		"without the rules' literals no free text can be screened")
 	require.NotContains(t, section6, "LUPINE-7731")
 }
@@ -197,11 +197,11 @@ func TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath(t *testing.T) {
 
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	for _, tp := range withheldTools {
-		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+		require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+withheldSummary,
 			"a summary naming a withheld path is withheld, and the pointer still points by id and hash")
 	}
 	for _, tp := range allowedTools {
-		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+tp.Summary,
+		require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+tp.Summary,
 			"a summary that names no withheld path is shown as recorded")
 	}
 }
@@ -231,9 +231,9 @@ func TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames(t *testing.T) {
 	res, err := Build(context.Background(), r, d)
 	require.NoError(t, err)
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
-	require.Contains(t, section6, "- tool_use toolu_abs "+hashOf("abs").String()+" — "+withheldSummary)
-	require.Contains(t, section6, "- tool_use toolu_guide "+hashOf("guide").String()+" — "+guide)
-	require.Contains(t, section6, "- tool_use toolu_sel "+hashOf("sel").String()+" — "+withheldSummary)
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_abs\") "+hashOf("abs").String()+" — "+withheldSummary)
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_guide\") "+hashOf("guide").String()+" — "+guide)
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_sel\") "+hashOf("sel").String()+" — "+withheldSummary)
 }
 
 // TestBuild_DelimiterCharactersInADeniedPathNeverShowIt is the w19 verifier's V2. The store's
@@ -304,15 +304,15 @@ func TestBuild_DelimiterCharactersInADeniedPathNeverShowIt(t *testing.T) {
 
 			section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 			for _, tp := range withheld {
-				require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+				require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+withheldSummary,
 					"a summary naming the denied path %q is withheld", tp.Summary)
 			}
 			for _, tp := range allowed {
 				if !tc.quotedOnly || strings.HasPrefix(tp.Summary, `cat "`) {
-					require.Contains(t, section6, pointerLine("tool_use "+string(tp.ToolUseID), tp.Hash, tp.Summary),
+					require.Contains(t, section6, pointerLine(toolCall(tp.ToolUseID), tp.Hash, tp.Summary),
 						"a safe-delimiter allowed path is shown as recorded")
 				} else {
-					require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+					require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+withheldSummary,
 						"an allowed path with an unsafe delimiter is withheld too (over-withholding)")
 				}
 			}
@@ -379,11 +379,11 @@ func TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths(t *testing.T) {
 
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	for i, s := range shown {
-		require.Contains(t, section6, pointerLine(fmt.Sprintf("tool_use toolu_ok_%d", i), hashOf("ok"+s), s),
+		require.Contains(t, section6, pointerLine(toolCall(core.ToolUseID(fmt.Sprintf("toolu_ok_%d", i))), hashOf("ok"+s), s),
 			"an absolute path inside the project is shown although the project's path has a space")
 	}
 	for i, s := range withheld {
-		require.Contains(t, section6, fmt.Sprintf("- tool_use toolu_no_%d %s — %s", i, hashOf("no"+s), withheldSummary),
+		require.Contains(t, section6, fmt.Sprintf("- expand(tool_use_id=\"toolu_no_%d\") %s — %s", i, hashOf("no"+s), withheldSummary),
 			"%q names a denied path or one outside the project", s)
 	}
 }
@@ -425,11 +425,11 @@ func requireSummaries(t *testing.T, root string, deny, files, shown, withheld, l
 
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	for i, s := range shown {
-		require.Contains(t, section6, pointerLine(fmt.Sprintf("tool_use toolu_ok_%d", i), hashOf("ok"+s), s),
+		require.Contains(t, section6, pointerLine(toolCall(core.ToolUseID(fmt.Sprintf("toolu_ok_%d", i))), hashOf("ok"+s), s),
 			"%q names no withheld path, so it is shown as recorded", s)
 	}
 	for i, s := range withheld {
-		require.Contains(t, section6, fmt.Sprintf("- tool_use toolu_no_%d %s — %s", i, hashOf("no"+s), withheldSummary),
+		require.Contains(t, section6, fmt.Sprintf("- expand(tool_use_id=\"toolu_no_%d\") %s — %s", i, hashOf("no"+s), withheldSummary),
 			"%q names a withheld path", s)
 	}
 }
