@@ -239,14 +239,20 @@ func TestReleasePagesListTheAudit2Limits(t *testing.T) {
 	}
 }
 
-// TestChangelogNamesTheWave20Fixes asserts CHANGELOG.md's Fixed section carries the user-visible
-// fixes waves 19b to 21 merged (audit 2 #44 and #70).
+// TestChangelogNamesTheWave20Fixes asserts CHANGELOG.md's 0.3.0 Fixed section carries the
+// user-visible fixes waves 19b to 21 merged (audit 2 #44 and #70). It reads the [0.3.0] entry
+// alone: a later release's entry above it has Fixed and Security sections of its own.
 func TestChangelogNamesTheWave20Fixes(t *testing.T) {
 	body := normalized(readDoc(t, repoRoot(t), "CHANGELOG.md"))
+	entry := strings.Index(body, "## [0.3.0]")
+	if entry < 0 {
+		t.Fatalf("CHANGELOG.md: the [0.3.0] entry was not found")
+	}
+	body = body[entry:]
 	start := strings.Index(body, "### Fixed")
 	end := strings.Index(body, "### Security")
 	if start < 0 || end < start {
-		t.Fatalf("CHANGELOG.md: the Fixed or Security section was not found")
+		t.Fatalf("CHANGELOG.md: the [0.3.0] entry's Fixed or Security section was not found")
 	}
 	fixed := body[start:end]
 	for _, want := range []string{
