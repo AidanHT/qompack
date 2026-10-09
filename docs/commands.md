@@ -26,11 +26,11 @@ artifacts, and `/qompack:recall` with no query, look like that. Run the same
 | Command | Subcommand | Arguments | Description |
 |---|---|---|---|
 | `/qompack:status` | `qompack status` | `[--json]` | Qompack status — mode, contracts, store, latency |
-| `/qompack:recall` | `qompack recall` | `<query> [--k N]` | Search stored tool output and file versions by content |
-| `/qompack:pin` | `qompack pin` | `<text>` | Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; the host's summary can still drop it |
-| `/qompack:why` | `qompack why` | `<decision-id>` | Explain a recorded decision and the evidence behind it |
-| `/qompack:dropped` | `qompack dropped` | `[--json]` | Report what the last compaction dropped and how to get it back |
-| `/qompack:eval` | `qompack eval` | `[--corpus <path>]` | Report the latest replay and live evaluation results |
+| `/qompack:recall` | `qompack recall` | `<query> [--k N]` | Search stored tool output and file versions |
+| `/qompack:pin` | `qompack pin` | `<text>` | Pin an invariant to re-inject after each compaction (9,500-char cap; the host summary may still drop it) |
+| `/qompack:why` | `qompack why` | `<decision-id>` | Explain a recorded decision and its evidence |
+| `/qompack:dropped` | `qompack dropped` | `[--json]` | Show what the last compaction dropped and how to restore it |
+| `/qompack:eval` | `qompack eval` | `[--corpus <path>]` | Show the latest replay and live eval results |
 
 ## `/qompack:status`
 
@@ -50,10 +50,10 @@ Allowed tools: `Bash(qompack status:*)`
 
 ## `/qompack:recall`
 
-Search stored tool output and file versions by content
+Search stored tool output and file versions
 
 ```
-qompack recall — Search stored tool output and file versions by content
+qompack recall — Search stored tool output and file versions
 
 usage: qompack recall <query> [--k N]
        /qompack:recall <query> [--k N]
@@ -67,10 +67,10 @@ Allowed tools: `Bash(qompack recall:*)`
 
 ## `/qompack:pin`
 
-Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; the host's summary can still drop it
+Pin an invariant to re-inject after each compaction (9,500-char cap; the host summary may still drop it)
 
 ```
-qompack pin — Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; the host's summary can still drop it
+qompack pin — Pin an invariant to re-inject after each compaction (9,500-char cap; the host summary may still drop it)
 
 usage: qompack pin <text>
        /qompack:pin <text>
@@ -92,10 +92,10 @@ Allowed tools: `Bash(qompack pin:*)`
 
 ## `/qompack:why`
 
-Explain a recorded decision and the evidence behind it
+Explain a recorded decision and its evidence
 
 ```
-qompack why — Explain a recorded decision and the evidence behind it
+qompack why — Explain a recorded decision and its evidence
 
 usage: qompack why <decision-id>
        /qompack:why <decision-id>
@@ -108,10 +108,10 @@ Allowed tools: `Bash(qompack why:*)`
 
 ## `/qompack:dropped`
 
-Report what the last compaction dropped and how to get it back
+Show what the last compaction dropped and how to restore it
 
 ```
-qompack dropped — Report what the last compaction dropped and how to get it back
+qompack dropped — Show what the last compaction dropped and how to restore it
 
 usage: qompack dropped [--json]
        /qompack:dropped [--json]
@@ -124,10 +124,10 @@ Allowed tools: `Bash(qompack dropped:*)`
 
 ## `/qompack:eval`
 
-Report the latest replay and live evaluation results
+Show the latest replay and live eval results
 
 ```
-qompack eval — Report the latest replay and live evaluation results
+qompack eval — Show the latest replay and live eval results
 
 usage: qompack eval [--corpus <path>]
        /qompack:eval [--corpus <path>]

@@ -48,24 +48,23 @@ func TestSpecs_PinInstalledSurface(t *testing.T) {
 		},
 		{
 			Name: "recall", Subcommand: "recall", ArgumentHint: "<query> [--k N]",
-			Summary: "Search stored tool output and file versions by content",
+			Summary: "Search stored tool output and file versions",
 		},
 		{
 			Name: "pin", Subcommand: "pin", ArgumentHint: "<text>",
-			Summary: "Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; " +
-				"the host's summary can still drop it",
+			Summary: "Pin an invariant to re-inject after each compaction (9,500-char cap; the host summary may still drop it)",
 		},
 		{
 			Name: "why", Subcommand: "why", ArgumentHint: "<decision-id>",
-			Summary: "Explain a recorded decision and the evidence behind it",
+			Summary: "Explain a recorded decision and its evidence",
 		},
 		{
 			Name: "dropped", Subcommand: "dropped", ArgumentHint: "[--json]",
-			Summary: "Report what the last compaction dropped and how to get it back",
+			Summary: "Show what the last compaction dropped and how to restore it",
 		},
 		{
 			Name: "eval", Subcommand: "eval", ArgumentHint: "[--corpus <path>]",
-			Summary: "Report the latest replay and live evaluation results",
+			Summary: "Show the latest replay and live eval results",
 		},
 	}
 

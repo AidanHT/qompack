@@ -1,5 +1,5 @@
 ---
-description: Search stored tool output and file versions by content
+description: Search stored tool output and file versions
 argument-hint: "<query> [--k N]"
 allowed-tools: Bash(qompack recall:*)
 ---
