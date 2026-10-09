@@ -161,6 +161,10 @@ type Deps struct {
 	// HostPaths judges recorded paths against the host's current Read rules, so section 6 never
 	// shows one re_read would refuse (D50). Nil applies containment alone; see HostPaths.
 	HostPaths HostPaths
+	// Redact applies today's retrieval redaction policy to stored bytes, as internal/mcp's expand
+	// does before serving them. A small tool result is restored inline under its pointer only through
+	// it (inlineOutput); nil restores none, the fail-closed direction.
+	Redact func([]byte) []byte
 
 	// judge is the build's path judge, which Build makes once and item 6 reads (pathJudgeFor).
 	judge *pathJudge

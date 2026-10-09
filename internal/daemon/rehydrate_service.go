@@ -19,6 +19,7 @@ import (
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/rehydrate"
 	"github.com/qompack/qompack/internal/rules"
 	"github.com/qompack/qompack/internal/skills"
@@ -732,6 +733,9 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 			Log:    log,
 			// Section 6 never shows a path re_read would refuse (D50): the same host rules.
 			HostPaths: rehydrateHostPaths(hostPolicyFor(o), o.ProjectRoot, log),
+			// A small tool result is inlined under its pointer only as expand would serve it: through
+			// the same retrieval redaction policy (cli.NewRetrievalRedactor builds expand's from o.Cfg).
+			Redact: rehydrateRedact(o.Cfg),
 		},
 		Reporter: rehydrate.NewReporter(o.ProjectRoot, log),
 		Log:      log,
@@ -740,6 +744,15 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	})
 	BindRehydrate(o, svc)
 	return svc
+}
+
+// rehydrateRedact adapts today's redaction policy for cfg to rehydrate.Deps.Redact.
+func rehydrateRedact(cfg config.Config) func([]byte) []byte {
+	r := redact.New(cfg)
+	return func(b []byte) []byte {
+		out, _ := r.Redact(b)
+		return out
+	}
 }
 
 // hostPolicyFor is o.HostPolicy, or the machine's own rules for the project when none is supplied —
