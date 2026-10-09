@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run ./tools/devtool fmt-check
       - run: go run ./tools/devtool lint
       - run: go vet ./...
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run ./tools/devtool lint
 
   test:
@@ -157,7 +157,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       # test/e2e is excluded from the whole-tree run and has its own job (`test-e2e`). Two
       # reasons, both measured. Under -race the package does not finish inside the repository's
       # 30-minute whole-tree timeout on ubuntu or macos — run 34052269275 timed out with
@@ -359,7 +359,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       # -timeout is a hang guard here, not a product threshold (audit 2's #84): this one binary runs
       # all of test/e2e, X11 included. Measured: windows-latest 1188 s (run 36816905394); the quiet
       # Windows reference host 1513.7 s (c5) and 1529.5 s (c6 win-e2e-timing), and a co-loaded local
@@ -405,7 +405,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$' ./internal/store ./internal/negknow ./internal/mcp ./internal/daemon ./test/integration
 
   # `devtool cover` runs two passes (tools/devtool/cover.go, coverPasses): the tree but test/e2e in
@@ -424,7 +424,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run ./tools/devtool cover
       # Uploaded whether or not the floors passed: a floor failure is exactly when the profile is
       # needed, and the first run to reach the floor stage (34800489027) had no profile to read
@@ -439,7 +439,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run ./tools/devtool build-all
 
   bench-gate:
@@ -497,7 +497,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json "bench-${{ matrix.os }}.json"
       # `if: always()` because the run whose JSON is most worth having is the one that FAILED. The
       # harness writes the file and then exits non-zero on a breached gate, so without this the
@@ -523,7 +523,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       # The pull-request body is where a §11.3 sign-off trailer lives. On a push event there is no
       # body, so the file is empty and NO regression can be signed off on a direct push — which is
       # correct: a trade-off nobody reviewed is not a trade-off anybody agreed to.
@@ -554,7 +554,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run ./tools/devtool plugin-validate
       - run: git diff --exit-code -- plugin/
 
@@ -564,7 +564,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...
       - run: go run ./tools/devtool lint --only=importgraph,testdeps,bindeps
       # Each check is an explicit `if` that fails the step. The bare `! grep ...` lines this replaced
@@ -628,7 +628,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       - run: go run ./tools/devtool gen-config-docs --check
       - run: go run ./tools/devtool gen-mcp-docs --check
       - run: go run ./tools/devtool gen-command-docs --check
@@ -665,7 +665,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.6', cache: true }
+        with: { go-version: '1.26.9', cache: true }
       # The six bundles at the release's own version (core.Version's default, which release-check
       # --tag requires the tag to equal), built before release-check so a red gate still leaves
       # them. Before a tag is pushed the coordinator compares their bin/ bytes with the frozen

@@ -63,7 +63,7 @@ Exec form needs Claude Code 2.1.139 or later, the release that added the hook `a
   "name": "qompack",
   "version": "v0.2.0-602-gacbb0f2",
   "target": { "os": "windows", "arch": "amd64" },
-  "go": "go1.26.6",
+  "go": "go1.26.9",
   "source": { "commit": "<full 40-character sha>", "dirty": false },
   "files": [ { "path": "bin/qompack.exe", "sha256": "…", "bytes": 7943680 } ]
 }
@@ -74,7 +74,7 @@ Exec form needs Claude Code 2.1.139 or later, the release that added the hook `a
 | `name` | the plugin's own name; always `qompack` |
 | `version` | the one version string (§3), identical to `plugin.json`'s and to the binary's |
 | `target` | the GOOS/GOARCH the binary in `bin/` was built for |
-| `go` | the toolchain that compiled it, e.g. `go1.26.6` |
+| `go` | the toolchain that compiled it, e.g. `go1.26.9` |
 | `source.commit` | full SHA of `HEAD` at assembly time; empty when git was unavailable |
 | `source.dirty` | true when the worktree carried uncommitted changes |
 | `files` | every file in the bundle except `BUNDLE.json` and `checksums.txt`, sorted by path |
