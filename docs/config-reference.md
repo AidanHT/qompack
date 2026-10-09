@@ -291,7 +291,7 @@ Every reader in the running daemon reads these keys at its next use. The reload 
 | `runtime.hotPath.spoolOnBreach` | the hot-path handler (currentCfg) and state.bin |
 | `runtime.mcp` | MCP tools (ToolDeps.CfgFn) |
 | `runtime.migration.reinjection.sessionStartCompact` | rehydrate service (RehydrateOptions.CfgFn) |
-| `runtime.redact` | capture admission (currentCfg), the store's and the retrieval tools' redactors (NewLiveRedactor) |
+| `runtime.redact` | capture admission (currentCfg), the store's, the retrieval tools' and the rehydrator's inline redactors (NewLiveRedactor) |
 | `runtime.rehydrate` | rehydrate service (RehydrateOptions.CfgFn) |
 | `runtime.selection.submodularEnabled` | rehydrate service (RehydrateOptions.CfgFn) |
 | `scheduler.hardCeilingMargin` | scheduler runtime Evaluate (SchedulerRuntimeOptions.CfgFn) |
