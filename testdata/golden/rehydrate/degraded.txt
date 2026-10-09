@@ -1,11 +1,11 @@
-<!-- qompack:injected seq=1 ver=1 -->
-# Qompack rehydration — checkpoint 0001, session sess_01J
+<!-- qompack:session-record seq=1 ver=1 -->
+# Qompack's record of this session before compaction — checkpoint 0001, session sess_01J
 
 ## 1. Invariants (pinned, verbatim)
 - [inv_7c1a9e2f4b60] The refresh-token rotation must remain single-use; reuse detection is a security requirement, not a preference. (source: user)
 - [inv_2d8f0a6c3e15] Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction. (source: agent)
 
-## 2. Original user intent (verbatim from L0 capture — never summarized)
+## 2. Original user intent (the user's own words, verbatim)
 Evolution (most recent first):
 > Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help.
 > Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.
@@ -15,7 +15,7 @@ Original:
 ## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
 Before committing to an approach, call already_tried.
 
-## 6b. Skill index (names and one-line descriptions only)
+## 6b. Skill index (names and descriptions only)
 - api-lint: Check a route against the API conventions: codes, pagination, idempotency.
 - changelog-bump: Bump the version and update the changelog per the release protocol.
 
@@ -24,4 +24,4 @@ Before committing to an approach, call already_tried.
 
 ## 8. Retrieval
 Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
-<!-- /qompack:injected -->
+<!-- /qompack:session-record -->

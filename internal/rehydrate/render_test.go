@@ -24,11 +24,11 @@ const ruleW1SkipMsg = "behaviour: implementation is a stub (Rule W-1)"
 func TestWrap_TagsThePayload(t *testing.T) {
 	got := Wrap(core.CheckpointSeq(1), "# body\nline\n")
 
-	require.True(t, strings.HasPrefix(got, "<!-- qompack:injected seq=1 ver=1 -->\n"),
+	require.True(t, strings.HasPrefix(got, "<!-- qompack:session-record seq=1 ver=1 -->\n"),
 		"payload must open with the seq/ver tag and a newline, got %q", got)
 	require.True(t, strings.HasSuffix(got, checkpoint.InjectionCloseTag),
 		"payload must end with the close tag, got %q", got)
-	require.Less(t, strings.Index(got, "qompack:injected"), strings.Index(got, "/qompack:injected"),
+	require.Less(t, strings.Index(got, "qompack:session-record"), strings.Index(got, "/qompack:session-record"),
 		"the open tag must precede the close tag")
 }
 
@@ -48,7 +48,7 @@ func TestWrap_UsesTheCheckpointSchemaVersion(t *testing.T) {
 func TestUnwrap_RoundTrips(t *testing.T) {
 	for _, body := range []string{
 		"one line",
-		"# Qompack rehydration — checkpoint 0007, session 3f2a9c81\n\n## 1. Invariants\n- x",
+		"# Qompack's record of this session before compaction — checkpoint 0007, session 3f2a9c81\n\n## 1. Invariants\n- x",
 		"",
 		"trailing newline inside the body\n",
 	} {
@@ -80,17 +80,17 @@ func TestUnwrap_RejectsMalformed(t *testing.T) {
 	cases := map[string]string{
 		"empty":                "",
 		"no tags at all":       "# Qompack rehydration\nbody\n",
-		"open tag only":        "<!-- qompack:injected seq=1 ver=1 -->\nbody\n",
+		"open tag only":        "<!-- qompack:session-record seq=1 ver=1 -->\nbody\n",
 		"close tag only":       "body\n" + checkpoint.InjectionCloseTag,
-		"close before open":    checkpoint.InjectionCloseTag + "\n<!-- qompack:injected seq=1 ver=1 -->\n",
-		"non-numeric seq":      "<!-- qompack:injected seq=abc ver=1 -->\nbody\n" + checkpoint.InjectionCloseTag,
-		"non-numeric ver":      "<!-- qompack:injected seq=1 ver=x -->\nbody\n" + checkpoint.InjectionCloseTag,
-		"missing ver":          "<!-- qompack:injected seq=1 -->\nbody\n" + checkpoint.InjectionCloseTag,
-		"unterminated open":    "<!-- qompack:injected seq=1 ver=1\nbody\n" + checkpoint.InjectionCloseTag,
-		"no newline after tag": "<!-- qompack:injected seq=1 ver=1 -->body\n" + checkpoint.InjectionCloseTag,
-		"no newline before end": "<!-- qompack:injected seq=1 ver=1 -->\nbody" +
+		"close before open":    checkpoint.InjectionCloseTag + "\n<!-- qompack:session-record seq=1 ver=1 -->\n",
+		"non-numeric seq":      "<!-- qompack:session-record seq=abc ver=1 -->\nbody\n" + checkpoint.InjectionCloseTag,
+		"non-numeric ver":      "<!-- qompack:session-record seq=1 ver=x -->\nbody\n" + checkpoint.InjectionCloseTag,
+		"missing ver":          "<!-- qompack:session-record seq=1 -->\nbody\n" + checkpoint.InjectionCloseTag,
+		"unterminated open":    "<!-- qompack:session-record seq=1 ver=1\nbody\n" + checkpoint.InjectionCloseTag,
+		"no newline after tag": "<!-- qompack:session-record seq=1 ver=1 -->body\n" + checkpoint.InjectionCloseTag,
+		"no newline before end": "<!-- qompack:session-record seq=1 ver=1 -->\nbody" +
 			checkpoint.InjectionCloseTag,
-		"leading garbage": "noise <!-- qompack:injected seq=1 ver=1 -->\nbody\n" + checkpoint.InjectionCloseTag,
+		"leading garbage": "noise <!-- qompack:session-record seq=1 ver=1 -->\nbody\n" + checkpoint.InjectionCloseTag,
 	}
 
 	for name, in := range cases {
@@ -108,7 +108,7 @@ func TestUnwrap_RejectsMalformed(t *testing.T) {
 // by a newer Qompack must still be recognizable as an injected span so that StripInjections's
 // never-re-encode guarantee survives a version skew.
 func TestUnwrap_AcceptsAFutureSchemaVersion(t *testing.T) {
-	body, seq, ok := Unwrap("<!-- qompack:injected seq=9 ver=99 -->\nbody\n" + checkpoint.InjectionCloseTag)
+	body, seq, ok := Unwrap("<!-- qompack:session-record seq=9 ver=99 -->\nbody\n" + checkpoint.InjectionCloseTag)
 
 	require.True(t, ok)
 	require.Equal(t, "body", body)
@@ -170,7 +170,7 @@ func TestDocumentHeader_FormatsSeqAndSession(t *testing.T) {
 	r.Session = core.SessionID("3f2a9c81ffffffffffff")
 	r.Ref.Seq = core.CheckpointSeq(7)
 
-	require.Equal(t, "# Qompack rehydration — checkpoint 0007, session 3f2a9c81", documentHeader(r))
+	require.Equal(t, "# Qompack's record of this session before compaction — checkpoint 0007, session 3f2a9c81", documentHeader(r))
 }
 
 // TestDocumentHeader_ShortSessionIsNotPadded asserts a session id shorter than eight characters
@@ -180,7 +180,7 @@ func TestDocumentHeader_ShortSessionIsNotPadded(t *testing.T) {
 	r.Session = core.SessionID("s1")
 	r.Ref.Seq = core.CheckpointSeq(12345)
 
-	require.Equal(t, "# Qompack rehydration — checkpoint 12345, session s1", documentHeader(r))
+	require.Equal(t, "# Qompack's record of this session before compaction — checkpoint 12345, session s1", documentHeader(r))
 }
 
 // ── item and body assembly ──
@@ -225,7 +225,7 @@ func TestRenderBody_SeparatesSectionsWithOneBlankLine(t *testing.T) {
 	})
 
 	require.Equal(t, strings.Join([]string{
-		"# Qompack rehydration — checkpoint 0007, session 3f2a9c81",
+		"# Qompack's record of this session before compaction — checkpoint 0007, session 3f2a9c81",
 		"",
 		"## 1. Invariants (pinned, verbatim)",
 		"- [a] one",
@@ -247,7 +247,7 @@ func TestRenderBody_SkipsEmptyItems(t *testing.T) {
 		{Kind: ItemAffordance, Text: "## 8. Retrieval\nx\n"},
 	})
 
-	require.Equal(t, "# Qompack rehydration — checkpoint 0001, session \n\n## 8. Retrieval\nx", got)
+	require.Equal(t, "# Qompack's record of this session before compaction — checkpoint 0001, session \n\n## 8. Retrieval\nx", got)
 }
 
 // TestRenderBody_HeaderOnly asserts a rehydration with no items at all still produces a
@@ -257,7 +257,7 @@ func TestRenderBody_HeaderOnly(t *testing.T) {
 	r.Session = core.SessionID("abcdefgh12")
 	r.Ref.Seq = core.CheckpointSeq(2)
 
-	require.Equal(t, "# Qompack rehydration — checkpoint 0002, session abcdefgh", renderBody(r, nil))
+	require.Equal(t, "# Qompack's record of this session before compaction — checkpoint 0002, session abcdefgh", renderBody(r, nil))
 }
 
 // ── full-Build integration (skipped until the main session lands build.go) ──
@@ -276,11 +276,11 @@ func TestBuild_InjectionTagging(t *testing.T) {
 	}
 	require.NoError(t, err)
 
-	require.True(t, strings.HasPrefix(got.Text, "<!-- qompack:injected seq=1 ver=1 -->\n"), got.Text)
+	require.True(t, strings.HasPrefix(got.Text, "<!-- qompack:session-record seq=1 ver=1 -->\n"), got.Text)
 	require.True(t, strings.HasSuffix(got.Text, checkpoint.InjectionCloseTag))
 
 	body, seq, ok := Unwrap(got.Text)
 	require.True(t, ok, "Build's own payload must round-trip through Unwrap")
 	require.Equal(t, core.CheckpointSeq(1), seq)
-	require.Contains(t, body, "# Qompack rehydration — checkpoint 0001, session sess_01J")
+	require.Contains(t, body, "# Qompack's record of this session before compaction — checkpoint 0001, session sess_01J")
 }

@@ -115,7 +115,7 @@ func TestBuild_NoFallbackNoEntry(t *testing.T) {
 	for _, e := range res.Dropped {
 		require.NotEqual(t, dropKindCheckpointFallback, e.Kind)
 	}
-	require.Contains(t, res.Text, "\n# Qompack rehydration — checkpoint 0001, session ")
+	require.Contains(t, res.Text, "\n# Qompack's record of this session before compaction — checkpoint 0001, session ")
 }
 
 // TestBuild_ReportedTier1OverflowIsNotLoudAgain: Build reports a tier-1 overflow in Result, and a

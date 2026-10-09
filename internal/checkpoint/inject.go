@@ -17,18 +17,46 @@ import (
 //
 // InjectionOpenTag is a fmt format string: seq is the checkpoint sequence the injected body came
 // from, and ver is SchemaVersion.
+//
+// The tags are model-visible, so they name what the span IS — Qompack's saved record of the
+// session — rather than how it arrived: the c55-c8 live eval saw a model distrust a block whose tag
+// read "injected". Releases through 0.3.x wrote the Legacy spelling; transcripts still hold it, so
+// StripInjections recognizes both, each with every guarantee documented on it.
 const (
 	// InjectionOpenTag opens an injected span. Format arguments: seq, ver.
-	InjectionOpenTag = "<!-- qompack:injected seq=%d ver=%d -->"
+	InjectionOpenTag = "<!-- qompack:session-record seq=%d ver=%d -->"
 	// InjectionCloseTag closes an injected span.
-	InjectionCloseTag = "<!-- /qompack:injected -->"
+	InjectionCloseTag = "<!-- /qompack:session-record -->"
+	// LegacyInjectionOpenTag is the open tag 0.3.x and earlier wrote. Format arguments: seq, ver.
+	LegacyInjectionOpenTag = "<!-- qompack:injected seq=%d ver=%d -->"
+	// LegacyInjectionCloseTag is the close tag 0.3.x and earlier wrote.
+	LegacyInjectionCloseTag = "<!-- /qompack:injected -->"
 )
 
-// injectionOpenPrefix is InjectionOpenTag's fixed, verb-free prefix ("<!-- qompack:injected
-// seq="), derived from the constant itself rather than written out a second time so the two can
-// never drift apart. It is what StripInjections scans for, since the seq and ver values in a real
-// open tag vary.
-var injectionOpenPrefix = InjectionOpenTag[:strings.IndexByte(InjectionOpenTag, '%')]
+// injectionSpelling is one recognized spelling of the tags: the open tag's fixed, verb-free prefix
+// ("<!-- qompack:session-record seq="), derived from the constant itself so the two can never drift
+// apart, and the close tag that ends a span it opens. The prefix is what StripInjections scans for,
+// since the seq and ver values in a real open tag vary.
+type injectionSpelling struct{ open, close string }
+
+// injectionSpellings are the spellings StripInjections recognizes: the current one and the legacy
+// one. No prefix is a prefix of another, so two spellings never open at the same index.
+var injectionSpellings = [...]injectionSpelling{
+	{InjectionOpenTag[:strings.IndexByte(InjectionOpenTag, '%')], InjectionCloseTag},
+	{LegacyInjectionOpenTag[:strings.IndexByte(LegacyInjectionOpenTag, '%')], LegacyInjectionCloseTag},
+}
+
+// nextOpen returns the index of the earliest open prefix of any spelling in s, and that spelling;
+// at is -1 when s holds none.
+func nextOpen(s string) (at int, sp injectionSpelling) {
+	at = -1
+	for _, c := range injectionSpellings {
+		if i := strings.Index(s, c.open); i >= 0 && (at < 0 || i < at) {
+			at, sp = i, c
+		}
+	}
+	return at, sp
+}
 
 // injectionTagSuffix closes the open tag itself (not the injected span).
 const injectionTagSuffix = " -->"
@@ -68,9 +96,9 @@ func StripInjections(s string) string {
 // Removing a span concatenates the text before its open tag with the text after its close tag, and
 // those two halves can SPLICE INTO A NEW OPEN TAG that nobody wrote. One pass over
 //
-//	INPUT = "<!-- qompack:injected se" + OpenTag(1) + "X" + InjectionCloseTag + "q=7 ver=1 -->tail"
+//	INPUT = "<!-- qompack:session-record se" + OpenTag(1) + "X" + InjectionCloseTag + "q=7 ver=1 -->tail"
 //
-// yields "<!-- qompack:injected seq=7 ver=1 -->tail" — a well-formed, unterminated open tag. Since
+// yields "<!-- qompack:session-record seq=7 ver=1 -->tail" — a well-formed, unterminated open tag. Since
 // fromStore runs on every store read, the NEXT read would obey the missing-close-tag property and
 // drop "tail" as an injected body, silently deleting text a user wrote.
 //
@@ -81,9 +109,9 @@ func StripInjections(s string) string {
 // # Join-aware neutralization
 //
 // The fix rests on a property of the scan itself: every chunk stripInjectionsOnce keeps is written
-// as rest[:open], where open is the index of the FIRST open prefix in rest — so no kept chunk can
-// contain a full open prefix, and neither can the trailing chunk, which is only written when no
-// prefix remains. Therefore an open prefix present in a pass's OUTPUT provably straddles a join
+// as rest[:open], where open is the index of the FIRST open prefix in rest, of either spelling — so
+// no kept chunk can contain a full open prefix of any spelling, and neither can the trailing chunk,
+// which is only written when no prefix of any spelling remains. Therefore an open prefix present in a pass's OUTPUT provably straddles a join
 // that pass created. It is an artifact of stripping, never something the reader wrote.
 //
 // That proof establishes exactly one thing, and the code claims exactly that much: those
@@ -102,7 +130,7 @@ func StripInjections(s string) string {
 // tagged material is IGNORED as a source for the next pass, not that its neighbours are erased.
 // Residue is the strictly better trade.
 //
-// The postcondition is that the result contains no open prefix at all, which makes StripInjections
+// The postcondition is that the result contains no open prefix of any spelling at all, which makes StripInjections
 // idempotent outright rather than by construction of a loop. Nothing more is promised: no byte that
 // was not part of an assembled prefix is ever removed here.
 //
@@ -131,13 +159,13 @@ func StripInjectionsCount(s string) (string, int) {
 func neutralizeSplices(s string) (string, int) {
 	n := 0
 	for {
-		open := strings.Index(s, injectionOpenPrefix)
+		open, sp := nextOpen(s)
 		if open < 0 {
 			return s, n
 		}
 		// Only the assembled prefix is provably an artifact. Everything after it — including any
 		// " -->" downstream — is the reader's text and is kept verbatim.
-		s = s[:open] + s[open+len(injectionOpenPrefix):]
+		s = s[:open] + s[open+len(sp.open):]
 		n++
 	}
 }
@@ -149,7 +177,7 @@ func stripInjectionsOnce(s string) (string, int) {
 	rest := s
 	n := 0
 	for {
-		open := strings.Index(rest, injectionOpenPrefix)
+		open, sp := nextOpen(rest)
 		if open < 0 {
 			b.WriteString(rest)
 			return b.String(), n
@@ -165,12 +193,13 @@ func stripInjectionsOnce(s string) (string, int) {
 		}
 		bodyStart := open + tagEnd + len(injectionTagSuffix)
 
-		closeAt := strings.Index(rest[bodyStart:], InjectionCloseTag)
+		// A span ends at its OWN spelling's close tag: the other spelling's is ordinary text here.
+		closeAt := strings.Index(rest[bodyStart:], sp.close)
 		if closeAt < 0 {
 			// Missing close tag: drop to the end of the string.
 			return b.String(), n
 		}
-		rest = rest[bodyStart+closeAt+len(InjectionCloseTag):]
+		rest = rest[bodyStart+closeAt+len(sp.close):]
 	}
 }
 

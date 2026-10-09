@@ -247,7 +247,7 @@ func compactAnswer(out hookio.Output) string {
 	}
 	ac := out.HookSpecificOutput.AdditionalContext
 	switch {
-	case strings.Contains(ac, "# Qompack rehydration"):
+	case strings.Contains(ac, "# Qompack's record of this session"):
 		return "rehydration"
 	case strings.HasPrefix(ac, daemon.DeferredNoteTag):
 		return "deferred-note"

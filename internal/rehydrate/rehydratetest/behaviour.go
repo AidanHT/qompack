@@ -48,7 +48,7 @@ const (
 // (00-ARCHITECTURE.md §3.2). That duplication is deliberate and bounded: checkpoint's own
 // inject_test.go pins the constant byte-for-byte, so the two can only drift if someone changes
 // that test in the same commit — at which point this assertion fails and says why.
-const injectionMarker = "qompack:injected"
+const injectionMarker = "qompack:session-record"
 
 // populatedRequest is the fixture every case starts from: a checkpoint with every tier populated,
 // asked for at the given budget.

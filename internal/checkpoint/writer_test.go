@@ -440,6 +440,7 @@ func TestAdvanceStripsInjectionsFromStoredPrompts(t *testing.T) {
 	require.NotEmpty(t, cp.UserIntent.Evolution, "the stripped remainder still evolves the intent")
 	for _, e := range cp.UserIntent.Evolution {
 		require.NotContains(t, e, "stale summary", "an injected body must never re-enter a checkpoint")
+		require.NotContains(t, e, "qompack:session-record")
 		require.NotContains(t, e, "qompack:injected")
 	}
 	// The goal is the stripped remainder's first sentence — here all of it, which has no sentence
@@ -862,6 +863,7 @@ func TestAdvanceRoutesToolSummariesThroughFromStore(t *testing.T) {
 	summary := cp.Pointers.Tools[0].Summary
 	require.NotContains(t, summary, "stale digest body",
 		"an injected body must never re-enter a checkpoint through a tool pointer's summary")
+	require.NotContains(t, summary, "qompack:session-record")
 	require.NotContains(t, summary, "qompack:injected")
 	require.Contains(t, summary, "Read src/a.ts", "the surrounding text is kept verbatim")
 }

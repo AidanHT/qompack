@@ -26,6 +26,16 @@ func openPrefix() string {
 	return checkpoint.InjectionOpenTag[:strings.IndexByte(checkpoint.InjectionOpenTag, '%')]
 }
 
+// legacyOpenTag and legacyOpenPrefix are openTag and openPrefix for the 0.3.x spelling, which
+// transcripts still hold and StripInjections still strips.
+func legacyOpenTag(seq int) string {
+	return fmt.Sprintf(checkpoint.LegacyInjectionOpenTag, seq, checkpoint.SchemaVersion)
+}
+
+func legacyOpenPrefix() string {
+	return checkpoint.LegacyInjectionOpenTag[:strings.IndexByte(checkpoint.LegacyInjectionOpenTag, '%')]
+}
+
 // isSubsequence reports whether a can be obtained from b by deleting bytes, without reordering or
 // inventing any. Stripping is a deletion, so this holds of every (input, output) pair; an
 // implementation that rewrote, reordered or fabricated bytes would fail it.
@@ -146,11 +156,57 @@ func TestStripInjections_IsIdempotent(t *testing.T) {
 // TestInjectionTags_AreTheFrozenSpellings pins the two constants byte-for-byte. SP-08 injects
 // through them, SP-11 wraps through them and SP-15 asserts them, so a whitespace change here
 // would silently orphan every span already written into a transcript.
+//
+// 0.3.2 renamed the model-visible spelling from qompack:injected to qompack:session-record (the
+// c55-c8 eval saw a model call an "injected-looking" block untrustworthy); the legacy pair is pinned
+// too, because spans written by 0.3.x must keep stripping.
 func TestInjectionTags_AreTheFrozenSpellings(t *testing.T) {
-	require.Equal(t, "<!-- qompack:injected seq=%d ver=%d -->", checkpoint.InjectionOpenTag)
-	require.Equal(t, "<!-- /qompack:injected -->", checkpoint.InjectionCloseTag)
-	require.Equal(t, "<!-- qompack:injected seq=7 ver=1 -->", openTag(7),
+	require.Equal(t, "<!-- qompack:session-record seq=%d ver=%d -->", checkpoint.InjectionOpenTag)
+	require.Equal(t, "<!-- /qompack:session-record -->", checkpoint.InjectionCloseTag)
+	require.Equal(t, "<!-- qompack:session-record seq=7 ver=1 -->", openTag(7),
 		"SchemaVersion must render as the ver= value of a real open tag")
+	require.Equal(t, "<!-- qompack:injected seq=%d ver=%d -->", checkpoint.LegacyInjectionOpenTag)
+	require.Equal(t, "<!-- /qompack:injected -->", checkpoint.LegacyInjectionCloseTag)
+}
+
+// TestStripInjections_LegacySpellingKeepsEveryGuarantee runs the three normative properties, the
+// count and the splice neutralization over the 0.3.x spelling, and over the two spellings mixed: a
+// span ends only at its own spelling's close tag, the other spelling's being ordinary text.
+func TestStripInjections_LegacySpellingKeepsEveryGuarantee(t *testing.T) {
+	lclose := checkpoint.LegacyInjectionCloseTag
+	cases := []struct {
+		name, in, want string
+		spans          int
+	}{
+		{"whole legacy span", "before " + legacyOpenTag(7) + "x" + lclose + " after", "before  after", 1},
+		{"non-greedy", "a" + legacyOpenTag(1) + "x" + lclose + "kept" + legacyOpenTag(2) + "y" + lclose + "b", "akeptb", 2},
+		{"missing close drops to end", "kept" + legacyOpenTag(4) + "everything after", "kept", 1},
+		{"truncated open tag", "kept" + legacyOpenPrefix(), "kept", 1},
+		{"stray legacy close is text", "before " + lclose + " after", "before " + lclose + " after", 0},
+		{"legacy then current", "a" + legacyOpenTag(1) + "x" + lclose + "b" + openTag(2) + "y" + checkpoint.InjectionCloseTag + "c", "abc", 2},
+		{"a current close does not end a legacy span", "a" + legacyOpenTag(1) + "x" + checkpoint.InjectionCloseTag + "b", "a", 1},
+		{"a legacy close does not end a current span", "a" + openTag(1) + "x" + lclose + "b", "a", 1},
+		{
+			"a legacy splice costs its prefix alone",
+			"<!-- qompack:injected se" + legacyOpenTag(1) + "X" + lclose + "q=" + "prose<!-- c -->tail",
+			"prose<!-- c -->tail", 2,
+		},
+		{
+			"a current splice around a legacy span costs its prefix alone",
+			"<!-- qompack:session-record se" + legacyOpenTag(1) + "X" + lclose + "q=" + "prose<!-- c -->tail",
+			"prose<!-- c -->tail", 2,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out, n := checkpoint.StripInjectionsCount(tc.in)
+			require.Equal(t, tc.want, out)
+			require.Equal(t, tc.spans, n)
+			require.Equal(t, out, checkpoint.StripInjections(out), "idempotent")
+			require.NotContains(t, out, legacyOpenPrefix())
+			require.NotContains(t, out, openPrefix())
+		})
+	}
 }
 
 // ── SP-10 additions. Everything below extends the seven shipped tests above; none of them are
@@ -255,10 +311,12 @@ func TestStripInjectionsLeavesCleanTextAlone(t *testing.T) {
 		rapid.SampledFrom([]string{
 			"ordinary prose about the refresh-token pool",
 			" ", "\n", "\n\n", "<", ">", "<!--", "-->", "<!-- comment -->",
-			"qompack", ":injected", "seq=", "ver=1", " seq=3",
-			checkpoint.InjectionCloseTag,
+			"qompack", ":injected", ":session-record", "seq=", "ver=1", " seq=3",
+			checkpoint.InjectionCloseTag, checkpoint.LegacyInjectionCloseTag,
 			"<!- qompack:injected seq=",
 			"<!-- qompack:injectedseq=",
+			"<!- qompack:session-record seq=",
+			"<!-- qompack:session-recordseq=",
 		}),
 		rapid.String(),
 	)
@@ -267,7 +325,7 @@ func TestStripInjectionsLeavesCleanTextAlone(t *testing.T) {
 		for _, pieces := range batch {
 			s := strings.Join(pieces, "")
 			out, n := checkpoint.StripInjectionsCount(s)
-			if strings.Contains(s, openPrefix()) {
+			if strings.Contains(s, openPrefix()) || strings.Contains(s, legacyOpenPrefix()) {
 				// Not clean text: the fragments assembled a real open prefix, so something is
 				// legitimately stripped and the identity assertion below cannot apply. The
 				// generator reaches this arm often, so rather than dropping those draws on the
@@ -279,6 +337,8 @@ func TestStripInjectionsLeavesCleanTextAlone(t *testing.T) {
 					"the scan may delete bytes but must never invent or reorder them: %q -> %q", s, out)
 				require.NotContains(rt, out, openPrefix(),
 					"no open prefix may survive the scan: %q -> %q", s, out)
+				require.NotContains(rt, out, legacyOpenPrefix(),
+					"no legacy open prefix may survive the scan: %q -> %q", s, out)
 				require.Equal(rt, out, checkpoint.StripInjections(out),
 					"the scan must be idempotent: %q", s)
 				require.NotZero(rt, n,
@@ -420,6 +480,8 @@ func FuzzStripInjections(f *testing.F) {
 	}
 	f.Add("a\n" + openTag(7) + "\nX\n\nkeep me")
 	f.Add("<!-- qompack:injected se")
+	f.Add("<!-- qompack:session-record se")
+	f.Add("a" + legacyOpenTag(1) + "x" + checkpoint.InjectionCloseTag + "b")
 	// The splice-defect input is a permanent seed: 60 s of fuzzing never assembled the
 	// three-part shape (partial prefix + full span + prefix completion) on its own, so the
 	// one input known to have broken idempotence in shipped code is pinned here rather than
