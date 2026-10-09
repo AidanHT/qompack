@@ -69,7 +69,7 @@ func sectionHeading(k ItemKind) string {
 	case ItemCurrentWork:
 		return "## 5. Current work"
 	case ItemPointers:
-		return "## 6. Pointers (not restored; expand or re_read returns the full content)"
+		return "## 6. Pointers (small results inline; expand or re_read gives full content)"
 	case ItemRestoredInstructions:
 		return "## 6a. Restored instructions (re-read from disk)"
 	case ItemSkillIndex:
