@@ -399,26 +399,41 @@ func TestDeliveryOrder_FlushOverAnUnreadableFrontierIsCountedNotSilent(t *testin
 // its overall limit. Each delivery here takes well under the stall bound and all of them together
 // well over it, so a fixed bound of that size gave up with some of them still unpublished and ran
 // SessionEnd ahead of them.
+//
+// Each tool's delivery takes perTool of real time with its real publication running inside that
+// time, not after it, so a delivery costs max(perTool, publication): tools x perTool still exceeds
+// the stall, so the backlog still outlasts a fixed bound of that size, and only a real publication
+// that alone takes longer than the whole stall bound can outlast it inside one delivery. With the
+// delay ahead of the publication, a delivery cost perTool plus the publication, which left the
+// publication 3 s of the 5 s stall: on a slow hosted Windows runner one delivery outlasted the
+// stall, the settle gave up as it should (counted in l0_flush_unsettled and announced), and the
+// flush's final drain met the delivery still in progress — the row's own fixture, not the product,
+// spent the bound.
 func TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	const sess core.SessionID = "sess-flush-backlog"
 	const tools = 3
 	stall := stopDrainBound
-	perTool := stall * 2 / 5 // tools x perTool exceeds stall; one tool plus its own publication does not
+	perTool := stall * 2 / 5 // tools x perTool exceeds stall; one delivery, max(perTool, publication), does not
+	require.Greater(t, tools*perTool, stall, "fixture: the backlog must take longer than the stall bound")
+	require.Less(t, perTool, stall, "fixture: one delivery's delay must fit the stall bound")
 	laneTestSetSettle(dd, stall, liveOrderBound)
 	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	run := func(ctx context.Context, req ipc.Request) ipc.Response {
-		if req.Event != nil && req.Event.ToolUseID != "" {
-			// A slow publication: it takes perTool of real time, and gives up with the worker's ctx.
-			slow := time.NewTimer(perTool)
-			defer slow.Stop()
-			select {
-			case <-slow.C:
-			case <-ctx.Done():
-				return ipc.Response{Err: ctx.Err().Error()}
-			}
+		if req.Event == nil || req.Event.ToolUseID == "" {
+			return dd.runIngested(ctx, req)
 		}
-		return dd.runIngested(ctx, req)
+		// A slow delivery: it takes at least perTool of real time, its real publication running
+		// alongside that delay rather than after it. The worker's ctx ends only the delay; what the
+		// publication did is what the delivery reports.
+		slow := time.NewTimer(perTool)
+		defer slow.Stop()
+		resp := dd.runIngested(ctx, req)
+		select {
+		case <-slow.C:
+		case <-ctx.Done():
+		}
+		return resp
 	}
 	liveOrderWorkers(t, dd, 2, run)
 
