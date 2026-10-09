@@ -183,6 +183,26 @@ func TestConfigReload_ReachesTheStoreRedactor(t *testing.T) {
 	require.Equal(t, 1, after.Redacted, "the reloaded pattern binds the next Put")
 }
 
+// TestConfigReload_ReachesTheRehydratorInlineRedactor: a small tool result is inlined into the
+// rehydration block only through rehydrate.Deps.Redact, which must be expand's policy as it stands at
+// the build, not a start-up snapshot: after a reload adds a pattern, expand redacts the secret, and
+// the block must not inline it in the clear.
+func TestConfigReload_ReachesTheRehydratorInlineRedactor(t *testing.T) {
+	var wired observer.Rehydrator
+	h := newReloadHarness(t, testConfig(), func(o *Options) { wired = WireRehydrator(o) })
+	svc, ok := wired.(*rehydrateService)
+	require.True(t, ok)
+	redactFn := svc.o.Deps.Redact
+	require.NotNil(t, redactFn, "the rehydrator inlines nothing without a redactor")
+	secret := []byte("seed: ZZQSECRET12345ZZ")
+	require.Equal(t, string(secret), string(redactFn(secret)), "no rule matches before the reload")
+
+	changed := h.reload(t, `{"runtime":{"redact":{"enabled":true,"patterns":["ZZQSECRET[0-9]+ZZ"]}}}`)
+	require.Contains(t, changed, "runtime.redact.patterns")
+	require.NotContains(t, string(redactFn(secret)), "ZZQSECRET12345ZZ",
+		"the reloaded pattern binds the next inlined result, as it binds expand")
+}
+
 // TestConfigReload_ReachesTheSchedulerRuntime: a scheduler runtime wired with the live
 // configuration (SchedulerRuntimeOptions.CfgFn, as the daemon's composition root wires it) acts on a
 // reloaded scheduler.idle.backgroundWork at its next idle pass.

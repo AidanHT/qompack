@@ -88,7 +88,7 @@ var reloadKeyEffects = []reloadKeyEffect{
 	{"runtime.hotPath.spoolOnBreach", effectLive, "the hot-path handler (currentCfg) and state.bin"},
 	{"runtime.hotPath.maxPayloadBytes", effectRestart, "the observer's result bound and the MCP server's line bound, set at start"},
 	{"runtime.logging", effectInert, "no reader in this build: every log is opened at a fixed level and rotation before the configuration loads"},
-	{"runtime.redact", effectLive, "capture admission (currentCfg), the store's and the retrieval tools' redactors (NewLiveRedactor)"},
+	{"runtime.redact", effectLive, "capture admission (currentCfg), the store's, the retrieval tools' and the rehydrator's inline redactors (NewLiveRedactor)"},
 	{"runtime.telemetry", effectInert, "hardwired off; Validate refuses true"},
 	{"runtime.rehydrate", effectLive, "rehydrate service (RehydrateOptions.CfgFn)"},
 	{"runtime.mcp", effectLive, "MCP tools (ToolDeps.CfgFn)"},

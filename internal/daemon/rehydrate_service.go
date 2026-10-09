@@ -734,8 +734,9 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 			// Section 6 never shows a path re_read would refuse (D50): the same host rules.
 			HostPaths: rehydrateHostPaths(hostPolicyFor(o), o.ProjectRoot, log),
 			// A small tool result is inlined under its pointer only as expand would serve it: through
-			// the same retrieval redaction policy (cli.NewRetrievalRedactor builds expand's from o.Cfg).
-			Redact: rehydrateRedact(o.Cfg),
+			// the live retrieval redaction policy, built the way the daemon's MCP wiring builds expand's
+			// (cli's NewLiveRedactor(opts.CurrentCfg)), so a reloaded runtime.redact applies to both.
+			Redact: rehydrateRedact(NewLiveRedactor(o.CurrentCfg)),
 		},
 		Reporter: rehydrate.NewReporter(o.ProjectRoot, log),
 		Log:      log,
@@ -746,9 +747,8 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	return svc
 }
 
-// rehydrateRedact adapts today's redaction policy for cfg to rehydrate.Deps.Redact.
-func rehydrateRedact(cfg config.Config) func([]byte) []byte {
-	r := redact.New(cfg)
+// rehydrateRedact adapts redactor r to rehydrate.Deps.Redact.
+func rehydrateRedact(r redact.Redactor) func([]byte) []byte {
 	return func(b []byte) []byte {
 		out, _ := r.Redact(b)
 		return out
