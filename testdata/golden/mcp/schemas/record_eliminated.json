@@ -9,7 +9,7 @@
     },
     "reason": {
       "type": "string",
-      "description": "Why it fails: what an engineer without this session's history would get wrong."
+      "description": "Why it fails. Encode what a competent engineer with no session history would get wrong."
     },
     "scope": {
       "type": "string",

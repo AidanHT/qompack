@@ -143,14 +143,14 @@ checkpoint.
 
 ### `/qompack:why`
 
-Explains a recorded decision and the evidence behind it: `<decision-id>`, a `dec_<12 hex>` id taken
+Explains a recorded decision and its evidence: `<decision-id>`, a `dec_<12 hex>` id taken
 from a checkpoint or from a rehydrated decision list ([schema](commands.md#qompackwhy)). What it
 returns is an attributed record of a decision, not a claim about what the model then did. Exit `2`
 without a decision id, `1` if the decision could not be read, `0` otherwise.
 
 ### `/qompack:dropped`
 
-Reports what the last compaction dropped and how to get it back: `[--json]`
+Shows what the last compaction dropped and how to restore it: `[--json]`
 ([schema](commands.md#qompackdropped)).
 
 `dropped` is the command's name; what it reports is **qualified coverage**. Each entry names its
