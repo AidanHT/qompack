@@ -295,7 +295,7 @@ const (
 
 	schemaAlreadyTried = `{"type":"object","properties":{"target":{"type":"string","description":"Path, optionally :symbol (src/auth.ts:refreshToken)."},"approach":{"type":"string","description":"Short verb phrase (widen pool timeout)."}},"required":["target","approach"],"additionalProperties":false}`
 
-	schemaRecordEliminated = `{"type":"object","properties":{"target":{"type":"string"},"approach":{"type":"string"},"reason":{"type":"string","description":"Why it fails: what an engineer without this session's history would get wrong."},"scope":{"type":"string","enum":["session","project"],"default":"session"},"depends_on":{"type":"array","items":{"type":"string"},"description":"Paths the reason rests on; a change to one marks the record stale."}},"required":["target","approach","reason"],"additionalProperties":false}`
+	schemaRecordEliminated = `{"type":"object","properties":{"target":{"type":"string"},"approach":{"type":"string"},"reason":{"type":"string","description":"Why it fails. Encode what a competent engineer with no session history would get wrong."},"scope":{"type":"string","enum":["session","project"],"default":"session"},"depends_on":{"type":"array","items":{"type":"string"},"description":"Paths the reason rests on; a change to one marks the record stale."}},"required":["target","approach","reason"],"additionalProperties":false}`
 
 	schemaTimeline = `{"type":"object","properties":{"from":{"type":"string","description":"Turn index, RFC3339 time, or empty for session start."},"to":{"type":"string","description":"Turn index, RFC3339 time, or empty for now."}},"required":[],"additionalProperties":false}`
 
@@ -330,7 +330,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolReRead,
 			Title:       "Re-read",
-			Description: "Read a captured file version (latest or historical) from the archive, never from disk." + spanPolicy,
+			Description: "Read a captured file version (latest or historical) from the store, never a live read of disk." + spanPolicy,
 			InputSchema: json.RawMessage(schemaReRead),
 			Handler:     h.run(ToolReRead, h.reRead),
 			Ephemeral:   true,
@@ -362,7 +362,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolWhy,
 			Title:       "Why",
-			Description: "Show a recorded decision and its evidence.",
+			Description: "Show a recorded decision and its evidence. Recorded reasoning does not prove model compliance.",
 			InputSchema: json.RawMessage(schemaWhy),
 			Handler:     h.run(ToolWhy, h.why),
 			Ephemeral:   true,
@@ -370,7 +370,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolDropped,
 			Title:       "Dropped",
-			Description: "List what Qompack recorded as omitted in this session.",
+			Description: "List Qompack's recorded omissions for this session. This report does not establish what remains in native context.",
 			InputSchema: json.RawMessage(schemaDropped),
 			Handler:     h.run(ToolDropped, h.dropped),
 			Ephemeral:   true,

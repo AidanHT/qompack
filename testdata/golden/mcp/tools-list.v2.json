@@ -55,7 +55,7 @@
       "title": "Expand"
     },
     {
-      "description": "Read a captured file version (latest or historical) from the archive, never from disk. Returns the minimum sufficient span; pass full=true only if you need the whole object.",
+      "description": "Read a captured file version (latest or historical) from the store, never a live read of disk. Returns the minimum sufficient span; pass full=true only if you need the whole object.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -120,7 +120,7 @@
             "type": "array"
           },
           "reason": {
-            "description": "Why it fails: what an engineer without this session's history would get wrong.",
+            "description": "Why it fails. Encode what a competent engineer with no session history would get wrong.",
             "type": "string"
           },
           "scope": {
@@ -166,7 +166,7 @@
       "title": "Timeline"
     },
     {
-      "description": "Show a recorded decision and its evidence.",
+      "description": "Show a recorded decision and its evidence. Recorded reasoning does not prove model compliance.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -184,7 +184,7 @@
       "title": "Why"
     },
     {
-      "description": "List what Qompack recorded as omitted in this session.",
+      "description": "List Qompack's recorded omissions for this session. This report does not establish what remains in native context.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {},

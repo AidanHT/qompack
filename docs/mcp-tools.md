@@ -107,12 +107,12 @@ A model should call `already_tried` before committing to an approach: Before com
 |---|---|---|
 | [`recall`](#recall) | yes | Search archived tool output and file versions by content, path, or symbol. |
 | [`expand`](#expand) | yes | Fetch archived content by the tool_use_id a rehydration block names, or by hash. |
-| [`re_read`](#re_read) | yes | Read a captured file version (latest or historical) from the archive, never from disk. |
+| [`re_read`](#re_read) | yes | Read a captured file version (latest or historical) from the store, never a live read of disk. |
 | [`already_tried`](#already_tried) | yes | Check whether an approach was eliminated: absent, active, stale, or unavailable. |
 | [`record_eliminated`](#record_eliminated) | no | Record that an approach does not work, with its reason and the files it rests on, so it survives compaction. |
 | [`timeline`](#timeline) | yes | List recorded session events over a turn or timestamp range. |
 | [`why`](#why) | yes | Show a recorded decision and its evidence. |
-| [`dropped`](#dropped) | yes | List what Qompack recorded as omitted in this session. |
+| [`dropped`](#dropped) | yes | List Qompack's recorded omissions for this session. |
 
 ## `recall`
 
@@ -198,7 +198,7 @@ Fetch archived content by the tool_use_id a rehydration block names, or by hash.
 
 ## `re_read`
 
-Read a captured file version (latest or historical) from the archive, never from disk. Returns the minimum sufficient span; pass full=true only if you need the whole object.
+Read a captured file version (latest or historical) from the store, never a live read of disk. Returns the minimum sufficient span; pass full=true only if you need the whole object.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
@@ -283,7 +283,7 @@ Record that an approach does not work, with its reason and the files it rests on
 |---|---|---|---|---|---|
 | `target` | string | yes | — | — |  |
 | `approach` | string | yes | — | — |  |
-| `reason` | string | yes | — | — | Why it fails: what an engineer without this session's history would get wrong. |
+| `reason` | string | yes | — | — | Why it fails. Encode what a competent engineer with no session history would get wrong. |
 | `scope` | string | no | "session" | one of `session`, `project` |  |
 | `depends_on` | array | no | — | — | Paths the reason rests on; a change to one marks the record stale. |
 
@@ -301,7 +301,7 @@ Record that an approach does not work, with its reason and the files it rests on
     },
     "reason": {
       "type": "string",
-      "description": "Why it fails: what an engineer without this session's history would get wrong."
+      "description": "Why it fails. Encode what a competent engineer with no session history would get wrong."
     },
     "scope": {
       "type": "string",
@@ -365,7 +365,7 @@ List recorded session events over a turn or timestamp range.
 
 ## `why`
 
-Show a recorded decision and its evidence.
+Show a recorded decision and its evidence. Recorded reasoning does not prove model compliance.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
@@ -395,7 +395,7 @@ Show a recorded decision and its evidence.
 
 ## `dropped`
 
-List what Qompack recorded as omitted in this session.
+List Qompack's recorded omissions for this session. This report does not establish what remains in native context.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
