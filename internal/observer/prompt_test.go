@@ -442,3 +442,30 @@ func TestOnUserPrompt_BackwardSliceReachesThePrompt(t *testing.T) {
 			"thin=%v: the slice from the work must reach the request that caused it (§4.4)", thin)
 	}
 }
+
+// TestOnUserPrompt_LastEditPathIsTheReactedToTurnOnly pins the target a user-stated elimination
+// is placed on: an edit in the turn before the prompt names it, but a later Bash-only turn names
+// nothing, so a "that didn't work" about that turn cannot land on a file edited turns earlier.
+func TestOnUserPrompt_LastEditPathIsTheReactedToTurnOnly(t *testing.T) {
+	var got []PromptCapture
+	h := newHarness(t, func(o *Options) {
+		o.OnPromptCaptured = func(_ context.Context, c PromptCapture) { got = append(got, c) }
+	})
+	prompt := func(text string) {
+		t.Helper()
+		_, err := h.obs.OnUserPrompt(context.Background(), promptOf(text))
+		require.NoError(t, err)
+	}
+
+	prompt("fix the auth bug")
+	h.drive(toolUse("toolu_e1", "Edit",
+		`{"file_path":"src/auth.ts","old_string":"a","new_string":"b"}`, `{"content":"b\n"}`))
+	prompt("that didn't work")
+	h.drive(bashOf("toolu_b1", "go test ./...", "FAIL"))
+	prompt("that didn't work either")
+
+	require.Len(t, got, 3)
+	require.Empty(t, got[0].LastEditPath, "no edit before the first prompt")
+	require.Equal(t, "src/auth.ts", got[1].LastEditPath, "the edit in the turn the user reacted to")
+	require.Empty(t, got[2].LastEditPath, "a Bash-only turn names no target, not the older edit")
+}

@@ -324,6 +324,11 @@ type sessionState struct {
 	// SubagentSince indexes ToolUses at the last SubagentStop or user prompt. Every front
 	// eviction of the ring clamps it in the same statement.
 	SubagentSince int
+	// PromptSince indexes ToolUses at the last captured user prompt, so a prompt's LastEditPath
+	// looks only at the turn the user is reacting to. SubagentStop moves SubagentSince but not
+	// this. It is not persisted: a reloaded session starts it at the end of the window, which
+	// errs towards no target (an unresolved statement) rather than a stale one.
+	PromptSince int
 
 	Recent   []recentEvent
 	ToolUses []toolUseLite

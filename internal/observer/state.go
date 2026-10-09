@@ -164,6 +164,7 @@ func (o *observer) rehydrate(p persistedSession) *sessionState {
 	if st.SubagentSince > len(st.ToolUses) {
 		st.SubagentSince = len(st.ToolUses)
 	}
+	st.PromptSince = len(st.ToolUses)
 	return st
 }
 

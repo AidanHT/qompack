@@ -149,9 +149,12 @@ type PromptCapture struct {
 	TranscriptPath string
 }
 
-// lastEditPath returns the path of the most recent FileEdit or FileWrite in st's tool-use window.
+// lastEditPath returns the path of the most recent FileEdit or FileWrite since the previous user
+// prompt, or "" when that turn edited nothing. An older edit is never a target: a "that didn't
+// work" after a Bash-only turn is about that turn, and naming a file edited turns earlier would be
+// exactly the guessed target IngestUserStatement refuses to record.
 func lastEditPath(st *sessionState) string {
-	for i := len(st.ToolUses) - 1; i >= 0; i-- {
+	for i := len(st.ToolUses) - 1; i >= min(st.PromptSince, len(st.ToolUses)); i-- {
 		if tu := st.ToolUses[i]; tu.Path != "" && (tu.Tool == toolFileEdit || tu.Tool == toolFileWrite) {
 			return tu.Path
 		}
@@ -259,6 +262,7 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, *PromptCa
 	//    the request that provoked it, not since the start of the session.
 	st.LastPromptTurn = st.Turn
 	st.SubagentSince = len(st.ToolUses)
+	st.PromptSince = len(st.ToolUses)
 	st.Turn++
 
 	// 8. The §6.6 features. LastTS is assigned AFTER features() has run: it is the PREVIOUS
