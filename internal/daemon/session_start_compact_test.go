@@ -174,7 +174,7 @@ func TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest(t *testing.T)
 	require.True(t, resp.OK)
 	ac := additionalContext(resp.Output)
 	t.Logf("answered in %s with the session's lock held", took)
-	require.Contains(t, ac, "# Qompack rehydration", "the answer must be the rehydration itself (took %s)", took)
+	require.Contains(t, ac, "# Qompack's record of this session", "the answer must be the rehydration itself (took %s)", took)
 	require.Contains(t, ac, "8443", "the rehydration carries the captured prompt")
 	require.NotContains(t, ac, DeferredNoteTag, "a rehydration that was ready is not deferred")
 

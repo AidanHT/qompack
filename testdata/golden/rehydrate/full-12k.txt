@@ -1,11 +1,11 @@
-<!-- qompack:injected seq=1 ver=1 -->
-# Qompack rehydration — checkpoint 0001, session sess_01J
+<!-- qompack:session-record seq=1 ver=1 -->
+# Qompack's record of this session before compaction — checkpoint 0001, session sess_01J
 
 ## 1. Invariants (pinned, verbatim)
 - [inv_7c1a9e2f4b60] The refresh-token rotation must remain single-use; reuse detection is a security requirement, not a preference. (source: user)
 - [inv_2d8f0a6c3e15] Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction. (source: agent)
 
-## 2. Original user intent (verbatim from L0 capture — never summarized)
+## 2. Original user intent (the user's own words, verbatim)
 Evolution (most recent first):
 > Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help.
 > Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.
@@ -31,7 +31,7 @@ next step: Extract the identity-provider call out of the transaction in refreshT
 - src/auth.ts sha256:0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c — refreshToken lives here; the lock-across-IO pattern is at the top of the function
 - expand(tool_use_id="toolu_01A2B3C4D5E6F7G8H9J0K1L2") sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts
 
-## 6a. Restored instructions (re-read from disk by Qompack; the host does not restore these)
+## 6a. Restored instructions (re-read from disk)
 ### .claude/rules/api-conventions.md — paths: src/api/**, src/auth.ts
 Every route under `src/api/` is a thin adapter. It parses, it authorizes, it delegates, and it
 maps a domain error onto a status code. Business logic that lives in a route handler is a bug
@@ -88,7 +88,7 @@ report waiting to be filed against the wrong file.
 25. A new route is not merged without a load test entry in `test/load/routes.yaml`, even if the
     entry is one request per second. The absence of an entry is how routes escape the budget.
 
-## 6b. Skill index (names and one-line descriptions only)
+## 6b. Skill index (names and descriptions only)
 - api-lint: Check a route against the API conventions: codes, pagination, idempotency.
 - changelog-bump: Bump the version and update the changelog per the release protocol.
 - code-review: Review a diff for correctness, security, and convention drift before merge.
@@ -106,8 +106,9 @@ report waiting to be filed against the wrong file.
 - path_rule .claude/rules/infra-conventions.md — matched docker-compose.yml; did not fit the rehydration budget; restore: Read .claude/rules/infra-conventions.md
 - path_rule .claude/rules/security-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/security-conventions.md
 - path_rule .claude/rules/testing-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/testing-conventions.md
-- … and 20 more; call dropped()
+- path_rule api-conventions.md — path-scoped rule for src/api/**; no pointer in this checkpoint matched its globs
+- … and 19 more; call dropped()
 
 ## 8. Retrieval
 Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
-<!-- /qompack:injected -->
+<!-- /qompack:session-record -->

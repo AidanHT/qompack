@@ -2,13 +2,13 @@
   "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
   "seq": 1,
   "emitted": 1767225600000,
-  "tokens": 2335,
+  "tokens": 2358,
   "budget": 8000,
   "items": [
     {
       "kind": "invariants",
       "rank": 0,
-      "tokens": 112,
+      "tokens": 123,
       "truncated": false,
       "units": 2,
       "units_seen": 2
@@ -16,7 +16,7 @@
     {
       "kind": "user_intent",
       "rank": 1,
-      "tokens": 108,
+      "tokens": 104,
       "truncated": false,
       "units": 3,
       "units_seen": 3
@@ -56,7 +56,7 @@
     {
       "kind": "restored_instructions",
       "rank": 6,
-      "tokens": 1151,
+      "tokens": 1140,
       "truncated": true,
       "units": 1,
       "units_seen": 7
@@ -64,7 +64,7 @@
     {
       "kind": "skill_index",
       "rank": 7,
-      "tokens": 240,
+      "tokens": 238,
       "truncated": true,
       "units": 10,
       "units_seen": 20
@@ -72,9 +72,9 @@
     {
       "kind": "drop_report",
       "rank": 8,
-      "tokens": 218,
+      "tokens": 247,
       "truncated": true,
-      "units": 6,
+      "units": 7,
       "units_seen": 25
     },
     {

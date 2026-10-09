@@ -61,7 +61,7 @@ func sectionHeading(k ItemKind) string {
 	case ItemInvariants:
 		return "## 1. Invariants (pinned, verbatim)"
 	case ItemUserIntent:
-		return "## 2. Original user intent (verbatim from L0 capture — never summarized)"
+		return "## 2. Original user intent (the user's own words, verbatim)"
 	case ItemEliminations:
 		return "## 3. Approaches already eliminated"
 	case ItemDecisions:
@@ -71,9 +71,9 @@ func sectionHeading(k ItemKind) string {
 	case ItemPointers:
 		return "## 6. Pointers (not restored; expand or re_read returns the full content)"
 	case ItemRestoredInstructions:
-		return "## 6a. Restored instructions (re-read from disk by Qompack; the host does not restore these)"
+		return "## 6a. Restored instructions (re-read from disk)"
 	case ItemSkillIndex:
-		return "## 6b. Skill index (names and one-line descriptions only)"
+		return "## 6b. Skill index (names and descriptions only)"
 	case ItemDropReport:
 		return "## 7. No longer in context"
 	case ItemAffordance:
@@ -175,8 +175,10 @@ func sectionTexts(k ItemKind, units []unit) []string {
 	return texts
 }
 
-// documentHeader is the payload's first line: "# Qompack rehydration — checkpoint 0007, session
-// 3f2a9c81".
+// documentHeader is the payload's first line: "# Qompack's record of this session before compaction
+// — checkpoint 0007, session 3f2a9c81". It names the block for what it is, the session's own
+// earlier turns as Qompack saved them; the c55-c8 live eval saw a model distrust a block that read
+// as injected.
 //
 // The sequence is %04d of Ref.Seq (wider sequences are not truncated, only unpadded ones are
 // padded) and the session is its first eight characters. Eight characters is enough to identify a
@@ -190,7 +192,7 @@ func documentHeader(r Request) string {
 	if fellBack(r) {
 		seq += " (rolled back from " + seqs(r.Ref.Refused) + ")"
 	}
-	return fmt.Sprintf("# Qompack rehydration — checkpoint %s, session %s", seq, shortSession(r.Session))
+	return fmt.Sprintf("# Qompack's record of this session before compaction — checkpoint %s, session %s", seq, shortSession(r.Session))
 }
 
 // sessionHeaderRunes is how much of the session id the document header carries.
@@ -369,8 +371,8 @@ func Wrap(seq core.CheckpointSeq, body string) string {
 
 // The three fixed pieces of checkpoint.InjectionOpenTag, derived from the constant itself rather
 // than written out a second time, so Unwrap can never drift from Wrap. For
-// "<!-- qompack:injected seq=%d ver=%d -->" they are "<!-- qompack:injected seq=", " ver=" and
-// " -->".
+// "<!-- qompack:session-record seq=%d ver=%d -->" they are "<!-- qompack:session-record seq=",
+// " ver=" and " -->".
 var openTagPrefix, openTagInfix, openTagSuffix = splitOpenTag()
 
 // splitOpenTag decomposes checkpoint.InjectionOpenTag around its two %d verbs.

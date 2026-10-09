@@ -290,7 +290,7 @@ func TestUserIntent_StripsPriorInjections(t *testing.T) {
 	got := buildUserIntent(bg(), r, d)
 
 	require.Equal(t, []string{"> Fix the retry logic.\n"}, unitTexts(got))
-	require.NotContains(t, got.units[0].text, "qompack:injected")
+	require.NotContains(t, got.units[0].text, "qompack:session-record")
 	require.NotContains(t, got.units[0].text, "Qompack rehydration")
 }
 

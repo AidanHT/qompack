@@ -737,8 +737,9 @@ carried at all.
 
 **Expected observable result**
 
-- The block is delimited by `<!-- qompack:injected seq=N ver=V -->` and `<!-- /qompack:injected -->`
-  (`internal/checkpoint/inject.go`), and its sections are the fixed order 1 Invariants, 2 Original
+- The block is delimited by `<!-- qompack:session-record seq=N ver=V -->` and
+  `<!-- /qompack:session-record -->` (0.3.1 and earlier wrote `qompack:injected`, which is still
+  stripped) (`internal/checkpoint/inject.go`), and its sections are the fixed order 1 Invariants, 2 Original
   user intent, 3 Approaches already eliminated, 4 Decisions, 5 Current work, 6 Pointers, 6a Restored
   instructions, 6b Skill index, 7 No longer in context, 8 Retrieval
   (`internal/rehydrate/render.go`; the exact heading strings are in that file).

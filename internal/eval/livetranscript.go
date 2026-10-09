@@ -32,9 +32,21 @@ import (
 	"strings"
 )
 
-// qompackInjectedMarker opens every rehydration block Qompack injects. It is the plugin's own
-// marker (internal/rehydrate), matched here as data so this package does not import the producer.
-const qompackInjectedMarker = "<!-- qompack:injected"
+// qompackInjectedMarkers open every rehydration block Qompack injects: the current spelling and the
+// one 0.3.x and earlier wrote (checkpoint.InjectionOpenTag, LegacyInjectionOpenTag). They are the
+// plugin's own markers (internal/rehydrate), matched here as data so this package does not import
+// the producer.
+var qompackInjectedMarkers = []string{"<!-- qompack:session-record", "<!-- qompack:injected"}
+
+// hasQompackMarker reports whether text carries either spelling of the rehydration marker.
+func hasQompackMarker(text string) bool {
+	for _, m := range qompackInjectedMarkers {
+		if strings.Contains(text, m) {
+			return true
+		}
+	}
+	return false
+}
 
 // maxInjectionKeepBytes bounds how much of one injected context a record keeps verbatim. The size
 // is always recorded in full; the text is kept so a reader can see what the model was given.
@@ -210,7 +222,7 @@ func (t *HostTranscript) attachment(raw json.RawMessage) error {
 		text := contextText(a.Content)
 		c := TranscriptContext{
 			HookEvent: a.HookEvent, HookName: a.HookName, Bytes: len(text),
-			Qompack: strings.Contains(text, qompackInjectedMarker),
+			Qompack: hasQompackMarker(text),
 		}
 		if c.Qompack {
 			c.Text = text
