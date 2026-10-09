@@ -112,6 +112,7 @@ func WireObserver(o *Options) (observer.Observer, error) {
 	// The lazy opener WireRehydrator just published: a prompt that states an elimination opens the
 	// ledger the same one-shot way a compaction or an MCP ledger tool does.
 	openLedger := o.OpenLedger
+	stmtRedactor := NewLiveRedactor(o.CurrentCfg)
 
 	obsv, err := observer.New(observer.Options{
 		ProjectRoot: o.ProjectRoot,
@@ -153,7 +154,7 @@ func WireObserver(o *Options) (observer.Observer, error) {
 			}, fs.Turn)
 		},
 		OnPromptCaptured: func(ctx context.Context, c observer.PromptCapture) {
-			ingestUserStatement(ctx, openLedger, log, c)
+			ingestUserStatement(ctx, openLedger, stmtRedactor, log, c)
 		},
 		Log:     log,
 		Metrics: o.Metrics,

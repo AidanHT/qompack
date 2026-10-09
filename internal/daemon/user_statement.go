@@ -8,6 +8,7 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/redact"
 )
 
 // maxStatementApproachBytes bounds the approach text taken from the preceding assistant turn. The
@@ -24,7 +25,14 @@ const maxStatementApproachBytes = 240
 // is a Warn and the capture it follows is already durable, so nothing here can fail or delay it. A
 // redelivered prompt never reaches here (the observer absorbs it first), and a prompt captured
 // twice still yields one record: the ledger dedups an identical active elimination.
-func ingestUserStatement(ctx context.Context, openLedger func() negknow.Ledger, log logging.Logger, c observer.PromptCapture) {
+//
+// The prompt and the approach are redacted with red before the ingest. The production ledger is
+// opened without Deps.Redact, and records/eliminations.jsonl is append-only, so a secret the user
+// pasted into the prompt (which the store scrubbed) would otherwise sit there in clear and flow on
+// into already_tried answers, checkpoints and the rehydration block.
+func ingestUserStatement(ctx context.Context, openLedger func() negknow.Ledger, red redact.Redactor,
+	log logging.Logger, c observer.PromptCapture,
+) {
 	if openLedger == nil || !negknow.IsUserStatement(c.Prompt) {
 		return
 	}
@@ -33,13 +41,22 @@ func ingestUserStatement(ctx context.Context, openLedger func() negknow.Ledger, 
 	if !ok {
 		return
 	}
+	scrub := func(s string) string {
+		if red == nil {
+			return s
+		}
+		out, _ := red.Redact([]byte(s))
+		return string(out)
+	}
 	stmt := negknow.UserStatement{
-		Prompt: c.Prompt, Turn: c.Turn, Path: c.LastEditPath, PromptRoot: c.Root,
+		Prompt: scrub(c.Prompt), Turn: c.Turn, Path: c.LastEditPath, PromptRoot: c.Root,
 	}
 	// With no edited path the ledger refuses and counts the statement unresolved either way, so
-	// the transcript is read only when a target exists.
+	// the transcript is read only when a target exists. The transcript is searched for the RAW
+	// prompt, which is what the host wrote there, and the reply is redacted before it is cut, so
+	// no cut can split a secret into a prefix the rules no longer match.
 	if c.LastEditPath != "" {
-		stmt.Approach = statementApproach(observer.PrecedingAssistantText(c.TranscriptPath, c.Prompt))
+		stmt.Approach = statementApproach(scrub(observer.PrecedingAssistantText(c.TranscriptPath, c.Prompt)))
 	}
 	ctx = negknow.WithCaller(ctx, negknow.Caller{Session: c.Session, Turn: c.Turn})
 	if _, err := m.IngestUserStatement(ctx, stmt); err != nil {

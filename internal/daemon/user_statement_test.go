@@ -13,8 +13,10 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 // The transcript the elimination prompt's event names. The assistant line AFTER the user's prompt
@@ -83,11 +85,15 @@ func TestWireObserver_UserStatementBecomesElimination(t *testing.T) {
 	require.NoError(t, os.WriteFile(abs, []byte("export const pool = new Pool({ timeout: 60 });\n"), 0o600))
 	in, err := json.Marshal(map[string]string{"file_path": abs, "old_string": "30", "new_string": "60"})
 	require.NoError(t, err)
-	require.NoError(t, dd.svc.ObserveTool(ctx, hookio.Event{
-		HookEventName: "PostToolUse", SessionID: stmtSession, CWD: root, ToolName: "Edit",
-		ToolUseID: "toolu_stmt_edit", ToolInput: in,
-		ToolResponse: json.RawMessage(`{"content":"The file has been updated."}`),
-	}))
+	// edit observes an Edit of stmtPath: the target a statement in the NEXT prompt is placed on.
+	edit := func(id core.ToolUseID) {
+		t.Helper()
+		require.NoError(t, dd.svc.ObserveTool(ctx, hookio.Event{
+			HookEventName: "PostToolUse", SessionID: stmtSession, CWD: root, ToolName: "Edit",
+			ToolUseID: id, ToolInput: in,
+			ToolResponse: json.RawMessage(`{"content":"The file has been updated."}`),
+		}))
+	}
 
 	// A benign prompt: captured, but nothing for the ledger, which is not even opened.
 	_, err = dd.svc.ObservePrompt(observer.WithPromptCaptureOnly(ctx), hookio.Event{
@@ -96,6 +102,8 @@ func TestWireObserver_UserStatementBecomesElimination(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Nil(t, o.LedgerHandle(), "a prompt stating no elimination must not open the ledger")
+
+	edit("toolu_stmt_edit")
 
 	// The elimination prompt, through the real delivery path: WAL line, lease, worker capture.
 	req := ipc.Request{
@@ -135,7 +143,9 @@ func TestWireObserver_UserStatementBecomesElimination(t *testing.T) {
 	require.True(t, dd.runIngested(observer.WithObservation(ctx, lease.ObservationID), req).OK)
 	require.Len(t, userStatementRecords(t, led), 1, "a redelivered prompt must not duplicate the record")
 
-	// And a second, unleased capture of the identical statement is deduplicated by the ledger.
+	// And a second, unleased capture of the identical statement, after another edit of the same
+	// file, is deduplicated by the ledger.
+	edit("toolu_stmt_edit_2")
 	_, err = dd.svc.ObservePrompt(observer.WithPromptCaptureOnly(ctx), *req.Event)
 	require.NoError(t, err)
 	require.Len(t, userStatementRecords(t, led), 1, "an identical statement must not duplicate the record")
@@ -151,4 +161,42 @@ func TestStatementApproach(t *testing.T) {
 	require.LessOrEqual(t, len(got), maxStatementApproachBytes)
 	require.True(t, strings.HasPrefix(long, got))
 	require.Equal(t, maxStatementApproachBytes, len(got), "an even cut lands on a rune start")
+}
+
+// TestIngestUserStatement_RedactsBeforeTheLedger pins that a secret in an elimination prompt, or
+// in the assistant turn it rejects, reaches the append-only ledger only as a placeholder: the
+// production ledger is opened with no Deps.Redact of its own.
+func TestIngestUserStatement_RedactsBeforeTheLedger(t *testing.T) {
+	root := t.TempDir()
+	_, _, o := wireTestDaemon(t, root, nil)
+	t.Cleanup(func() {
+		if l := o.LedgerHandle(); l != nil {
+			_ = l.Close()
+		}
+	})
+	const key = "AKIA" + "IOSFODNN7EXAMPLE"
+	transcript := filepath.Join(t.TempDir(), "transcript.jsonl")
+	b, err := json.Marshal(map[string]any{"type": "assistant", "message": map[string]any{
+		"role": "assistant", "content": []map[string]string{{"type": "text", "text": "I'll set aws_access_key_id = " + key}},
+	}})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(transcript, append(b, '\n'), 0o600))
+
+	ingestUserStatement(context.Background(), o.OpenLedger, NewLiveRedactor(o.CurrentCfg), logging.Nop(),
+		observer.PromptCapture{
+			Session: stmtSession, Turn: 1, LastEditPath: stmtPath, TranscriptPath: transcript,
+			Prompt: "that didn't work, aws_access_key_id = " + key + " still fails",
+		})
+
+	led := o.LedgerHandle()
+	require.NotNil(t, led, "the statement must have opened the ledger")
+	recs := userStatementRecords(t, led)
+	require.Len(t, recs, 1)
+	require.NotContains(t, recs[0].Reason, key)
+	require.Contains(t, recs[0].Reason, "«redacted:")
+	require.NotContains(t, recs[0].Approach, key)
+	require.Contains(t, recs[0].Approach, "«redacted:")
+	raw, err := os.ReadFile(filepath.Join(paths.Of(root).Records, "eliminations.jsonl"))
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), key, "the append-only log must not hold the secret")
 }
