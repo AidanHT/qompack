@@ -26,10 +26,10 @@ Before committing to an approach, call already_tried.
 goal: Eliminate pool exhaustion on POST /api/session/refresh under 200 concurrent refreshes.
 next step: Extract the identity-provider call out of the transaction in refreshToken, then re-run the reproduction.
 
-## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+## 6. Pointers (not restored; expand or re_read returns the full content)
 - docker-compose.yml sha256:1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d — pins the pgbouncer version and pool mode the elimination depends on
 - src/auth.ts sha256:0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c — refreshToken lives here; the lock-across-IO pattern is at the top of the function
-- tool_use toolu_01A2B3C4D5E6F7G8H9J0K1L2 sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts
+- expand(tool_use_id="toolu_01A2B3C4D5E6F7G8H9J0K1L2") sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts
 
 ## 6b. Skill index (names and one-line descriptions only)
 - api-lint: Check a route against the API conventions: codes, pagination, idempotency.

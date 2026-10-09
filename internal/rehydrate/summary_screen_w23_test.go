@@ -441,7 +441,7 @@ func TestBuild_BraceListAlternativesCostABoundedNumberOfHostJudgements(t *testin
 		require.NoError(t, err)
 		section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 		for _, tp := range cp.Pointers.Tools {
-			line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
+			line := "- expand(tool_use_id=\"" + string(tp.ToolUseID) + "\") " + tp.Hash.String() + " — "
 			switch {
 			case strings.Contains(section6, line+tp.Summary+"\n"):
 				shown++

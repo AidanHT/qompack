@@ -426,7 +426,7 @@ func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *tes
 		return k
 	}
 	section6 := func(res Result) string { return sectionBody(res.Text, sectionHeading(ItemPointers)) }
-	within := `- tool_use toolu_within ` + hashOf("within").String() + ` — {"query":"path:pkg/sub0/file0.go"}` + "\n"
+	within := `- expand(tool_use_id="toolu_within") ` + hashOf("within").String() + ` — {"query":"path:pkg/sub0/file0.go"}` + "\n"
 
 	t.Run("UAT-12 rules", func(t *testing.T) {
 		res, calls := build(t, hostRules(root, uat12Rules...))
@@ -441,9 +441,9 @@ func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *tes
 		require.False(t, ok, "the next drop is past the bound, withheld unjudged")
 		require.Equal(t, 2+(n-(dropJudgementsBound-2)), withheldDrops(res),
 			"the denied drop, the refused key999.txt and every drop past the bound are withheld, and still accounted for")
-		require.Contains(t, section6(res), "- tool_use toolu_literal "+hashOf("literal").String()+" — "+withheldSummary+"\n",
+		require.Contains(t, section6(res), "- expand(tool_use_id=\"toolu_literal\") "+hashOf("literal").String()+" — "+withheldSummary+"\n",
 			"a drop a summary names is judged first, and the refused one is learned, so its basename is withheld")
-		require.Contains(t, section6(res), "- tool_use toolu_part "+hashOf("part").String()+" — "+withheldSummary+"\n",
+		require.Contains(t, section6(res), "- expand(tool_use_id=\"toolu_part\") "+hashOf("part").String()+" — "+withheldSummary+"\n",
 			"a drop past the bound is learned as withheld whatever its spelling: a selector of a part of its path is withheld")
 		require.Contains(t, section6(res), within, "a selector naming a judged, allowed drop is shown")
 	})
@@ -452,7 +452,7 @@ func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *tes
 		require.Equal(t, 1+n+2, calls, "with no rule in force every drop is judged, at no cost")
 		require.Zero(t, withheldDrops(res), "and none is withheld")
 		require.Contains(t, section6(res), within)
-		require.Contains(t, section6(res), "- tool_use toolu_part "+hashOf("part").String()+` — {"query":"path:file99"}`+"\n")
+		require.Contains(t, section6(res), "- expand(tool_use_id=\"toolu_part\") "+hashOf("part").String()+` — {"query":"path:file99"}`+"\n")
 	})
 }
 
@@ -522,12 +522,12 @@ func TestBuild_ADropPastTheJudgementBoundIsWithheldWhereverItIsNamed(t *testing.
 		require.NoError(t, err)
 		section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 		for i, s := range withheld {
-			line := "- tool_use " + fmt.Sprintf("toolu_w22_%02d", i) + " " + hashOf(s).String() + " — "
+			line := "- expand(tool_use_id=\"" + fmt.Sprintf("toolu_w22_%02d", i) + "\") " + hashOf(s).String() + " — "
 			require.Contains(t, section6, line+withheldSummary+"\n", "%d fillers: %q names the refused drop", fillers, s)
 		}
 		requireNoLeak(t, res, []string{"lnk/token.txt", "token.txt"})
 		if fillers > 69 {
-			line := "- tool_use " + fmt.Sprintf("toolu_w22_%02d", len(withheld)) + " " + hashOf(named).String() + " — "
+			line := "- expand(tool_use_id=\"" + fmt.Sprintf("toolu_w22_%02d", len(withheld)) + "\") " + hashOf(named).String() + " — "
 			require.Contains(t, section6, line+named+"\n", "%d fillers: a named drop the host allows is judged and shown", fillers)
 			_, ok := dropForKind(res.Dropped, "file_pointer", "pkg/f69.go")
 			require.True(t, ok, "%d fillers: section 7 names the judged, allowed drop as recorded", fillers)
@@ -703,7 +703,7 @@ func TestBuild_ToolSearchsSelectorIsShown(t *testing.T) {
 			require.NoError(t, err)
 			section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 			for _, tp := range cp.Pointers.Tools {
-				line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
+				line := "- expand(tool_use_id=\"" + string(tp.ToolUseID) + "\") " + tp.Hash.String() + " — "
 				if strings.HasPrefix(string(tp.ToolUseID), "toolu_no_") {
 					require.Contains(t, section6, line+withheldSummary+"\n", "%q", tp.Summary)
 					continue
@@ -762,9 +762,9 @@ func TestBuild_AWithheldPointerIsExplainedOnceInItsSection(t *testing.T) {
 	require.True(t, strings.HasPrefix(section6, pointersLegendW22+"\n"), "the legend opens section 6:\n%s", section6)
 	require.Equal(t, 1, strings.Count(res.Text, pointersLegendW22), "the explanation is given once")
 	require.Contains(t, section6, "- file (path withheld) "+hashOf("deny").String()+"\n")
-	require.Contains(t, section6, "- tool_use toolu_w1 "+hashOf("w1").String()+" — (summary withheld)\n")
-	require.Contains(t, section6, "- tool_use toolu_w2 "+hashOf("w2").String()+" — (summary withheld)\n")
-	require.Contains(t, section6, "- tool_use toolu_ok "+hashOf("ok").String()+" — cat data/meta.txt\n")
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_w1\") "+hashOf("w1").String()+" — (summary withheld)\n")
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_w2\") "+hashOf("w2").String()+" — (summary withheld)\n")
+	require.Contains(t, section6, "- expand(tool_use_id=\"toolu_ok\") "+hashOf("ok").String()+" — cat data/meta.txt\n")
 
 	for _, budget := range []core.Tokens{300, 600, 900, 1500, 2500} {
 		res, _ := build(budget)
@@ -807,7 +807,7 @@ func summaryVerdictBeside(t *testing.T, root string, hp HostPaths, file, s strin
 	require.NoError(t, err)
 	requireNoLeak(t, res, leaks)
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
-	line := "- tool_use toolu_w22 " + hashOf(s).String() + " — "
+	line := "- expand(tool_use_id=\"toolu_w22\") " + hashOf(s).String() + " — "
 	switch {
 	case strings.Contains(section6, line+withheldSummary+"\n"):
 		return "withheld"

@@ -105,7 +105,7 @@ func TestBuild_PointersNeverShowAWithheldPath(t *testing.T) {
 		require.Contains(t, section6, hashOf(h).String(), "a withheld file pointer still points by hash")
 	}
 	for _, id := range []string{"toolu_deniedabs", "toolu_outside", "toolu_deniedrel", "toolu_bash", "toolu_json"} {
-		require.Contains(t, section6, "- tool_use "+id+" ", "a withheld tool pointer still points by id and hash")
+		require.Contains(t, section6, "- expand(tool_use_id=\""+id+"\") ", "a withheld tool pointer still points by id and hash")
 	}
 	require.Contains(t, section6, "- reports.py "+hashOf("reports").String(), "an allowed path is still shown")
 	require.Contains(t, section6, "cat data/meta.txt", "an allowed summary is still shown")
@@ -192,7 +192,7 @@ func TestBuild_PointersNeverShowAHomeOrVariablePath(t *testing.T) {
 		require.Contains(t, section6, hashOf(h).String(), "a withheld file pointer still points by hash")
 	}
 	for _, id := range []string{"toolu_tilde", "toolu_home", "toolu_brace", "toolu_profile", "toolu_pf", "toolu_flag"} {
-		require.Contains(t, section6, "- tool_use "+id+" ", "a withheld tool pointer still points by id and hash")
+		require.Contains(t, section6, "- expand(tool_use_id=\""+id+"\") ", "a withheld tool pointer still points by id and hash")
 	}
 	require.Contains(t, section6, "- reports.py "+hashOf("reports").String(), "an allowed path is still shown")
 	require.Contains(t, section6, "cat data/meta.txt", "an allowed summary is still shown")
@@ -357,10 +357,10 @@ func TestBuild_APathKnownOnlyFromACheckpointDropIsNamedByNoSelector(t *testing.T
 
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	for _, tp := range withheld {
-		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+		require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+withheldSummary,
 			"%s names a path section 7 withholds", tp.Summary)
 	}
 	for _, tp := range allowed {
-		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+tp.Summary)
+		require.Contains(t, section6, "- expand(tool_use_id=\""+string(tp.ToolUseID)+"\") "+tp.Hash.String()+" — "+tp.Summary)
 	}
 }

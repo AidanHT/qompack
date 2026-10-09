@@ -119,7 +119,7 @@ func TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeach
 					require.Contains(t, res.Text, f.Hash.String(), "the withheld file pointer still points by hash")
 				}
 				for _, tp := range tools {
-					line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
+					line := "- expand(tool_use_id=\"" + string(tp.ToolUseID) + "\") " + tp.Hash.String() + " — "
 					if tp.ToolUseID == "toolu_rec" || refused {
 						require.Contains(t, res.Text, line+"(summary withheld)\n", "%q names or selects a withheld path", tp.Summary)
 						continue

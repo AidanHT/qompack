@@ -92,11 +92,11 @@ func requireScreened(t *testing.T, root string, hp HostPaths, files, shown, with
 
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	for i, s := range shown {
-		require.Contains(t, section6, pointerLine(fmt.Sprintf("tool_use toolu_ok_%d", i), hashOf("ok"+s), s),
+		require.Contains(t, section6, pointerLine(toolCall(core.ToolUseID(fmt.Sprintf("toolu_ok_%d", i))), hashOf("ok"+s), s),
 			"%q names no withheld path, so it is shown as recorded", s)
 	}
 	for i, s := range withheld {
-		require.Contains(t, section6, fmt.Sprintf("- tool_use toolu_no_%d %s — %s", i, hashOf("no"+s), withheldSummary),
+		require.Contains(t, section6, fmt.Sprintf("- expand(tool_use_id=\"toolu_no_%d\") %s — %s", i, hashOf("no"+s), withheldSummary),
 			"%q names a withheld path", s)
 	}
 	return res

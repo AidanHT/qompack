@@ -69,7 +69,7 @@ func sectionHeading(k ItemKind) string {
 	case ItemCurrentWork:
 		return "## 5. Current work"
 	case ItemPointers:
-		return "## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)"
+		return "## 6. Pointers (not restored; expand or re_read returns the full content)"
 	case ItemRestoredInstructions:
 		return "## 6a. Restored instructions (re-read from disk by Qompack; the host does not restore these)"
 	case ItemSkillIndex:
