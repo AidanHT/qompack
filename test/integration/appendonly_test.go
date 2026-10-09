@@ -9,6 +9,7 @@ package integration
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -256,7 +257,6 @@ type cdwBinding struct {
 	graph    dag.Graph
 	sketches *daemon.SketchSet
 	clk      core.Clock
-	errs     *aoErrList
 
 	// gate closes once cdwGCGateEvents distinct events have been observed; the idle task's first
 	// GC waits on it so the pass provably overlaps the remaining writes.
@@ -266,14 +266,97 @@ type cdwBinding struct {
 	mu       sync.Mutex
 	observed map[core.ToolUseID]bool
 	calls    int
+	// completed counts, per event, the binding calls that ran the whole pipeline to the end;
+	// cdwClassifyBindFailures tolerates a failed call only if its event's count is exactly one.
+	completed map[core.ToolUseID]int
+	// failures is every failed binding call in the order it happened (cdwClassifyBindFailures).
+	failures []cdwBindFailure
 }
 
-func newCDWBinding(s store.Store, g dag.Graph, sk *daemon.SketchSet, clk core.Clock, errs *aoErrList) *cdwBinding {
+func newCDWBinding(s store.Store, g dag.Graph, sk *daemon.SketchSet, clk core.Clock) *cdwBinding {
 	return &cdwBinding{
-		store: s, graph: g, sketches: sk, clk: clk, errs: errs,
-		gate:     make(chan struct{}),
-		observed: map[core.ToolUseID]bool{},
+		store: s, graph: g, sketches: sk, clk: clk,
+		gate:      make(chan struct{}),
+		observed:  map[core.ToolUseID]bool{},
+		completed: map[core.ToolUseID]int{},
 	}
+}
+
+// cdwBindFailure is one failed binding call, recorded on the daemon goroutine that made it so the
+// main goroutine can judge it once the workers are joined.
+type cdwBindFailure struct {
+	id    core.ToolUseID
+	stage string
+	err   error
+	// drained is whether the call's context carried a deadline. The daemon reaches the binding on
+	// exactly two paths: the ingest worker pool, under the daemon's run context, which has none,
+	// and a drain's per-line dispatch (drain.go dispatchPending), which always sets
+	// drainLineDeadline on it. So a deadline on the call's context is the drain's own.
+	drained bool
+	// ctxDone is whether that context had already ended when the stage failed — the failure is
+	// the context's own expiry, not an error some stage merely spelled the same way.
+	ctxDone bool
+}
+
+func (f cdwBindFailure) String() string {
+	return fmt.Sprintf("event %s: %s: %v", f.id, f.stage, f.err)
+}
+
+// fail records a failed binding call. It returns err so each stage can `return b.fail(...)`.
+func (b *cdwBinding) fail(ctx context.Context, id core.ToolUseID, stage string, err error) error {
+	_, drained := ctx.Deadline()
+	f := cdwBindFailure{id: id, stage: stage, err: err, drained: drained, ctxDone: ctx.Err() != nil}
+	b.mu.Lock()
+	b.failures = append(b.failures, f)
+	b.mu.Unlock()
+	return err
+}
+
+// classify judges every failed binding call so far (cdwClassifyBindFailures).
+func (b *cdwBinding) classify() (retried []cdwBindFailure, fatal []string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return cdwClassifyBindFailures(b.failures, b.completed)
+}
+
+// cdwClassifyBindFailures splits failed binding calls into the ones the drain's retry contract
+// covers and the rest, which fail the test.
+//
+// A drained line runs under drainLineDeadline (drain.go). When that deadline expires inside the
+// handler, the dispatch fails, the line is NOT consumed (drain.go processOne leaves it at its
+// start) and the next drain pass dispatches it again: a slow host turns one delivery into a
+// failed attempt plus a successful retry, with nothing lost and nothing doubled. The hosted
+// windows-latest runner of ci.yml run 37829644251 attempt 1 did exactly that
+// ("event tu-2-167: RecordToolUse: context deadline exceeded", the first check of
+// recordToolUseCore, before anything was written) while every event still reached the binding
+// once. So a failure is tolerated only when ALL of these hold:
+//
+//   - its error is context.DeadlineExceeded or context.Canceled (errors.Is, so a stage may wrap it);
+//   - the call carried the drain's deadline (drained) and that context had really ended (ctxDone);
+//   - the same event later ran the whole pipeline exactly once (completed[id] == 1) — the retry
+//     happened and was not itself duplicated.
+//
+// Anything else — any other error, a context error on a live (undeadlined) call, a deadline error
+// whose context had not ended, or an event never or twice completed — is fatal, described with
+// the reason it was not tolerated.
+func cdwClassifyBindFailures(fails []cdwBindFailure, completed map[core.ToolUseID]int) (retried []cdwBindFailure, fatal []string) {
+	for _, f := range fails {
+		ctxErr := errors.Is(f.err, context.DeadlineExceeded) || errors.Is(f.err, context.Canceled)
+		switch {
+		case !ctxErr:
+			fatal = append(fatal, f.String())
+		case !f.drained:
+			fatal = append(fatal, f.String()+" (a context error on a live call, which carries no drain deadline)")
+		case !f.ctxDone:
+			fatal = append(fatal, f.String()+" (a context error whose drained context had not ended)")
+		case completed[f.id] != 1:
+			fatal = append(fatal, fmt.Sprintf("%s (the drain's retry completed this event %d times, want exactly 1)",
+				f, completed[f.id]))
+		default:
+			retried = append(retried, f)
+		}
+	}
+	return retried, fatal
 }
 
 func (b *cdwBinding) observedCount() int {
@@ -286,6 +369,7 @@ func (b *cdwBinding) markObserved(id core.ToolUseID) {
 	b.mu.Lock()
 	b.observed[id] = true
 	b.calls++
+	b.completed[id]++
 	n := len(b.observed)
 	b.mu.Unlock()
 	if n >= cdwGCGateEvents {
@@ -294,17 +378,16 @@ func (b *cdwBinding) markObserved(id core.ToolUseID) {
 }
 
 // observeTool is the bound Services.ObserveTool. Failures are recorded rather than asserted —
-// this runs on daemon goroutines — and the main goroutine requires the list empty at the end.
+// this runs on daemon goroutines — and the main goroutine judges them with
+// cdwClassifyBindFailures once the workers are joined.
 func (b *cdwBinding) observeTool(ctx context.Context, e hookio.Event) error {
 	var si, i int
 	if _, err := fmt.Sscanf(string(e.ToolUseID), "tu-%d-%d", &si, &i); err != nil {
-		b.errs.add("unparseable tool_use_id %q: %v", e.ToolUseID, err)
-		return err
+		return b.fail(ctx, e.ToolUseID, "unparseable tool_use_id", err)
 	}
 	var body string
 	if err := json.Unmarshal(e.ToolResponse, &body); err != nil {
-		b.errs.add("event %s: undecodable tool_response: %v", e.ToolUseID, err)
-		return err
+		return b.fail(ctx, e.ToolUseID, "undecodable tool_response", err)
 	}
 
 	turn := core.TurnIndex(si*cdwEventsPerSession + i)
@@ -314,8 +397,7 @@ func (b *cdwBinding) observeTool(ctx context.Context, e hookio.Event) error {
 
 	res, err := b.store.PutBytes(ctx, []byte(body), store.PutOptions{Tool: e.ToolName, Path: path})
 	if err != nil {
-		b.errs.add("event %s: PutBytes: %v", e.ToolUseID, err)
-		return err
+		return b.fail(ctx, e.ToolUseID, "PutBytes", err)
 	}
 	if err := b.store.RecordToolUse(ctx, store.ToolUseRecord{
 		ID: e.ToolUseID, Session: e.SessionID, Turn: turn, TS: now, Tool: e.ToolName,
@@ -323,21 +405,18 @@ func (b *cdwBinding) observeTool(ctx context.Context, e hookio.Event) error {
 		Root: res.Root.Hash, Path: path, Bytes: res.Root.CanonBytes, Tokens: res.Root.Tokens,
 		Signature: res.Signature,
 	}); err != nil {
-		b.errs.add("event %s: RecordToolUse: %v", e.ToolUseID, err)
-		return err
+		return b.fail(ctx, e.ToolUseID, "RecordToolUse", err)
 	}
 	if err := b.store.AppendFileVersion(ctx, path, store.FileVersion{
 		TS: now, Root: res.Root.Hash, Turn: turn, Bytes: res.Root.CanonBytes,
 	}); err != nil {
-		b.errs.add("event %s: AppendFileVersion: %v", e.ToolUseID, err)
-		return err
+		return b.fail(ctx, e.ToolUseID, "AppendFileVersion", err)
 	}
 	if err := dag.BuildToolUse(b.graph, dag.ObservedTool{
 		ToolUseID: e.ToolUseID, Turn: turn, TS: now, Pos: int(turn) * cdwPosStride,
 		Tool: e.ToolName, PathKey: key, Root: res.Root.Hash, Tokens: res.Root.Tokens,
 	}); err != nil {
-		b.errs.add("event %s: BuildToolUse: %v", e.ToolUseID, err)
-		return err
+		return b.fail(ctx, e.ToolUseID, "BuildToolUse", err)
 	}
 	b.sketches.Write(func(ss *daemon.SketchSet) {
 		ss.Touch.Add([]byte(key), 1)
@@ -466,6 +545,60 @@ func cdwAssertJSONLParse(t *testing.T, root string) {
 	require.True(t, seen["dag/"+aoDepsLogName], "the walk must have covered dag/%s; saw %v", aoDepsLogName, seen)
 }
 
+// TestIntegration_AppendOnlyToleratesOnlyARetriedDrainDeadline pins cdwClassifyBindFailures: the
+// one failure it lets through is a context error from a drained call whose deadline had really
+// expired and whose event then completed exactly once; every other failed binding call still
+// fails the row it guards.
+func TestIntegration_AppendOnlyToleratesOnlyARetriedDrainDeadline(t *testing.T) {
+	id := cdwEventID(2, 167)
+	once := map[core.ToolUseID]int{id: 1}
+	drainedDeadline := cdwBindFailure{id: id, stage: "RecordToolUse", err: context.DeadlineExceeded, drained: true, ctxDone: true}
+	with := func(edit func(*cdwBindFailure)) cdwBindFailure {
+		f := drainedDeadline
+		edit(&f)
+		return f
+	}
+
+	tolerated := map[string]cdwBindFailure{
+		"drain deadline":         drainedDeadline,
+		"drain deadline wrapped": with(func(f *cdwBindFailure) { f.err = fmt.Errorf("store: %w", context.DeadlineExceeded) }),
+		"drain canceled":         with(func(f *cdwBindFailure) { f.err = context.Canceled }),
+	}
+	for name, f := range tolerated {
+		retried, fatal := cdwClassifyBindFailures([]cdwBindFailure{f}, once)
+		require.Empty(t, fatal, name)
+		require.Equal(t, []cdwBindFailure{f}, retried, name)
+	}
+
+	cases := []struct {
+		name      string
+		f         cdwBindFailure
+		completed map[core.ToolUseID]int
+		reason    string
+	}{
+		{"a non-context error from a drained call", with(func(f *cdwBindFailure) { f.err = errors.New("disk full") }), once, ""},
+		{"an append-only violation from a drained call", with(func(f *cdwBindFailure) { f.err = core.ErrAppendOnly }), once, ""},
+		{"a deadline on a live call", with(func(f *cdwBindFailure) { f.drained = false }), once, "live call"},
+		{"a deadline error whose context had not ended", with(func(f *cdwBindFailure) { f.ctxDone = false }), once, "had not ended"},
+		{"a retry that never completed", drainedDeadline, map[core.ToolUseID]int{}, "0 times"},
+		{"a retry that completed twice", drainedDeadline, map[core.ToolUseID]int{id: 2}, "2 times"},
+	}
+	for _, c := range cases {
+		retried, fatal := cdwClassifyBindFailures([]cdwBindFailure{c.f}, c.completed)
+		require.Empty(t, retried, c.name)
+		require.Len(t, fatal, 1, c.name)
+		require.Contains(t, fatal[0], c.f.String(), c.name)
+		require.Contains(t, fatal[0], c.reason, c.name)
+	}
+
+	// A tolerated retry does not hide a fatal failure beside it.
+	other := with(func(f *cdwBindFailure) { f.id, f.err = cdwEventID(3, 4), errors.New("disk full") })
+	retried, fatal := cdwClassifyBindFailures([]cdwBindFailure{drainedDeadline, other},
+		map[core.ToolUseID]int{id: 1, other.id: 1})
+	require.Equal(t, []cdwBindFailure{drainedDeadline}, retried)
+	require.Equal(t, []string{other.String()}, fatal)
+}
+
 func TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites(t *testing.T) {
 	p := testutil.NewProject(t)
 	l := paths.Of(p.Root)
@@ -492,8 +625,28 @@ func TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites(t *testing.T) {
 	sketches := daemon.NewSketchSet(p.Cfg)
 
 	taskErrs := &aoErrList{}
-	binding := newCDWBinding(s, g, sketches, p.Clock, taskErrs)
+	binding := newCDWBinding(s, g, sketches, p.Clock)
 	idleWork := &cdwIdleWork{store: s, graph: g, gate: binding.gate, errs: taskErrs}
+
+	// requireNoTaskFailure fails the test on any idle GC/Compact error and on every failed binding
+	// call cdwClassifyBindFailures does not tolerate. Each tolerated one — a drained attempt that
+	// ran out of drainLineDeadline and whose event the drain's retry then completed exactly once —
+	// is also checked in the store's tool-use index and logged, never silently absorbed.
+	loggedRetries := 0
+	requireNoTaskFailure := func(msg string) {
+		t.Helper()
+		retried, fatal := binding.classify()
+		for _, f := range retried[min(loggedRetries, len(retried)):] {
+			rec, err := s.ToolUse(ctx, f.id)
+			require.NoError(t, err, "tolerated %s: the retried event must be in the tool-use index", f)
+			require.Equal(t, f.id, rec.ID)
+			t.Logf("tolerated drain retry: %s — the drained attempt ran out of its %v line deadline, "+
+				"the line stayed unconsumed, and a later pass completed the event exactly once",
+				f, daemon.DrainLineDeadline)
+		}
+		loggedRetries = len(retried)
+		require.Empty(t, append(taskErrs.snapshot(), fatal...), msg)
+	}
 
 	// The real daemon, composed through the §4.2 extension seam SP-05 shipped for exactly this:
 	// daemon.NewOptions + Options.Bind.
@@ -619,7 +772,7 @@ func TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites(t *testing.T) {
 			cdwPhaseBound, binding.observedCount(), cdwTotalEvents, got, sendErrs.snapshot(), gaps)
 	}
 	require.Empty(t, sendErrs.snapshot(), "no Send may fail hard")
-	require.Empty(t, taskErrs.snapshot(), "no binding call and no idle GC/Compact may fail")
+	requireNoTaskFailure("no binding call and no idle GC/Compact may fail")
 	require.Positive(t, idleWork.reportCount(), "store.GC must have run on the idle ticks")
 	// Exactly once, not merely at-least-once: the ring workers and every drain share one
 	// seen-set keyed over identical trimmed bytes (fix commit "fix(daemon): key live-vs-drain
@@ -674,7 +827,7 @@ func TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites(t *testing.T) {
 	cdwTick(t, d)
 	require.Equal(t, 1, maint.Generation(), "a second tick must not produce a second rewrite")
 	require.Equal(t, sizePostCompact, cdwFileSize(t, depsPath))
-	require.Empty(t, taskErrs.snapshot())
+	requireNoTaskFailure("no binding call and no idle GC/Compact may fail through the Compact rewrite")
 
 	// Clean shutdown, then the §4.7 postconditions.
 	require.NoError(t, d.Stop(ctx))
