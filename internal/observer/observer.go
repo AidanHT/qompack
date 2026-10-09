@@ -160,8 +160,8 @@ type SpooledReplyRearmer interface {
 // describes: something §5 needs but does not spell out. SP-08 WIDENS it rather than renaming any
 // field (Rule W-3).
 //
-// Grammar, Touch, Explore, Hot, Symbols, Rehydrate, Mode, OnSignals, OnFeatures and Metrics may
-// each be nil; every call site guards (resolved decision 8).
+// Grammar, Touch, Explore, Hot, Symbols, Rehydrate, Mode, OnSignals, OnFeatures, OnPromptCaptured
+// and Metrics may each be nil; every call site guards (resolved decision 8).
 type Options struct {
 	// ProjectRoot is the project root the observer records under.
 	ProjectRoot string
@@ -191,6 +191,11 @@ type Options struct {
 	OnSignals func(core.SessionID, Signals)
 	// OnFeatures delivers each BOCD feature sample to the scheduler.
 	OnFeatures func(core.SessionID, FeatureSample)
+	// OnPromptCaptured is called once per prompt this observer has just captured durably — never
+	// for the reply-only path, a recognized redelivery or a capture that failed — after the
+	// session lock is released. The daemon feeds it to negknow's user-statement ingest. It has no
+	// return value: nothing it does may fail or delay the capture it reports.
+	OnPromptCaptured func(context.Context, PromptCapture)
 	// Log is the logger; it may not be nil.
 	Log logging.Logger
 	// Metrics is the metrics registry; a nil Metrics must not panic a hook.

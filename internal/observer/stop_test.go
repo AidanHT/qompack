@@ -575,3 +575,25 @@ func TestSubagentArgs_IsTheToolInputACaptureDoesNotHave(t *testing.T) {
 func TestSubagentCaptureID(t *testing.T) {
 	require.Equal(t, core.ToolUseID("subagent_sess_sp08_7"), SubagentCaptureID(testSession, 7))
 }
+
+// TestPrecedingAssistantText pins the anchor a user-stated elimination's approach is read by: the
+// assistant turn BEFORE the user line carrying the prompt (string or block content), and the last
+// assistant turn when no such line is in the transcript yet.
+func TestPrecedingAssistantText(t *testing.T) {
+	const prompt = "that didn't work"
+	userString := fmt.Sprintf(`{"type":"user","message":{"role":"user","content":%s}}`, jsonString(prompt))
+	userBlocks := fmt.Sprintf(`{"type":"user","message":{"role":"user","content":[{"type":"text","text":%s}]}}`,
+		jsonString(prompt))
+
+	p := writeTranscript(t, assistantLine("widen the timeout"), userString, assistantLine("disable pooling"))
+	require.Equal(t, "widen the timeout", PrecedingAssistantText(p, prompt), "string content anchors")
+
+	p = writeTranscript(t, assistantLine("widen the timeout"), userBlocks, assistantLine("disable pooling"))
+	require.Equal(t, "widen the timeout", PrecedingAssistantText(p, prompt), "block content anchors")
+
+	p = writeTranscript(t, assistantLine("widen the timeout"))
+	require.Equal(t, "widen the timeout", PrecedingAssistantText(p, prompt),
+		"with the prompt not yet written, the last assistant turn is the preceding one")
+
+	require.Empty(t, PrecedingAssistantText("", prompt), "no transcript path")
+}

@@ -65,6 +65,7 @@ const (
 // The transcript-line shapes tailAssistantText recognizes.
 const (
 	transcriptRoleAssistant = "assistant"
+	transcriptRoleUser      = "user"
 	transcriptBlockText     = "text"
 )
 
@@ -422,26 +423,52 @@ type transcriptLine struct {
 // line — returns "" rather than an error, because this is a best-effort enrichment of a capture
 // that is written either way, and because §12.3 gives a hook no failure mode but "record less".
 func tailAssistantText(path string, maxBytes int64) string {
+	return lastAssistantText(transcriptTail(path, maxBytes))
+}
+
+// PrecedingAssistantText returns the text of the last assistant message written BEFORE the user
+// line carrying prompt, read from the transcript's final transcriptTailBytes. When no user line
+// in the window carries prompt (the host had not written it yet), the last assistant message in
+// the window is the preceding one, since no reply to prompt can precede prompt itself. It is the
+// "approach" half of a user-stated elimination, and the anchor is what keeps a capture replayed
+// after the agent already answered from naming the answer instead of what the user rejected.
+//
+// Every failure returns "", as tailAssistantText's do.
+func PrecedingAssistantText(path, prompt string) string {
+	lines := transcriptTail(path, transcriptTailBytes)
+	if prompt != "" {
+		for i := len(lines) - 1; i >= 0; i-- {
+			if userLineCarries(lines[i], prompt) {
+				lines = lines[:i]
+				break
+			}
+		}
+	}
+	return lastAssistantText(lines)
+}
+
+// transcriptTail returns the complete lines of path's final maxBytes, or nil on any failure.
+func transcriptTail(path string, maxBytes int64) [][]byte {
 	if path == "" || maxBytes <= 0 {
-		return ""
+		return nil
 	}
 	fi, err := os.Stat(path)
 	if err != nil || fi.IsDir() {
-		return ""
+		return nil
 	}
 	f, err := os.Open(path) //nolint:gosec // the host names its own transcript; §3.4 has no allow-list
 	if err != nil {
-		return ""
+		return nil
 	}
 	defer func() { _ = f.Close() }()
 
 	off := max(int64(0), fi.Size()-maxBytes)
 	if _, err := f.Seek(off, io.SeekStart); err != nil {
-		return ""
+		return nil
 	}
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return ""
+		return nil
 	}
 
 	// The drop is CONDITIONAL on having actually truncated, which is what max(0, size-maxBytes)
@@ -450,18 +477,58 @@ func tailAssistantText(path string, maxBytes int64) string {
 	if off > 0 {
 		i := bytes.IndexByte(b, '\n')
 		if i < 0 {
-			return "" // the window landed inside a single enormous line: no complete line at all
+			return nil // the window landed inside a single enormous line: no complete line at all
 		}
 		b = b[i+1:]
 	}
+	return bytes.Split(b, []byte("\n"))
+}
 
-	lines := bytes.Split(b, []byte("\n"))
+// lastAssistantText returns the text of the last assistant message among lines, or "".
+func lastAssistantText(lines [][]byte) string {
 	for i := len(lines) - 1; i >= 0; i-- {
 		if text, ok := assistantText(lines[i]); ok {
 			return text
 		}
 	}
 	return ""
+}
+
+// transcriptUserLine is the subset of a transcript user line userLineCarries reads. A typed
+// prompt's content is a plain string and a structured one an array of blocks, so it is kept raw.
+type transcriptUserLine struct {
+	Message struct {
+		Role    string          `json:"role"`
+		Content json.RawMessage `json:"content"`
+	} `json:"message"`
+}
+
+// userLineCarries reports whether line is a user message whose text contains prompt.
+func userLineCarries(line []byte, prompt string) bool {
+	if !bytes.Contains(line, []byte(`"user"`)) {
+		return false // a cheap pre-filter: a line with no user role is not parsed at all
+	}
+	var parsed transcriptUserLine
+	if json.Unmarshal(line, &parsed) != nil || parsed.Message.Role != transcriptRoleUser {
+		return false
+	}
+	var s string
+	if json.Unmarshal(parsed.Message.Content, &s) == nil {
+		return strings.Contains(s, prompt)
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(parsed.Message.Content, &blocks) != nil {
+		return false
+	}
+	for _, b := range blocks {
+		if b.Type == transcriptBlockText && strings.Contains(b.Text, prompt) {
+			return true
+		}
+	}
+	return false
 }
 
 // assistantText returns the joined text blocks of one transcript line, and whether the line was an
