@@ -25,7 +25,6 @@ Before committing to an approach, call already_tried.
 ## 5. Current work
 goal: Eliminate pool exhaustion on POST /api/session/refresh under 200 concurrent refreshes.
 next step: Extract the identity-provider call out of the transaction in refreshToken, then re-run the reproduction.
-blocked on: none
 
 ## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
 - docker-compose.yml sha256:1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d — pins the pgbouncer version and pool mode the elimination depends on

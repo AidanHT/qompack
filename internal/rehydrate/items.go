@@ -1070,12 +1070,14 @@ func buildCurrentWork(_ context.Context, r Request, d Deps) built { //nolint:unp
 		sb.WriteString(next)
 		sb.WriteByte('\n')
 	}
-	if blocked == "" {
-		blocked = "none"
+	// An empty blocker renders nothing, like the other two fields: "blocked on: none" was a
+	// placeholder on every live block (V6 close-out eval c55-c8) that said nothing the line's
+	// absence does not.
+	if blocked != "" {
+		sb.WriteString("blocked on: ")
+		sb.WriteString(blocked)
+		sb.WriteByte('\n')
 	}
-	sb.WriteString("blocked on: ")
-	sb.WriteString(blocked)
-	sb.WriteByte('\n')
 
 	b := built{seen: 1}
 	u := unit{

@@ -993,8 +993,8 @@ func TestDecisions_GuardRejectsAFencedUnit(t *testing.T) {
 // ── item 5: current work ──
 
 // TestCurrentWork_BlockedOnNil pins the rendering of the frozen fixture's current work, where
-// blocked_on is JSON null: it renders "none" rather than being omitted, so the model is told the
-// work is unblocked rather than left to guess.
+// blocked_on is JSON null: the line is omitted rather than rendered as a "blocked on: none"
+// placeholder, like every other empty field of item 5.
 func TestCurrentWork_BlockedOnNil(t *testing.T) {
 	cp := ckFull(t)
 	require.Nil(t, cp.CurrentWork.BlockedOn, "fixture sanity")
@@ -1005,7 +1005,6 @@ func TestCurrentWork_BlockedOnNil(t *testing.T) {
 	require.Equal(t, strings.Join([]string{
 		"goal: Eliminate pool exhaustion on POST /api/session/refresh under 200 concurrent refreshes.",
 		"next step: Extract the identity-provider call out of the transaction in refreshToken, then re-run the reproduction.",
-		"blocked on: none",
 		"",
 	}, "\n"), got.units[0].text)
 	require.Equal(t, checkpoint.DropEntry{
