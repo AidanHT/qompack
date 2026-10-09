@@ -139,6 +139,11 @@ re-check add is appended here first.
   release it gives each hook its own spool identity. An unprovable Read target is persisted nowhere, not as
   unavailable (D78(d)).
 
+- TestIntegration_HookEventThroughDaemonToStore (test/integration/hookflow_test.go, after its Drain) still bounds
+  its settle by daemon.DrainLineDeadline with the same 'lost, not delayed' premise that
+  TestIntegration_HotPathDegradesRatherThanBlocks had; a live dispatch has no such deadline (D83(c)). After
+  0.3.1: the same hang guard and after-the-wait counts as adfcba07.
+
 ## Added by D82
 
 20. **A checkpoint's drop report can leave out captures still waiting to be stored.** When a compaction's
