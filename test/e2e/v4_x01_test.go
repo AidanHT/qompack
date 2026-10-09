@@ -63,7 +63,7 @@ func x4RequireManifestVerifies(t *testing.T, root string) []paths.ManifestEntry 
 // resolved no checkpoint stamps seq=0.
 func x4InjectedSeq(t *testing.T, ac string) (core.CheckpointSeq, bool) {
 	t.Helper()
-	const prefix = "<!-- qompack:injected seq="
+	prefix := scInjectOpen
 	at := strings.Index(ac, prefix)
 	if at < 0 {
 		return 0, false

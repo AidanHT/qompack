@@ -228,7 +228,7 @@ func scAdditionalContext(t *testing.T, out hookio.Output) string {
 func scInjectedSpan(t *testing.T, ac string) string {
 	t.Helper()
 
-	openAt := strings.Index(ac, "<!-- qompack:injected seq=")
+	openAt := strings.Index(ac, scInjectOpen)
 	require.GreaterOrEqual(t, openAt, 0, "the payload carries no §8.5 injection open tag:\n%s", ac)
 
 	closeAt := strings.Index(ac[openAt:], checkpoint.InjectionCloseTag)
@@ -236,6 +236,14 @@ func scInjectedSpan(t *testing.T, ac string) string {
 
 	return ac[openAt : openAt+closeAt+len(checkpoint.InjectionCloseTag)]
 }
+
+// scInjectOpen is the injection open tag up to its first verb, derived from the constant so these
+// rows follow a rename of the tag; scLegacyInjectOpen is the spelling 0.3.x wrote, which a negative
+// control must refuse as well, or it would pass trivially against a binary that still writes it.
+var (
+	scInjectOpen       = checkpoint.InjectionOpenTag[:strings.IndexByte(checkpoint.InjectionOpenTag, '%')]
+	scLegacyInjectOpen = checkpoint.LegacyInjectionOpenTag[:strings.IndexByte(checkpoint.LegacyInjectionOpenTag, '%')]
+)
 
 // scWarmDaemon runs one session-start to bring the daemon up and waits for it to answer, so every
 // later measurement in a case is against a warm daemon rather than a cold start.
@@ -552,7 +560,8 @@ func TestE2E_SessionStartClear(t *testing.T) {
 	if out.HookSpecificOutput != nil {
 		ac = out.HookSpecificOutput.AdditionalContext
 	}
-	require.NotContains(t, ac, "<!-- qompack:injected seq=", "a clear injects no rehydrated span")
+	require.NotContains(t, ac, scInjectOpen, "a clear injects no rehydrated span")
+	require.NotContains(t, ac, scLegacyInjectOpen, "a clear injects no rehydrated span, in either spelling")
 	require.NotContains(t, ac, scHeadingInvariants, "a clear injects no §8.6 digest")
 
 	// Whatever survives is the route's own probe line and nothing else.
