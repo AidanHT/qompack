@@ -7,11 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.1] - 2026-10-09
 
-A patch release on 0.3.0 (tag `v0.3.0`, `1a368a4b`). It fixes three of 0.3.0's known issues and one
-diagnostic counter, and changes nothing else a user can see. The release decision is V6 close-out
+A patch release on 0.3.0 (tag `v0.3.0`, `1a368a4b`). It is built with Go 1.26.9 for eight
+standard-library security advisories, fixes three of 0.3.0's known issues and one diagnostic
+counter, and changes nothing else a user can see. The release decision is V6 close-out
 decision D81, with D82 and the rows that follow them in `plans/V6-CLOSEOUT-CHECKLIST.md`; its
 release gate is D81(c)(8). Its product code is 0.3.0's plus five fix branches (`fix/v031-spoolid`,
-`fix/v031-status`, `fix/v031-flakes`, `fix/v031-ci` and `fix/v031-settle`) and the version commit.
+`fix/v031-status`, `fix/v031-flakes`, `fix/v031-ci` and `fix/v031-settle`), the version commit,
+the Go 1.26.9 toolchain commit and the test fixes of `fix/v031-hostreds`.
 Known issues are numbered as in the close-out ledger's `plans/sdd/V6-closeout/w22-known-issues.md`,
 which is the order of [0.3.0]'s Known issues below, with 11 to 15 in one item.
 
@@ -26,6 +28,19 @@ claude plugin update qompack-windows-amd64@qompack -s user
 Replace `qompack-windows-amd64` with the entry you installed. No data migration is needed: 0.3.1
 keeps 0.3.0's store and state formats, and the only on-disk name it changes is a hook's fallback
 spool file's, whose 0.3.0 form the daemon still drains.
+
+### Security
+
+- **Built with Go 1.26.9.** 0.3.0 was built with Go 1.26.6. Eight advisories against that
+  toolchain's standard library were published after 0.3.0's release, all fixed in Go 1.26.9:
+  GO-2026-6603, -6604, -6607, -6608, -6611, -6612, -6613 and -6617. One concerns code Qompack runs:
+  GO-2026-6604. On Windows, when the last component of the path given to one of `os.Root`'s
+  `Mkdir`, `Rename`, `Remove`, `Chmod` and related methods is a junction, the call can act on the
+  junction's target outside the root. Qompack confines its store and state writes with `os.Root`,
+  and the daemon creates its delivery state through `os.Root.Mkdir`. Using the advisory against
+  Qompack takes a junction planted inside the project's `.qompack/` directory, which needs write
+  access to it. The other seven are in `net/http`, `net/textproto` and `crypto/tls` code that
+  Qompack, which performs no network I/O, does not use. Updating to 0.3.1 is the fix (D83).
 
 ### Fixed
 
@@ -85,6 +100,12 @@ Test and CI changes, with no product change and no check loosened (D81(c)(5)):
   (D81(a)).
 - The C1.16 rig gives each in-process hook a spool file of its own and requires 0 `LOUD.log` spool
   drops (D78(b)).
+- Three `windows-latest` rows a slow hosted runner missed are fixed in the tests (D83):
+  `TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing` runs its fixture delay alongside
+  the real publication; `TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites` accepts a
+  drained call that hit its line deadline only when the same event then completed exactly once,
+  after the failure; and `TestIntegration_HotPathDegradesRatherThanBlocks` treats an event that
+  is late as late, not lost, with a hang guard and its counts read after the wait.
 
 ### Known issues
 
