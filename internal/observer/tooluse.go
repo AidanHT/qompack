@@ -416,6 +416,7 @@ func (o *observer) rememberToolUse(st *sessionState, rec store.ToolUseRecord) {
 	if k := len(st.ToolUses) - subagentWindowCap; k > 0 {
 		st.ToolUses = st.ToolUses[k:]
 		st.SubagentSince = max(0, st.SubagentSince-k)
+		st.PromptSince = max(0, st.PromptSince-k)
 	}
 }
 
