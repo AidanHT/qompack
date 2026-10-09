@@ -2,7 +2,7 @@
   "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
   "seq": 1,
   "emitted": 1767225600000,
-  "tokens": 2339,
+  "tokens": 2334,
   "budget": 8000,
   "items": [
     {
@@ -40,7 +40,7 @@
     {
       "kind": "current_work",
       "rank": 4,
-      "tokens": 62,
+      "tokens": 58,
       "truncated": false,
       "units": 1,
       "units_seen": 1
@@ -80,7 +80,7 @@
     {
       "kind": "affordance",
       "rank": 9,
-      "tokens": 48,
+      "tokens": 47,
       "truncated": false,
       "units": 1,
       "units_seen": 1
