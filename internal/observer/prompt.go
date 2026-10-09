@@ -116,13 +116,47 @@ const thrashAdvice = "consider a different approach"
 // OnUserPrompt captures the user's own words verbatim and immutably (§8.1 item 7, G2.3) and is the
 // one entry point permitted to say something back — a thrash warning, and only in ModeFull.
 func (o *observer) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
-	var out Output
+	var (
+		out  Output
+		capt *PromptCapture
+	)
 	err := o.timed(histPrompt, func() error {
 		var err error
-		out, err = o.onUserPrompt(ctx, e)
+		out, capt, err = o.onUserPrompt(ctx, e)
 		return err
 	})
+	// Outside the timed span and the session lock: what the callback does (a ledger ingest) is not
+	// the capture's cost, and must not hold up the session's next event.
+	if err == nil && capt != nil && o.opt.OnPromptCaptured != nil {
+		o.opt.OnPromptCaptured(ctx, *capt)
+	}
 	return out, err
+}
+
+// PromptCapture is one prompt OnUserPrompt has just captured durably, as Options.OnPromptCaptured
+// receives it.
+type PromptCapture struct {
+	Session core.SessionID
+	// Turn is the turn the prompt was recorded at.
+	Turn   core.TurnIndex
+	Prompt string
+	// Root is the stored, verbatim prompt.
+	Root core.Hash
+	// LastEditPath is the paths.Key form of the most recent file this session edited or wrote, ""
+	// when it has edited none.
+	LastEditPath string
+	// TranscriptPath is the host transcript the prompt's event named.
+	TranscriptPath string
+}
+
+// lastEditPath returns the path of the most recent FileEdit or FileWrite in st's tool-use window.
+func lastEditPath(st *sessionState) string {
+	for i := len(st.ToolUses) - 1; i >= 0; i-- {
+		if tu := st.ToolUses[i]; tu.Path != "" && (tu.Tool == toolFileEdit || tu.Tool == toolFileWrite) {
+			return tu.Path
+		}
+	}
+	return ""
 }
 
 // onUserPrompt has two paths, split by the SP08-D3 reply-only context marker (Option A):
@@ -141,17 +175,17 @@ func (o *observer) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
 // lost required write (ErrUnpublished), so the frontier is never acknowledged over a capture that
 // did not become durable. An unleased in-process caller keeps the base behaviour: every I/O failure
 // is absorbed by soft and the session moves on (decision 7).
-func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
+func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, *PromptCapture, error) {
 	// 1. Nothing before the ctx check, and the clock is read exactly once (decision 11).
 	if err := ctx.Err(); err != nil {
-		return hookio.Empty(), err
+		return hookio.Empty(), nil, err
 	}
 	// An empty prompt is not a user turn. Capturing it would mint an object, an index entry and a
 	// graph node for no content, and — worse — would advance the turn counter past a turn that
 	// never happened, which every stored artifact downstream is numbered against. This holds on
 	// both paths: an empty prompt is neither a warning to show nor a capture to make.
 	if e.Prompt == "" {
-		return hookio.Empty(), nil
+		return hookio.Empty(), nil, nil
 	}
 	st := o.session(e.SessionID)
 	st.mu.Lock()
@@ -159,7 +193,7 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 
 	// The live reply path's whole job is the synchronous warning; it records nothing (Option A).
 	if promptReplyOnly(ctx) {
-		return o.promptReplyOutput(ctx, st), nil
+		return o.promptReplyOutput(ctx, st), nil, nil
 	}
 
 	now := o.now()
@@ -173,19 +207,20 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	// SP08-D2 identity rule, now reached for prompts too.
 	obs := ObservationFrom(ctx)
 	if rec, ok, err := o.observationRecord(ctx, obs, e.SessionID, opObservePrompt); err != nil {
-		return hookio.Empty(), err
+		return hookio.Empty(), nil, err
 	} else if ok {
 		if err := o.finishObservation(ctx, obs, rec); err != nil {
-			return hookio.Empty(), err
+			return hookio.Empty(), nil, err
 		}
 		adoptTurn(st, rec)
 		o.count(counterRedelivery)
-		return hookio.Empty(), nil
+		return hookio.Empty(), nil, nil
 	}
 
 	// 2-3. Artifact (a): the user's bytes, content-addressed. verbatimOptions is the whole of what
 	//      makes this capture verbatim, and KeepRaw is what keeps the canonicalizer's deltas so
 	//      canon.Restore can reconstruct the pre-normalization bytes exactly.
+	var capt *PromptCapture
 	body := []byte(e.Prompt)
 	res, err := o.opt.Store.PutBytes(ctx, body, store.PutOptions{
 		Tool: userPromptSubmit, Path: "", Canon: verbatimOptions(),
@@ -197,17 +232,21 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 		// caller has no frontier, so it keeps the base behaviour — the capture is lost, the TURN is
 		// not, and renumbering every later artifact around it would be the larger corruption.
 		if obs != "" {
-			return hookio.Empty(), o.unpublished(stagePromptPut)
+			return hookio.Empty(), nil, o.unpublished(stagePromptPut)
 		}
 		o.soft(stagePromptPut, err)
 	} else {
 		if recovered, err := o.recoverPrompt(ctx, st, e, obs); err != nil || recovered {
-			return hookio.Empty(), err
+			return hookio.Empty(), nil, err
 		}
 		if recErr := o.recordPromptDurable(ctx, st, e, res, body, now, obs); recErr != nil {
-			return hookio.Empty(), recErr
+			return hookio.Empty(), nil, recErr
 		}
 		o.notePromptHostOrder(ctx, e.SessionID, st.Turn)
+		capt = &PromptCapture{
+			Session: e.SessionID, Turn: st.Turn, Prompt: e.Prompt, Root: res.Root.Hash,
+			LastEditPath: lastEditPath(st), TranscriptPath: e.TranscriptPath,
+		}
 	}
 
 	// 6. §8.1 item 6, the user half of the action stream.
@@ -233,9 +272,9 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	// Preserve the direct observer API. Only the explicitly marked worker path
 	// leaves warnings queued for the live reply.
 	if !promptCaptureOnly(ctx) {
-		return o.promptReplyOutput(ctx, st), nil
+		return o.promptReplyOutput(ctx, st), capt, nil
 	}
-	return hookio.Empty(), nil
+	return hookio.Empty(), capt, nil
 }
 
 // The durable artifacts of resolved decision 3 (index record, observation-reference link, DAG node)

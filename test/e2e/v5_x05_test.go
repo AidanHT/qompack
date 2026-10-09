@@ -6,11 +6,14 @@
 //
 // The historical text named four §8.3 SOURCES (MCP, slash command, heuristic, user statement) and
 // asserted Health().Records == 4 with one record per source. That guarantee is retired on this
-// tree: negknow's IngestUserStatement and Observe/Detector.Scan have no production caller (the
-// ledger's own doc comment says source #3 is inert when nobody calls Observe), and
-// `qompack pin --eliminated` reaches the ledger through SP-13's record_eliminated tool rather than
-// through IngestPin. What EXISTS is two write surfaces and four read surfaces, and the criterion is
-// about the STATE crossing them, so that is what this row drives:
+// tree: negknow's Observe/Detector.Scan have no production caller (the ledger's own doc comment
+// says source #3 is inert when nobody calls Observe), and `qompack pin --eliminated` reaches the
+// ledger through SP-13's record_eliminated tool rather than through IngestPin. IngestUserStatement
+// does have one since 0.3.2 — the daemon feeds it each prompt the observer captures
+// (internal/daemon/user_statement.go, tested in user_statement_test.go) — but this row drives no
+// prompt, and its criterion does not need a third write surface. What it uses is two write
+// surfaces and four read surfaces, and the criterion is about the STATE crossing them, so that is
+// what this row drives:
 //
 //	writes  record_eliminated over a real `qompack mcp` child (SP-13)
 //	        `qompack pin --eliminated --json` through the real binary (SP-14 frontend → the SP-13

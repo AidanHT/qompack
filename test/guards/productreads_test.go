@@ -108,7 +108,7 @@ var ordinaryReads = []ordinaryRead{
 	{"internal/observer/state.go", "loadState", "state/observer.json, loaded once per daemon before that " +
 		"daemon's first persistState; the daemon lock keeps every other writer out, and backup reads " +
 		"it shared"},
-	{"internal/observer/stop.go", "tailAssistantText", whyHostTranscript},
+	{"internal/observer/stop.go", "transcriptTail", whyHostTranscript},
 	{"internal/paths/appendonly.go", "OpenFile", "the §7.4-guarded opener every product write goes " +
 		"through (appends and exclusive creates); its callers choose the file"},
 	{"internal/paths/appendonly.go", "TerminatePartialTail", "the tail of an append-only log its caller " +

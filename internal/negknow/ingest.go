@@ -418,6 +418,11 @@ func matchUserStatement(prompt string) string {
 	return ""
 }
 
+// IsUserStatement reports whether prompt contains one of the phrases IngestUserStatement acts on.
+// It does no I/O, so the daemon can test every captured prompt with it and gather the context an
+// ingest needs (the preceding assistant turn) only for the rare prompt that matches.
+func IsUserStatement(prompt string) bool { return matchUserStatement(prompt) != "" }
+
 // IngestUserStatement records an elimination a user stated outright — §8.3's source #4 (SP-08
 // feeds this from UserPromptSubmit).
 //

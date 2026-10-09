@@ -109,6 +109,9 @@ func WireObserver(o *Options) (observer.Observer, error) {
 	// ledger and checkpoint reader nothing else opens yet, and binds Services.Rehydrate, which is
 	// the sole condition DeclareProducers tests before declaring contract.CAdditionalContext.
 	rehydrator := WireRehydrator(o)
+	// The lazy opener WireRehydrator just published: a prompt that states an elimination opens the
+	// ledger the same one-shot way a compaction or an MCP ledger tool does.
+	openLedger := o.OpenLedger
 
 	obsv, err := observer.New(observer.Options{
 		ProjectRoot: o.ProjectRoot,
@@ -148,6 +151,9 @@ func WireObserver(o *Options) (observer.Observer, error) {
 				LexicalCohesion: fs.LexicalCohesion, GapSeconds: fs.GapSeconds,
 				TodoTransition: fs.TodoTransition,
 			}, fs.Turn)
+		},
+		OnPromptCaptured: func(ctx context.Context, c observer.PromptCapture) {
+			ingestUserStatement(ctx, openLedger, log, c)
 		},
 		Log:     log,
 		Metrics: o.Metrics,
