@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/config"
@@ -144,10 +145,26 @@ const (
 	// the same basis §4.2 states for hookflowClientBudget: the daemon's own per-line worst case.
 	hotpathReplyBudget = daemon.DrainLineDeadline
 
-	// hotpathPipelineBound bounds one event's trip through the worker pool into the binding: a
-	// dispatch in flight is bounded by the same per-line ceiling a drained line runs under.
-	hotpathPipelineBound = daemon.DrainLineDeadline
-	hotpathPipelineTick  = time.Millisecond
+	// hotpathPipelineHangGuard is how long hotpathWaitPipeline waits for ACKed events to come out
+	// of the binding before it calls the pipeline hung. It is a hang guard, not a latency bound,
+	// because no daemon constant bounds that trip: a live worker dispatches under the daemon's own
+	// context with no deadline (ingest.go, worker and route); daemon.DrainLineDeadline bounds only
+	// a DRAINED line's handler call (drain.go), not the live path and not the line's other work;
+	// and the ACK is written after the WAL fsync (and, for a leased delivery, the delivery-lease
+	// fsyncs) while the dispatch runs after it, so an ACKed event can stay in flight well past
+	// DrainLineDeadline on a slow fsync or a starved CPU without being lost. Loss
+	// is judged where it can be judged: the end-of-test store ToolUses and drain counts. Basis:
+	// twice daemon.IdleTickMax, the daemon's slowest periodic cadence; a dispatch that outlasts
+	// two of those is wedged, not slow.
+	hotpathPipelineHangGuard = 2 * daemon.IdleTickMax
+	// hotpathPipelineTick is the poll cadence of the pipeline and submode waits. Not 1ms: the
+	// daemon under test shares this process, and a 1ms poll is load the measured pipeline pays.
+	hotpathPipelineTick = 5 * time.Millisecond
+
+	// hotpathModeBound waits for the registry to report spool submode once the daemon has NAKed.
+	// Basis: daemon.DrainLineDeadline, the bound this wait has always used; the NAK is the
+	// daemon's own spool judgement, so the wait reads back a transition already made.
+	hotpathModeBound = daemon.DrainLineDeadline
 
 	// hotpathStopBound bounds a clean daemon shutdown: twice Stop's own bound on draining the
 	// in-flight ring (the same basis §4.7's cdwStopBound states).
@@ -299,16 +316,65 @@ func hotpathSeedTriedBloom(t *testing.T, p *testutil.Project) {
 
 // hotpathWaitPipeline waits until want DISTINCT events are fully through the bound pipeline —
 // the §4.2 completion measure (an observation is recorded only after every side effect, sketches
-// included) — then pins the count exactly.
+// included) — then pins the count exactly. The wait is a hang guard (hotpathPipelineHangGuard): a
+// late event is delayed, not lost, and loss is judged by the callers' store and drain counts. When
+// the guard does expire, the failure reports the state AT THAT MOMENT — the distinct and raw
+// completion counts, the pipeline errors and the WAL and lease journal line counts — not the
+// state when the wait began.
 func hotpathWaitPipeline(t *testing.T, hp *hookflowPipeline, want int) {
 	t.Helper()
-	require.Eventually(t, func() bool { return hp.uniqueObservedCount() >= want },
-		hotpathPipelineBound, hotpathPipelineTick,
-		"%d/%d distinct events through the binding within daemon.DrainLineDeadline — an in-flight "+
-			"dispatch is bounded by the same per-line ceiling a drained line runs under, so exceeding "+
-			"it means an event was lost, not delayed (pipeline errors: %v)",
-		hp.uniqueObservedCount(), want, hp.takeErrs())
-	require.Equal(t, want, hp.uniqueObservedCount())
+	start := time.Now()
+	if assert.Eventually(t, func() bool { return hp.uniqueObservedCount() >= want },
+		hotpathPipelineHangGuard, hotpathPipelineTick) {
+		require.Equal(t, want, hp.uniqueObservedCount())
+		return
+	}
+	require.FailNowf(t, "pipeline hung",
+		"after %v (hang guard %v, 2x daemon.IdleTickMax) %d/%d distinct events are through the "+
+			"binding (%d raw completions); pipeline errors: %v; WAL lines: %d; client spool lines: "+
+			"%d; delivery-lease journal lines: %d",
+		time.Since(start).Round(time.Millisecond), hotpathPipelineHangGuard,
+		hp.uniqueObservedCount(), want, hp.observedCount(), hp.takeErrs(),
+		hotpathWALLines(t, hp.root), clientSpoolLines(t, hp.root), hotpathLeaseLines(t, hp.root))
+}
+
+// hotpathWALLines counts the non-empty lines across every wal-* segment under root's spool
+// directory: every event the daemon has ACKed on the live path.
+func hotpathWALLines(t *testing.T, root string) int {
+	t.Helper()
+	files, err := ipc.SpoolFiles(paths.Of(root).Spool)
+	require.NoError(t, err)
+	total := 0
+	for _, f := range files {
+		if strings.HasPrefix(filepath.Base(f), "wal-") {
+			total += countFileLines(t, f)
+		}
+	}
+	return total
+}
+
+// hotpathLeaseLines counts the non-empty lines across every delivery-leases.jsonl under root's
+// state directory, segmented journals included: every delivery identity the daemon has made
+// durable before its ACK. Only a hook's own client stamps the nonce a lease needs
+// (internal/cli/hookclient.go), so this file's direct ipc.Client requests are unleased and add 0;
+// the real spawned hooks of test 2's degraded phase are the deliveries it counts.
+func hotpathLeaseLines(t *testing.T, root string) int {
+	t.Helper()
+	total := 0
+	err := filepath.WalkDir(paths.Of(root).State, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		if !d.IsDir() && d.Name() == "delivery-leases.jsonl" {
+			total += countFileLines(t, path)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	return total
 }
 
 // hotpathPopulate drives the §4.6 pre-population corpus through the §4.2 binding. sendWire, when
@@ -1539,7 +1605,7 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 	require.GreaterOrEqual(t, sent, 3*hotpathSampleWindow-hotpathStallWarmEvents,
 		"the transition may not fire before three full windows have closed (§2.4)")
 	require.Eventually(t, func() bool { return d.Registry().HotMode() == ipc.HotSpool },
-		hotpathPipelineBound, hotpathPipelineTick,
+		hotpathModeBound, hotpathPipelineTick,
 		"the registry must report spool submode after the NAK")
 	base += sent
 	hotpathWaitPipeline(t, hp, base) // the NAK'd event was accepted and processes too
