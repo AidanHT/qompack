@@ -3,7 +3,7 @@
   "properties": {
     "decision_id": {
       "type": "string",
-      "description": "A dec_<12 hex> id from a checkpoint or a rehydrated decision list."
+      "description": "dec_<12 hex> id from a checkpoint or decision list."
     }
   },
   "required": [

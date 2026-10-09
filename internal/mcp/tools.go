@@ -280,27 +280,26 @@ type Promoter interface {
 // spanPolicy is the sentence appended to `expand` and `re_read`'s descriptions. §8.7's policy has
 // to be where the model reads it, which is the tool description — a policy documented only in the
 // design is a policy the model never sees.
-const spanPolicy = " Returns the minimum sufficient span by default; pass full=true only when " +
-	"you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown."
+const spanPolicy = " Returns the minimum sufficient span; pass full=true only if you need the whole object."
 
 // The eight input schemas, byte-for-byte as `tools/list` emits them. They are raw literals rather
 // than a struct marshalled at runtime because the bytes ARE the contract: a golden freezes them,
 // docs/mcp-tools.md is generated from them, and a field-order change made by a Go struct edit
 // would be invisible at the call site that mattered.
 const (
-	schemaRecall = `{"type":"object","properties":{"query":{"type":"string","description":"Free text, or prefixed selectors combined with spaces: path:<glob>, symbol:<name>, tool:<ToolName>."},"k":{"type":"integer","minimum":1,"maximum":50,"default":5,"description":"Maximum number of hits."}},"required":["query"],"additionalProperties":false}`
+	schemaRecall = `{"type":"object","properties":{"query":{"type":"string","description":"Free text, plus optional path:<glob> symbol:<name> tool:<ToolName> selectors."},"k":{"type":"integer","minimum":1,"maximum":50,"default":5,"description":"Max hits."}},"required":["query"],"additionalProperties":false}`
 
-	schemaExpand = `{"type":"object","properties":{"hash":{"type":"string","description":"Root or chunk hash as sha256:<64 hex>. Provide exactly one of hash or tool_use_id."},"tool_use_id":{"type":"string","description":"tool_use_id taken from a tombstone or a recall hit."},"full":{"type":"boolean","default":false,"description":"Return the whole object instead of the minimum sufficient span."},"span":{"type":"string","description":"Explicit span: \"<off>:<len>\" in bytes, or \"L<start>-L<end>\" in lines."}},"required":[],"additionalProperties":false}`
+	schemaExpand = `{"type":"object","properties":{"hash":{"type":"string","description":"sha256:<64 hex>. Give exactly one of hash or tool_use_id."},"tool_use_id":{"type":"string","description":"The tool_use_id a rehydration block, tombstone or recall hit names."},"full":{"type":"boolean","default":false,"description":"Return the whole object."},"span":{"type":"string","description":"\"<off>:<len>\" in bytes or \"L<start>-L<end>\" in lines."}},"required":[],"additionalProperties":false}`
 
-	schemaReRead = `{"type":"object","properties":{"path":{"type":"string","description":"Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span."},"at":{"type":"string","description":"Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree."},"full":{"type":"boolean","default":false,"description":"Return the whole file instead of the minimum sufficient span."}},"required":["path"],"additionalProperties":false}`
+	schemaReRead = `{"type":"object","properties":{"path":{"type":"string","description":"Project-relative path; optional :<symbol> or :<line> suffix."},"at":{"type":"string","description":"Empty for latest; else RFC3339 time, sha256:<64 hex>, or turn:<N>."},"full":{"type":"boolean","default":false,"description":"Return the whole file."}},"required":["path"],"additionalProperties":false}`
 
-	schemaAlreadyTried = `{"type":"object","properties":{"target":{"type":"string","description":"File path, optionally :symbol — e.g. src/auth.ts:refreshToken."},"approach":{"type":"string","description":"The approach as one short verb phrase — e.g. widen pool timeout."}},"required":["target","approach"],"additionalProperties":false}`
+	schemaAlreadyTried = `{"type":"object","properties":{"target":{"type":"string","description":"Path, optionally :symbol (src/auth.ts:refreshToken)."},"approach":{"type":"string","description":"Short verb phrase (widen pool timeout)."}},"required":["target","approach"],"additionalProperties":false}`
 
-	schemaRecordEliminated = `{"type":"object","properties":{"target":{"type":"string"},"approach":{"type":"string"},"reason":{"type":"string","description":"Why it does not work. Encode what a competent engineer with no session history would get wrong."},"scope":{"type":"string","enum":["session","project"],"default":"session"},"depends_on":{"type":"array","items":{"type":"string"},"description":"Project-relative paths whose contents this reason rests on; a change to any of them flips this record to stale."}},"required":["target","approach","reason"],"additionalProperties":false}`
+	schemaRecordEliminated = `{"type":"object","properties":{"target":{"type":"string"},"approach":{"type":"string"},"reason":{"type":"string","description":"Why it fails: what an engineer without this session's history would get wrong."},"scope":{"type":"string","enum":["session","project"],"default":"session"},"depends_on":{"type":"array","items":{"type":"string"},"description":"Paths the reason rests on; a change to one marks the record stale."}},"required":["target","approach","reason"],"additionalProperties":false}`
 
-	schemaTimeline = `{"type":"object","properties":{"from":{"type":"string","description":"Turn index, RFC3339 timestamp, or empty for the session start."},"to":{"type":"string","description":"Turn index, RFC3339 timestamp, or empty for the current frontier."}},"required":[],"additionalProperties":false}`
+	schemaTimeline = `{"type":"object","properties":{"from":{"type":"string","description":"Turn index, RFC3339 time, or empty for session start."},"to":{"type":"string","description":"Turn index, RFC3339 time, or empty for now."}},"required":[],"additionalProperties":false}`
 
-	schemaWhy = `{"type":"object","properties":{"decision_id":{"type":"string","description":"A dec_<12 hex> id from a checkpoint or a rehydrated decision list."}},"required":["decision_id"],"additionalProperties":false}`
+	schemaWhy = `{"type":"object","properties":{"decision_id":{"type":"string","description":"dec_<12 hex> id from a checkpoint or decision list."}},"required":["decision_id"],"additionalProperties":false}`
 
 	schemaDropped = `{"type":"object","properties":{},"required":[],"additionalProperties":false}`
 )
@@ -315,7 +314,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolRecall,
 			Title:       "Recall",
-			Description: "Search captured archive material by content, path, or symbol; returns references and summaries. Capture and coverage may be partial or unavailable.",
+			Description: "Search archived tool output and file versions by content, path, or symbol.",
 			InputSchema: json.RawMessage(schemaRecall),
 			Handler:     h.run(ToolRecall, h.recall),
 			Ephemeral:   true,
@@ -323,7 +322,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolExpand,
 			Title:       "Expand",
-			Description: "Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete." + spanPolicy,
+			Description: "Fetch archived content by the tool_use_id a rehydration block names, or by hash." + spanPolicy,
 			InputSchema: json.RawMessage(schemaExpand),
 			Handler:     h.run(ToolExpand, h.expand),
 			Ephemeral:   true,
@@ -331,7 +330,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolReRead,
 			Title:       "Re-read",
-			Description: "The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk." + spanPolicy,
+			Description: "Read a captured file version (latest or historical) from the archive, never from disk." + spanPolicy,
 			InputSchema: json.RawMessage(schemaReRead),
 			Handler:     h.run(ToolReRead, h.reRead),
 			Ephemeral:   true,
@@ -339,7 +338,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolAlreadyTried,
 			Title:       "Already tried",
-			Description: "Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. Clients must treat unavailable or unrecognized states as unknown, never as absence or a prohibition. " + StandingInstruction,
+			Description: "Check whether an approach was eliminated: absent, active, stale, or unavailable. Treat unavailable or unrecognized as unknown, not as absent or forbidden. " + StandingInstruction,
 			InputSchema: json.RawMessage(schemaAlreadyTried),
 			Handler:     h.run(ToolAlreadyTried, h.alreadyTried),
 			Ephemeral:   true,
@@ -347,7 +346,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolRecordEliminated,
 			Title:       "Record eliminated",
-			Description: "Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction.",
+			Description: "Record that an approach does not work, with its reason and the files it rests on, so it survives compaction.",
 			InputSchema: json.RawMessage(schemaRecordEliminated),
 			Handler:     h.run(ToolRecordEliminated, h.recordEliminated),
 			Ephemeral:   false,
@@ -355,7 +354,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolTimeline,
 			Title:       "Timeline",
-			Description: "Retrieve recorded session segments over a turn or timestamp range. Missing events and native context coverage may be unknown.",
+			Description: "List recorded session events over a turn or timestamp range.",
 			InputSchema: json.RawMessage(schemaTimeline),
 			Handler:     h.run(ToolTimeline, h.timeline),
 			Ephemeral:   true,
@@ -363,7 +362,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolWhy,
 			Title:       "Why",
-			Description: "Retrieve an attributed decision and its evidence from the checkpoint chain. Recorded reasoning does not prove model compliance.",
+			Description: "Show a recorded decision and its evidence.",
 			InputSchema: json.RawMessage(schemaWhy),
 			Handler:     h.run(ToolWhy, h.why),
 			Ephemeral:   true,
@@ -371,7 +370,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolDropped,
 			Title:       "Dropped",
-			Description: "Retrieve Qompack's recorded omissions for this session. This report does not establish what remains in native context.",
+			Description: "List what Qompack recorded as omitted in this session.",
 			InputSchema: json.RawMessage(schemaDropped),
 			Handler:     h.run(ToolDropped, h.dropped),
 			Ephemeral:   true,

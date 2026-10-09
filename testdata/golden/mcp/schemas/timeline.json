@@ -3,11 +3,11 @@
   "properties": {
     "from": {
       "type": "string",
-      "description": "Turn index, RFC3339 timestamp, or empty for the session start."
+      "description": "Turn index, RFC3339 time, or empty for session start."
     },
     "to": {
       "type": "string",
-      "description": "Turn index, RFC3339 timestamp, or empty for the current frontier."
+      "description": "Turn index, RFC3339 time, or empty for now."
     }
   },
   "required": [],

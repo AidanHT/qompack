@@ -3,14 +3,14 @@
   "properties": {
     "query": {
       "type": "string",
-      "description": "Free text, or prefixed selectors combined with spaces: path:<glob>, symbol:<name>, tool:<ToolName>."
+      "description": "Free text, plus optional path:<glob> symbol:<name> tool:<ToolName> selectors."
     },
     "k": {
       "type": "integer",
       "minimum": 1,
       "maximum": 50,
       "default": 5,
-      "description": "Maximum number of hits."
+      "description": "Max hits."
     }
   },
   "required": [
