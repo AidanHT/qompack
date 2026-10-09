@@ -152,7 +152,7 @@ func x5v5Restart(t *testing.T, bin string, p *testutil.Project, env map[string]s
 // x5v5InjectTag is the §8.5 injection open tag x4InjectedSeq parses. The polling condition below
 // only needs to know whether a payload carries it; the seq is parsed afterwards, on the test
 // goroutine, by x4InjectedSeq.
-const x5v5InjectTag = "<!-- qompack:injected seq="
+var x5v5InjectTag = scInjectOpen
 
 // x5v5StartAttempt is one session-start hook run, recorded rather than asserted.
 type x5v5StartAttempt struct {

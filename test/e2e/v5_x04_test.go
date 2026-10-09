@@ -562,7 +562,9 @@ func TestV5_PreCompactToRehydrateToDroppedRoundTrip(t *testing.T) {
 		// in ModeFull regardless of what the rehydrator said (internal/daemon/handlers.go), so the
 		// honest assertion is "nothing but the probe", not "nothing at all".
 		ac := r.CompactStart(t, x4v5ControlSession)
-		require.NotContains(t, ac, "<!-- qompack:injected",
+		require.NotContains(t, ac, scLegacyInjectOpen,
+			"NEGATIVE CONTROL: the legacy injection span must be suppressed too; got: %s", ac)
+		require.NotContains(t, ac, scInjectOpen,
 			"NEGATIVE CONTROL: runtime.migration.reinjection.sessionStartCompact=false must suppress "+
 				"the injection span entirely; got: %s", ac)
 		for _, line := range strings.Split(ac, "\n") {
