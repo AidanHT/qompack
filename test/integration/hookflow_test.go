@@ -290,11 +290,13 @@ type hookflowPipeline struct {
 	graph    dag.Graph
 	sketches *daemon.SketchSet
 	clock    core.Clock
+	root     string // the project root, for failure diagnostics that read its spool and state
 
 	mu         sync.Mutex
 	turn       core.TurnIndex
 	turnByID   map[core.ToolUseID]core.TurnIndex
 	observed   []dag.ObservedTool
+	distinct   map[core.ToolUseID]struct{} // tool_use ids in observed, kept so uniqueObservedCount is O(1)
 	errs       []error
 	supersedes map[core.ToolUseID]core.ToolUseID
 }
@@ -317,7 +319,9 @@ func newHookflowPipeline(t *testing.T, p *testutil.Project) *hookflowPipeline {
 		graph:      g,
 		sketches:   daemon.NewSketchSet(p.Cfg),
 		clock:      p.Clock,
+		root:       p.Root,
 		turnByID:   map[core.ToolUseID]core.TurnIndex{},
+		distinct:   map[core.ToolUseID]struct{}{},
 		supersedes: map[core.ToolUseID]core.ToolUseID{},
 	}
 }
@@ -414,6 +418,7 @@ func (hp *hookflowPipeline) observeTool(ctx context.Context, e hookio.Event) err
 	// Recorded last — see the type's doc comment for why the append is the completion marker.
 	hp.mu.Lock()
 	hp.observed = append(hp.observed, obs)
+	hp.distinct[obs.ToolUseID] = struct{}{}
 	hp.mu.Unlock()
 	return nil
 }
@@ -436,9 +441,14 @@ func (hp *hookflowPipeline) observedCount() int {
 
 // uniqueObservedCount reports how many DISTINCT events are fully through the pipeline — the
 // completion measure the tests settle on, immune to a duplicate dispatch of an already-processed
-// line.
+// line. It reads a count maintained at append time rather than deduplicating a copy of every
+// observation: callers poll it on a millisecond-scale tick while the daemon under test shares this
+// process, and an O(n) copy under hp.mu per tick (thousands of observations by the end of the
+// hot-path rows) is CPU, garbage and lock contention the measured pipeline would pay for.
 func (hp *hookflowPipeline) uniqueObservedCount() int {
-	return len(hp.snapshotObserved())
+	hp.mu.Lock()
+	defer hp.mu.Unlock()
+	return len(hp.distinct)
 }
 
 // snapshotObserved copies the recorded observations in pipeline-completion order, first
