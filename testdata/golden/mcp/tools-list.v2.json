@@ -1,19 +1,19 @@
 {
   "tools": [
     {
-      "description": "Search captured archive material by content, path, or symbol; returns references and summaries. Capture and coverage may be partial or unavailable.",
+      "description": "Search archived tool output and file versions by content, path, or symbol.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "k": {
             "default": 5,
-            "description": "Maximum number of hits.",
+            "description": "Max hits.",
             "maximum": 50,
             "minimum": 1,
             "type": "integer"
           },
           "query": {
-            "description": "Free text, or prefixed selectors combined with spaces: path:<glob>, symbol:<name>, tool:<ToolName>.",
+            "description": "Free text, plus optional path:<glob> symbol:<name> tool:<ToolName> selectors.",
             "type": "string"
           }
         },
@@ -26,25 +26,25 @@
       "title": "Recall"
     },
     {
-      "description": "Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.",
+      "description": "Fetch archived content by the tool_use_id a rehydration block names, or by hash. Returns the minimum sufficient span; pass full=true only if you need the whole object.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "full": {
             "default": false,
-            "description": "Return the whole object instead of the minimum sufficient span.",
+            "description": "Return the whole object.",
             "type": "boolean"
           },
           "hash": {
-            "description": "Root or chunk hash as sha256:<64 hex>. Provide exactly one of hash or tool_use_id.",
+            "description": "sha256:<64 hex>. Give exactly one of hash or tool_use_id.",
             "type": "string"
           },
           "span": {
-            "description": "Explicit span: \"<off>:<len>\" in bytes, or \"L<start>-L<end>\" in lines.",
+            "description": "\"<off>:<len>\" in bytes or \"L<start>-L<end>\" in lines.",
             "type": "string"
           },
           "tool_use_id": {
-            "description": "tool_use_id taken from a tombstone or a recall hit.",
+            "description": "The tool_use_id a rehydration block, tombstone or recall hit names.",
             "type": "string"
           }
         },
@@ -55,21 +55,21 @@
       "title": "Expand"
     },
     {
-      "description": "The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.",
+      "description": "Read a captured file version (latest or historical) from the archive, never from disk. Returns the minimum sufficient span; pass full=true only if you need the whole object.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "at": {
-            "description": "Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree.",
+            "description": "Empty for latest; else RFC3339 time, sha256:<64 hex>, or turn:<N>.",
             "type": "string"
           },
           "full": {
             "default": false,
-            "description": "Return the whole file instead of the minimum sufficient span.",
+            "description": "Return the whole file.",
             "type": "boolean"
           },
           "path": {
-            "description": "Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span.",
+            "description": "Project-relative path; optional :<symbol> or :<line> suffix.",
             "type": "string"
           }
         },
@@ -82,16 +82,16 @@
       "title": "Re-read"
     },
     {
-      "description": "Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. Clients must treat unavailable or unrecognized states as unknown, never as absence or a prohibition. Before committing to an approach, call already_tried.",
+      "description": "Check whether an approach was eliminated: absent, active, stale, or unavailable. Treat unavailable or unrecognized as unknown, not as absent or forbidden. Before committing to an approach, call already_tried.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "approach": {
-            "description": "The approach as one short verb phrase — e.g. widen pool timeout.",
+            "description": "Short verb phrase (widen pool timeout).",
             "type": "string"
           },
           "target": {
-            "description": "File path, optionally :symbol — e.g. src/auth.ts:refreshToken.",
+            "description": "Path, optionally :symbol (src/auth.ts:refreshToken).",
             "type": "string"
           }
         },
@@ -105,7 +105,7 @@
       "title": "Already tried"
     },
     {
-      "description": "Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction.",
+      "description": "Record that an approach does not work, with its reason and the files it rests on, so it survives compaction.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -113,14 +113,14 @@
             "type": "string"
           },
           "depends_on": {
-            "description": "Project-relative paths whose contents this reason rests on; a change to any of them flips this record to stale.",
+            "description": "Paths the reason rests on; a change to one marks the record stale.",
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "reason": {
-            "description": "Why it does not work. Encode what a competent engineer with no session history would get wrong.",
+            "description": "Why it fails: what an engineer without this session's history would get wrong.",
             "type": "string"
           },
           "scope": {
@@ -146,16 +146,16 @@
       "title": "Record eliminated"
     },
     {
-      "description": "Retrieve recorded session segments over a turn or timestamp range. Missing events and native context coverage may be unknown.",
+      "description": "List recorded session events over a turn or timestamp range.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "from": {
-            "description": "Turn index, RFC3339 timestamp, or empty for the session start.",
+            "description": "Turn index, RFC3339 time, or empty for session start.",
             "type": "string"
           },
           "to": {
-            "description": "Turn index, RFC3339 timestamp, or empty for the current frontier.",
+            "description": "Turn index, RFC3339 time, or empty for now.",
             "type": "string"
           }
         },
@@ -166,12 +166,12 @@
       "title": "Timeline"
     },
     {
-      "description": "Retrieve an attributed decision and its evidence from the checkpoint chain. Recorded reasoning does not prove model compliance.",
+      "description": "Show a recorded decision and its evidence.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "decision_id": {
-            "description": "A dec_<12 hex> id from a checkpoint or a rehydrated decision list.",
+            "description": "dec_<12 hex> id from a checkpoint or decision list.",
             "type": "string"
           }
         },
@@ -184,7 +184,7 @@
       "title": "Why"
     },
     {
-      "description": "Retrieve Qompack's recorded omissions for this session. This report does not establish what remains in native context.",
+      "description": "List what Qompack recorded as omitted in this session.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {},

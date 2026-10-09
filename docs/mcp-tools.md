@@ -105,25 +105,25 @@ A model should call `already_tried` before committing to an approach: Before com
 
 | Tool | Ephemeral result | Purpose |
 |---|---|---|
-| [`recall`](#recall) | yes | Search captured archive material by content, path, or symbol; returns references and summaries. |
-| [`expand`](#expand) | yes | Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. |
-| [`re_read`](#re_read) | yes | The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. |
-| [`already_tried`](#already_tried) | yes | Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. |
-| [`record_eliminated`](#record_eliminated) | no | Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction. |
-| [`timeline`](#timeline) | yes | Retrieve recorded session segments over a turn or timestamp range. |
-| [`why`](#why) | yes | Retrieve an attributed decision and its evidence from the checkpoint chain. |
-| [`dropped`](#dropped) | yes | Retrieve Qompack's recorded omissions for this session. |
+| [`recall`](#recall) | yes | Search archived tool output and file versions by content, path, or symbol. |
+| [`expand`](#expand) | yes | Fetch archived content by the tool_use_id a rehydration block names, or by hash. |
+| [`re_read`](#re_read) | yes | Read a captured file version (latest or historical) from the archive, never from disk. |
+| [`already_tried`](#already_tried) | yes | Check whether an approach was eliminated: absent, active, stale, or unavailable. |
+| [`record_eliminated`](#record_eliminated) | no | Record that an approach does not work, with its reason and the files it rests on, so it survives compaction. |
+| [`timeline`](#timeline) | yes | List recorded session events over a turn or timestamp range. |
+| [`why`](#why) | yes | Show a recorded decision and its evidence. |
+| [`dropped`](#dropped) | yes | List what Qompack recorded as omitted in this session. |
 
 ## `recall`
 
-Search captured archive material by content, path, or symbol; returns references and summaries. Capture and coverage may be partial or unavailable.
+Search archived tool output and file versions by content, path, or symbol.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
-| `query` | string | yes | — | — | Free text, or prefixed selectors combined with spaces: path:<glob>, symbol:<name>, tool:<ToolName>. |
-| `k` | integer | no | 5 | 1–50 | Maximum number of hits. |
+| `query` | string | yes | — | — | Free text, plus optional path:<glob> symbol:<name> tool:<ToolName> selectors. |
+| `k` | integer | no | 5 | 1–50 | Max hits. |
 
 <details><summary>Input schema</summary>
 
@@ -133,14 +133,14 @@ Search captured archive material by content, path, or symbol; returns references
   "properties": {
     "query": {
       "type": "string",
-      "description": "Free text, or prefixed selectors combined with spaces: path:<glob>, symbol:<name>, tool:<ToolName>."
+      "description": "Free text, plus optional path:<glob> symbol:<name> tool:<ToolName> selectors."
     },
     "k": {
       "type": "integer",
       "minimum": 1,
       "maximum": 50,
       "default": 5,
-      "description": "Maximum number of hits."
+      "description": "Max hits."
     }
   },
   "required": [
@@ -154,16 +154,16 @@ Search captured archive material by content, path, or symbol; returns references
 
 ## `expand`
 
-Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.
+Fetch archived content by the tool_use_id a rehydration block names, or by hash. Returns the minimum sufficient span; pass full=true only if you need the whole object.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
-| `hash` | string | no | — | — | Root or chunk hash as sha256:<64 hex>. Provide exactly one of hash or tool_use_id. |
-| `tool_use_id` | string | no | — | — | tool_use_id taken from a tombstone or a recall hit. |
-| `full` | boolean | no | false | — | Return the whole object instead of the minimum sufficient span. |
-| `span` | string | no | — | — | Explicit span: "<off>:<len>" in bytes, or "L<start>-L<end>" in lines. |
+| `hash` | string | no | — | — | sha256:<64 hex>. Give exactly one of hash or tool_use_id. |
+| `tool_use_id` | string | no | — | — | The tool_use_id a rehydration block, tombstone or recall hit names. |
+| `full` | boolean | no | false | — | Return the whole object. |
+| `span` | string | no | — | — | "<off>:<len>" in bytes or "L<start>-L<end>" in lines. |
 
 <details><summary>Input schema</summary>
 
@@ -173,20 +173,20 @@ Retrieve available archived content by hash or tool_use_id; fidelity and coverag
   "properties": {
     "hash": {
       "type": "string",
-      "description": "Root or chunk hash as sha256:<64 hex>. Provide exactly one of hash or tool_use_id."
+      "description": "sha256:<64 hex>. Give exactly one of hash or tool_use_id."
     },
     "tool_use_id": {
       "type": "string",
-      "description": "tool_use_id taken from a tombstone or a recall hit."
+      "description": "The tool_use_id a rehydration block, tombstone or recall hit names."
     },
     "full": {
       "type": "boolean",
       "default": false,
-      "description": "Return the whole object instead of the minimum sufficient span."
+      "description": "Return the whole object."
     },
     "span": {
       "type": "string",
-      "description": "Explicit span: \"<off>:<len>\" in bytes, or \"L<start>-L<end>\" in lines."
+      "description": "\"<off>:<len>\" in bytes or \"L<start>-L<end>\" in lines."
     }
   },
   "required": [],
@@ -198,15 +198,15 @@ Retrieve available archived content by hash or tool_use_id; fidelity and coverag
 
 ## `re_read`
 
-The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.
+Read a captured file version (latest or historical) from the archive, never from disk. Returns the minimum sufficient span; pass full=true only if you need the whole object.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
-| `path` | string | yes | — | — | Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span. |
-| `at` | string | no | — | — | Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree. |
-| `full` | boolean | no | false | — | Return the whole file instead of the minimum sufficient span. |
+| `path` | string | yes | — | — | Project-relative path; optional :<symbol> or :<line> suffix. |
+| `at` | string | no | — | — | Empty for latest; else RFC3339 time, sha256:<64 hex>, or turn:<N>. |
+| `full` | boolean | no | false | — | Return the whole file. |
 
 <details><summary>Input schema</summary>
 
@@ -216,16 +216,16 @@ The latest captured, or a historical, version of a file, from the store's own ve
   "properties": {
     "path": {
       "type": "string",
-      "description": "Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span."
+      "description": "Project-relative path; optional :<symbol> or :<line> suffix."
     },
     "at": {
       "type": "string",
-      "description": "Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree."
+      "description": "Empty for latest; else RFC3339 time, sha256:<64 hex>, or turn:<N>."
     },
     "full": {
       "type": "boolean",
       "default": false,
-      "description": "Return the whole file instead of the minimum sufficient span."
+      "description": "Return the whole file."
     }
   },
   "required": [
@@ -239,14 +239,14 @@ The latest captured, or a historical, version of a file, from the store's own ve
 
 ## `already_tried`
 
-Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. Clients must treat unavailable or unrecognized states as unknown, never as absence or a prohibition. Before committing to an approach, call already_tried.
+Check whether an approach was eliminated: absent, active, stale, or unavailable. Treat unavailable or unrecognized as unknown, not as absent or forbidden. Before committing to an approach, call already_tried.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
-| `target` | string | yes | — | — | File path, optionally :symbol — e.g. src/auth.ts:refreshToken. |
-| `approach` | string | yes | — | — | The approach as one short verb phrase — e.g. widen pool timeout. |
+| `target` | string | yes | — | — | Path, optionally :symbol (src/auth.ts:refreshToken). |
+| `approach` | string | yes | — | — | Short verb phrase (widen pool timeout). |
 
 <details><summary>Input schema</summary>
 
@@ -256,11 +256,11 @@ Query recorded elimination evidence: legacy answers are absent, active, or stale
   "properties": {
     "target": {
       "type": "string",
-      "description": "File path, optionally :symbol — e.g. src/auth.ts:refreshToken."
+      "description": "Path, optionally :symbol (src/auth.ts:refreshToken)."
     },
     "approach": {
       "type": "string",
-      "description": "The approach as one short verb phrase — e.g. widen pool timeout."
+      "description": "Short verb phrase (widen pool timeout)."
     }
   },
   "required": [
@@ -275,7 +275,7 @@ Query recorded elimination evidence: legacy answers are absent, active, or stale
 
 ## `record_eliminated`
 
-Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction.
+Record that an approach does not work, with its reason and the files it rests on, so it survives compaction.
 
 *Result:* durable — this tool writes a persistent record.
 
@@ -283,9 +283,9 @@ Write negative knowledge: record that an approach does not work, with evidence a
 |---|---|---|---|---|---|
 | `target` | string | yes | — | — |  |
 | `approach` | string | yes | — | — |  |
-| `reason` | string | yes | — | — | Why it does not work. Encode what a competent engineer with no session history would get wrong. |
+| `reason` | string | yes | — | — | Why it fails: what an engineer without this session's history would get wrong. |
 | `scope` | string | no | "session" | one of `session`, `project` |  |
-| `depends_on` | array | no | — | — | Project-relative paths whose contents this reason rests on; a change to any of them flips this record to stale. |
+| `depends_on` | array | no | — | — | Paths the reason rests on; a change to one marks the record stale. |
 
 <details><summary>Input schema</summary>
 
@@ -301,7 +301,7 @@ Write negative knowledge: record that an approach does not work, with evidence a
     },
     "reason": {
       "type": "string",
-      "description": "Why it does not work. Encode what a competent engineer with no session history would get wrong."
+      "description": "Why it fails: what an engineer without this session's history would get wrong."
     },
     "scope": {
       "type": "string",
@@ -316,7 +316,7 @@ Write negative knowledge: record that an approach does not work, with evidence a
       "items": {
         "type": "string"
       },
-      "description": "Project-relative paths whose contents this reason rests on; a change to any of them flips this record to stale."
+      "description": "Paths the reason rests on; a change to one marks the record stale."
     }
   },
   "required": [
@@ -332,14 +332,14 @@ Write negative knowledge: record that an approach does not work, with evidence a
 
 ## `timeline`
 
-Retrieve recorded session segments over a turn or timestamp range. Missing events and native context coverage may be unknown.
+List recorded session events over a turn or timestamp range.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
-| `from` | string | no | — | — | Turn index, RFC3339 timestamp, or empty for the session start. |
-| `to` | string | no | — | — | Turn index, RFC3339 timestamp, or empty for the current frontier. |
+| `from` | string | no | — | — | Turn index, RFC3339 time, or empty for session start. |
+| `to` | string | no | — | — | Turn index, RFC3339 time, or empty for now. |
 
 <details><summary>Input schema</summary>
 
@@ -349,11 +349,11 @@ Retrieve recorded session segments over a turn or timestamp range. Missing event
   "properties": {
     "from": {
       "type": "string",
-      "description": "Turn index, RFC3339 timestamp, or empty for the session start."
+      "description": "Turn index, RFC3339 time, or empty for session start."
     },
     "to": {
       "type": "string",
-      "description": "Turn index, RFC3339 timestamp, or empty for the current frontier."
+      "description": "Turn index, RFC3339 time, or empty for now."
     }
   },
   "required": [],
@@ -365,13 +365,13 @@ Retrieve recorded session segments over a turn or timestamp range. Missing event
 
 ## `why`
 
-Retrieve an attributed decision and its evidence from the checkpoint chain. Recorded reasoning does not prove model compliance.
+Show a recorded decision and its evidence.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
-| `decision_id` | string | yes | — | — | A dec_<12 hex> id from a checkpoint or a rehydrated decision list. |
+| `decision_id` | string | yes | — | — | dec_<12 hex> id from a checkpoint or decision list. |
 
 <details><summary>Input schema</summary>
 
@@ -381,7 +381,7 @@ Retrieve an attributed decision and its evidence from the checkpoint chain. Reco
   "properties": {
     "decision_id": {
       "type": "string",
-      "description": "A dec_<12 hex> id from a checkpoint or a rehydrated decision list."
+      "description": "dec_<12 hex> id from a checkpoint or decision list."
     }
   },
   "required": [
@@ -395,7 +395,7 @@ Retrieve an attributed decision and its evidence from the checkpoint chain. Reco
 
 ## `dropped`
 
-Retrieve Qompack's recorded omissions for this session. This report does not establish what remains in native context.
+List what Qompack recorded as omitted in this session.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
