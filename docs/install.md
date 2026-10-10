@@ -295,12 +295,12 @@ may work perfectly — nobody has measured it, and this page will not pretend ot
 
 ## 9. Installing from the public marketplace
 
-**Status: published, and rehearsed.** 0.3.0 is published on GitHub with this marketplace as a
-release asset, and develop carries the newest release's marketplace as
+**Status: published, and rehearsed.** 0.3.1 is the newest release, published on GitHub with this
+marketplace as a release asset, and develop carries the newest release's marketplace as
 `.claude-plugin/marketplace.json` (merged by each release's marketplace pull request). The install
-below was rehearsed from the 0.3.0 release with Claude Code 2.1.293 on 2026-10-08: on Windows in an
-isolated profile and in a real session at local scope, and on Linux in a container with no model
-session (V6 close-out decision D80).
+below was rehearsed from each release with Claude Code 2.1.293, 0.3.0 on 2026-10-08 and 0.3.1 on
+2026-10-10: on Windows in an isolated profile and in a real session at local scope, and on Linux in a
+container with no model session (V6 close-out decisions D80 and D85).
 
 **What it is.** One marketplace, `qompack`, with six entries — one per release target — each an
 `archive` source: a zip on the GitHub Release, pinned by sha256.
