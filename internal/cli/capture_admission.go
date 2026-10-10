@@ -185,8 +185,11 @@ func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hooki
 //
 // An admitted (OutcomeOK) delivery is judged from its derived Event's structured tool input. Any
 // verdict that Refuses reduces it to a byte-free record that REUSES an existing outcome (no new
-// schema): a PROVEN escape becomes OutcomeDenied, an UNPROVABLE target becomes OutcomeUnavailable —
-// "cannot prove inside" recorded as unavailable, never as a false absence.
+// schema): a PROVEN escape becomes OutcomeDenied, an UNPROVABLE target becomes OutcomeUnavailable.
+// The daemon's admission gate persists neither. It refuses a denial as denied; an unavailable
+// outcome carries no capture error, so captureIsDecided does not take it as a decision and the gate
+// refuses it as Failed, answering "unavailable": "cannot prove inside" fails closed and is recorded
+// nowhere (D78(d)).
 //
 // A degraded delivery derived no Event; it is judged from its own ALREADY-REDACTED retained bytes
 // (what the sidecar would persist — scoping them reintroduces nothing). Only a single, complete,
