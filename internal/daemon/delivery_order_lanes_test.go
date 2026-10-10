@@ -185,6 +185,9 @@ func TestDeliveryOrder_LaneOverflowIsDrainedOnRequest(t *testing.T) {
 		req := spD3Prompt(dd, root, sess, orderNonce(i), fmt.Sprintf("p%d", i))
 		acceptPrompt(t, dd, req)
 		leases[i] = liveOrderLease(t, dd, req.Nonce)
+		if i == 0 {
+			liveOrderAwaitHeldHead(t, dd, sess) // the lane is busy before any later arrival
+		}
 	}
 	require.Eventually(t, func() bool { return dd.m.Counter(counterOrderingLaneFull).Value() == k-perSession },
 		liveOrderBound, liveOrderTick, "every job past the session's share is refused while its lane is busy")
@@ -315,6 +318,9 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 		req := spD3Prompt(dd, root, sess, orderNonce(i), fmt.Sprintf("p%d", i))
 		acceptPrompt(t, dd, req)
 		leases[i] = liveOrderLease(t, dd, req.Nonce)
+		if i == 0 {
+			liveOrderAwaitHeldHead(t, dd, sess) // the lane is busy before any later arrival
+		}
 	}
 	require.Eventually(t, func() bool { return dd.m.Counter(counterOrderingLaneFull).Value() == k-perSession },
 		liveOrderBound, liveOrderTick, "every job past the session's share is refused while its lane is busy")
