@@ -490,6 +490,13 @@ func runFlush(t *testing.T, b bundle, p project, sess core.SessionID) {
 // whether the daemon ended the session within indexBound. A caller whose cut may legitimately leave
 // the product unable to take the flush at all (recoverSession) reads the answer as a measurement.
 //
+// The session has ended when the marker names it AND it has left the daemon's recovery record. The
+// marker alone is not enough: endSession writes it before its final drain, which publishes what
+// only a hook's client spool holds (a prompt whose live send failed), and the record is cleared
+// after that drain. Every row audits the store when this returns, so returning at the marker let
+// the audit race the drain (TestFault_FlushWaitsForASpooledPromptsFinalDrain; test/integration's
+// awaitSessionEnded waits the same way).
+//
 // Both marker reads are shared (paths.ReadFileShared). The daemon writes the marker once per session
 // end with paths.WriteAtomic and never retries it, and on Windows an ordinary handle held by this
 // poll would fail that replace, so the wait would time out on a write its own read prevented
@@ -509,7 +516,11 @@ func flushAndAwaitEnd(t *testing.T, b bundle, p project, sess core.SessionID) bo
 				Session core.SessionID `json:"session"`
 			}
 			if json.Unmarshal(raw, &m) == nil && m.Session == sess {
-				return true
+				if sr, err := daemon.LoadSessionRecovery(p.Root); err == nil {
+					if _, pending := sr.Sessions[sess]; !pending {
+						return true
+					}
+				}
 			}
 		}
 		select {

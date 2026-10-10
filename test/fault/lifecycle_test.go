@@ -211,6 +211,47 @@ func oneTurn(t *testing.T, b bundle, p project, sess core.SessionID, name string
 	return id
 }
 
+// TestFault_FlushWaitsForASpooledPromptsFinalDrain: a prompt whose live send failed reaches only the
+// hook's client spool, and the daemon publishes it in the final drain that ends the session, which
+// runs AFTER the terminal-hook marker is written (internal/daemon/handlers.go, endSession). Every
+// row audits the store the moment runFlush returns, so runFlush must wait for that drain, not only
+// for the marker; otherwise the audit catches the prompt's root half-published as a dangling
+// reference (lifecycle_compaction_failed on ubuntu, ci.yml run 38062397496).
+func TestFault_FlushWaitsForASpooledPromptsFinalDrain(t *testing.T) {
+	b := assembledBundle(t)
+	p := newProject(t, "proj")
+	t.Cleanup(func() {
+		shutdownIfReachable(t, p.Root)
+		requireNoOrphan(t, p.Root)
+	})
+
+	const name = "flush_spooled_prompt"
+	sess := sessionID(name)
+	runHook(t, b.Bin, p, []string{"session-start"}, sessionStartPayload(t, p.Root, sess, "startup"))
+	rel := "src/spooled.ts"
+	body := seedContent(name, 32)
+	writeProjectFile(t, p, rel, body)
+	id := toolUseID(name, 1)
+	runHookWithEnv(t, b.Bin, p, []string{"observe", "prompt"}, promptPayload(t, p.Root, sess, "turn "+rel),
+		map[string]string{"QOMPACK_FAULT": "daemon-down"})
+	runHook(t, b.Bin, p, []string{"observe", "tool"}, readToolPayload(t, p.Root, sess, id, rel, body))
+	runHook(t, b.Bin, p, []string{"observe", "stop"}, stopPayload(t, p.Root, sess))
+	if !waitIndexed(t, p.Root, id, indexBound) {
+		t.Fatalf("fault: the daemon did not index %s within %s", id, indexBound)
+	}
+
+	runFlush(t, b, p, sess)
+
+	// Read once, with no further wait: this is the instant every row's audit runs.
+	prompt := "prompt_" + string(sess) + "_"
+	if !waitIndexed(t, p.Root, prompt, 0) {
+		t.Errorf("fault: runFlush returned before the session's spooled prompt (%s*) was indexed", prompt)
+	}
+	if a := auditProject(t, p.Root); len(a.Dangling) > 0 {
+		t.Errorf("fault: runFlush returned with %d dangling reference(s): %s", len(a.Dangling), a)
+	}
+}
+
 func driveStartup(t *testing.T, b bundle, p project, name string) string {
 	t.Helper()
 	sess := sessionID(name)
