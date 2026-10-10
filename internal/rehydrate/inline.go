@@ -31,10 +31,10 @@ import (
 const (
 	// inlineMaxBytes is the largest result inlined (after redaction).
 	inlineMaxBytes = 512
-	// inlineTotalBytes bounds the inlined bytes of one payload, in builder order, so that the block
-	// cannot balloon whatever a checkpoint holds. Every inlined byte is also priced against the
-	// budget and the host ceiling like any other unit text.
-	inlineTotalBytes = 4096
+	// inlineTotalBytes bounds the inlined bytes of one payload, in builder order, to eight
+	// full-size results, so that the block cannot balloon whatever a checkpoint holds. Every
+	// inlined byte is also priced against the budget and the host ceiling like any other unit text.
+	inlineTotalBytes = 8 * inlineMaxBytes
 	// inlineMaxAttempts bounds the inline reads of one build: each is an index lookup, a store read
 	// and a path resolution on the SessionStart(compact) path, paid whether or not the budget later
 	// keeps the pointer, so a checkpoint's tool-pointer count must not set their number.
