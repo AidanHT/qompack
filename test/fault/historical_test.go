@@ -152,9 +152,13 @@ func TestFault_CheckpointDropsAnUnresolvablePointer(t *testing.T) {
 	baseline := snapshotDegradation(t, b, p)
 	shutdownIfReachable(t, p.Root)
 
-	target, ok := firstIndexedToolUse(p.Root)
+	// The target is the seed's alpha Read by id, not whichever tool_use line happens to come first:
+	// that order varies, and src/alpha.ts's latest stored version is the same root as the alpha
+	// Read's result, so only this target puts a FILE pointer into the removed bytes too (known
+	// issue 21) as well as a tool pointer.
+	target, ok := indexedToolUse(p.Root, toolUseID("historical-drop", 1))
 	if !ok {
-		skipRecorded(t, rec, "the seeded session left no tool_use record to point at")
+		skipRecorded(t, rec, "the seeded session left no tool_use record for the alpha Read to point at")
 		return
 	}
 	chunk, ok := firstChunkOf(t, p.Root, target.Root)
@@ -301,6 +305,24 @@ func firstIndexedToolUse(root string) (toolUseLine, bool) {
 			continue
 		}
 		if tu.Root != "" && !isZeroHash(tu.Root) {
+			return tu, true
+		}
+	}
+	return toolUseLine{}, false
+}
+
+// indexedToolUse returns the tool_use record with the given id, when it carries a non-zero root.
+func indexedToolUse(root, id string) (toolUseLine, bool) {
+	lines, err := readJSONLines(filepath.Join(paths.Of(root).Index, "tool_use.jsonl"))
+	if err != nil {
+		return toolUseLine{}, false
+	}
+	for _, raw := range lines {
+		var tu toolUseLine
+		if json.Unmarshal(raw, &tu) != nil {
+			continue
+		}
+		if tu.ID == id && tu.Root != "" && !isZeroHash(tu.Root) {
 			return tu, true
 		}
 	}
