@@ -21,6 +21,11 @@ as "injected" content.
   its pointer, through the same store read, path checks and live redaction as `expand`, up to
   4 KiB per block; a result that does not fit leaves the bare pointer, as before.
 - **Pointers are copyable calls.** Each tool pointer reads `expand(tool_use_id="...")`.
+- **The block is about 6% larger.** On the 24-session synthetic replay corpus its tokens rise
+  from 96,583 in 0.3.1 to 102,585, almost all of it the `expand(...)` call on each tool pointer.
+  The replay has no store, so inlined results come on top of that: at most 4 KiB per block, and
+  the block stays within its 9,500-character limit. The committed replay baseline is re-recorded
+  for this.
 - **Shorter fixed text.** The MCP server instructions and tool descriptions, which every session
   loads, are about a fifth smaller; slash-command descriptions are shorter. Tool names, arguments
   and behaviour are unchanged.
