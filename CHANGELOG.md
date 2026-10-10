@@ -5,6 +5,16 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A checkpoint no longer points at a removed file object without saying so** (known issue 21).
+  Finalize checks each file pointer's stored content the way it checks a tool result's, and a file
+  whose stored copy is gone is left out of the checkpoint and named in its drop report.
+- The daemon's warning when a PreCompact seals before every capture is replayed now says how long
+  the settle ran and why it stopped.
+
 ## [0.3.1] - 2026-10-09
 
 A patch release on 0.3.0 (tag `v0.3.0`, `1a368a4b`). It is built with Go 1.26.9 for eight
