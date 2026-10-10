@@ -391,6 +391,32 @@ func gcResumeReprice(controlMark, elapsed time.Duration, scanned int) time.Durat
 	return time.Duration(math.Sqrt(float64(controlMark) * float64(firstCheck)))
 }
 
+// fastestMark is the fastest of the control's calibration marks (see gcResumeBudgetMultiple) that
+// read above zero, or zero when none did. A mark the clock reads as 0s ran inside its resolution;
+// it measured nothing, and a budget priced from it is a zero Deadline, which GCPolicy reads as no
+// deadline at all.
+func fastestMark(marks []time.Duration) time.Duration {
+	var fastest time.Duration
+	for _, d := range marks {
+		if d > 0 && (fastest == 0 || d < fastest) {
+			fastest = d
+		}
+	}
+	return fastest
+}
+
+// TestGC_FastestMarkIgnoresAZeroReading: the hosted windows-latest `timing` job read the control's
+// marks as [0s 1.7587ms 0s 1.5545ms] (ci.yml run 38070489701), priced a zero budget from the 0s
+// readings, and GCPolicy treats a zero Deadline as none, so the judged pass swept all 700 objects
+// and TestGC_DeadlineTruncatesAndResumes failed its truncation assertion. A 0s reading is the
+// clock's resolution, not a mark that cost nothing.
+func TestGC_FastestMarkIgnoresAZeroReading(t *testing.T) {
+	ms := func(f float64) time.Duration { return time.Duration(f * float64(time.Millisecond)) }
+	require.Equal(t, ms(1.5545), fastestMark([]time.Duration{0, ms(1.7587), 0, ms(1.5545)}))
+	require.Equal(t, ms(2.2), fastestMark([]time.Duration{ms(10.4), ms(2.2), ms(2.8)}))
+	require.Zero(t, fastestMark([]time.Duration{0, 0}), "no reading above zero leaves nothing to price from")
+}
+
 // gcReportWallClock is what the two GC deadline tests do with a wall-clock judgement when the
 // invoking job has declared the run co-loaded (obs.UnderCoload): the bound is not applied, and one
 // log line records what was measured, the limit that was not applied to it, the variable that
@@ -450,18 +476,16 @@ func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
 	// See gcResumeBudgetMultiple for why the budget is a multiple of a measured mark phase rather
 	// than a nanosecond or a fixed number, and why of the FASTEST of gcCalibrationPasses marks.
 	var controlMarks []time.Duration
-	var controlMark time.Duration
-	for i := range gcCalibrationPasses {
+	for range gcCalibrationPasses {
 		markStart := time.Now()
 		_, _, _, markTruncated, merr := control.Store.mark(ctx, -1, -1, time.Time{})
 		require.NoError(t, merr)
 		require.False(t, markTruncated, "an unbounded mark must not truncate")
-		d := time.Since(markStart)
-		controlMarks = append(controlMarks, d)
-		if i == 0 || d < controlMark {
-			controlMark = d
-		}
+		controlMarks = append(controlMarks, time.Since(markStart))
 	}
+	controlMark := fastestMark(controlMarks)
+	require.Positive(t, controlMark, "no control mark read above zero (%v); there is nothing to price "+
+		"the deadline from on this host's clock", controlMarks)
 	budget := gcResumeBudgetMultiple * controlMark
 
 	// The judged pass. A landing is a pass that reached the sweep, truncated, and did so at the
