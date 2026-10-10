@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/canon"
@@ -81,11 +82,18 @@ const (
 	// assertion, which §4's conventions forbid — this test asserts ACK counts, not speed.
 	hookflowClientBudget = daemon.DrainLineDeadline
 
-	// hookflowSettleBound waits, after Daemon.Drain has returned, for worker-pool dispatches that
-	// were already in flight when Drain skipped their (seen) lines. Basis: one
-	// daemon.DrainLineDeadline, the per-line ceiling the same dispatch runs under when drained.
-	hookflowSettleBound = daemon.DrainLineDeadline
-	hookflowSettleTick  = 10 * time.Millisecond
+	// hookflowSettleHangGuard is how long the test waits, after Daemon.Drain has returned, for
+	// worker-pool dispatches that were already in flight when Drain skipped their (seen) lines,
+	// before it calls the pipeline hung. It is a hang guard, not a latency bound, because no daemon
+	// constant bounds that trip: a live worker dispatches under the daemon's own context with no
+	// deadline (ingest.go, worker and route); daemon.DrainLineDeadline bounds only a DRAINED line's
+	// handler call (drain.go), so an in-flight live dispatch can outlast it on a slow fsync or a
+	// starved CPU without being lost. Loss is judged by the exact distinct count after the wait and
+	// the store ToolUses below. Basis: the same as hotpathPipelineHangGuard, twice
+	// daemon.IdleTickMax, the daemon's slowest periodic cadence; a dispatch that outlasts two of
+	// those is wedged, not slow.
+	hookflowSettleHangGuard = 2 * daemon.IdleTickMax
+	hookflowSettleTick      = 10 * time.Millisecond
 )
 
 // The two config env-layer keys (QOMPACK_<SEC>__<KEY>__<SUB>, internal/config/load.go) test 1
@@ -806,7 +814,9 @@ func TestIntegration_HookEventThroughDaemonToStore(t *testing.T) {
 
 	// After Drain, every WAL line has either been dispatched synchronously by Drain itself or was
 	// already claimed (seen) by a worker-pool dispatch; the only outstanding work is a dispatch in
-	// flight at that instant, bounded by the same per-line ceiling a drained line runs under.
+	// flight at that instant, which no daemon deadline bounds (see hookflowSettleHangGuard). When
+	// the guard does expire, the failure reports the counts and pipeline errors AT THAT MOMENT, not
+	// when the wait began.
 	//
 	// The settle condition counts DISTINCT completed events, deliberately. This file's first run
 	// surfaced a real daemon defect (V2-VERIFY, fixed on verify/v2 by 871f574): ipc.EncodeRequest
@@ -821,14 +831,31 @@ func TestIntegration_HookEventThroughDaemonToStore(t *testing.T) {
 	// tests in internal/daemon/ingest_test.go; HERE the distinct count plus the replay-tolerant
 	// binding keep every §4.2 assertion exact on both sides of that fix, and the store/dag/sketch
 	// assertions below stay the end-to-end truth either way.
-	_, err = d.Drain(ctx)
-	require.NoError(t, err)
-	require.Eventually(t, func() bool { return hp.uniqueObservedCount() == hookflowEventTotal },
-		hookflowSettleBound, hookflowSettleTick,
-		"after Drain, %d/%d distinct events are through the binding — an in-flight worker dispatch "+
-			"is bounded by daemon.DrainLineDeadline, so exceeding it means events were lost, not "+
-			"delayed (pipeline errors: %v)",
-		hp.uniqueObservedCount(), hookflowEventTotal, hp.takeErrs())
+	//
+	// A line a live worker still holds stops Drain with "delivery still in progress" and is left for
+	// the next pass (drain.go); a live dispatch has no deadline, so that one answer is retried
+	// within hookflowSettleHangGuard and any other error fails at once.
+	drainStart := time.Now()
+	for {
+		_, err = d.Drain(ctx)
+		if err == nil || !strings.Contains(err.Error(), "delivery still in progress") ||
+			time.Since(drainStart) > hookflowSettleHangGuard {
+			break
+		}
+		time.Sleep(hookflowSettleTick)
+	}
+	require.NoError(t, err, "Drain after %v (hang guard %v); %d/%d distinct events through the binding",
+		time.Since(drainStart).Round(time.Millisecond), hookflowSettleHangGuard,
+		hp.uniqueObservedCount(), hookflowEventTotal)
+	settleStart := time.Now()
+	if !assert.Eventually(t, func() bool { return hp.uniqueObservedCount() == hookflowEventTotal },
+		hookflowSettleHangGuard, hookflowSettleTick) {
+		require.FailNowf(t, "pipeline hung",
+			"after Drain and %v more (hang guard %v, 2x daemon.IdleTickMax) %d/%d distinct events are "+
+				"through the binding (%d raw completions); pipeline errors: %v",
+			time.Since(settleStart).Round(time.Millisecond), hookflowSettleHangGuard,
+			hp.uniqueObservedCount(), hookflowEventTotal, hp.observedCount(), hp.takeErrs())
+	}
 	require.Empty(t, hp.takeErrs(), "no event may fail inside the binding")
 	// On this branch the 871f574 fix is in the base, so the strong form of the spec's
 	// expectation holds directly: the binding ran exactly once per event -- the raw invocation
