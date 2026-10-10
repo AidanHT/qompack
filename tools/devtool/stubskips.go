@@ -64,7 +64,7 @@ func parseTestEvents(stdout []byte) ([]testEvent, error) {
 // count; it becomes a merge blocker for a subplan only when the subplan owns the package"):
 //
 //   - problems are hard failures, of two kinds: a Rule-W1 skip inside a package
-//     plans/OWNERS.tsv currently assigns to SP-01 (which must ship real behaviour rather than a
+//     tools/devtool/OWNERS.tsv currently assigns to SP-01 (which must ship real behaviour rather than a
 //     stub), and any skip whose reason matches none of the three permitted messages.
 //   - notices are informational: a permitted platform skip, listed so that dead platform
 //     coverage is visible in the job log rather than invisible.
@@ -115,7 +115,7 @@ func classifySkips(events []testEvent, owners []ownerRow) (problems, notices []s
 		if hasW1 {
 			if row, ok := ownerByKey[packageKeyOf(k.pkg)]; ok && row.Owner == "SP-01" {
 				problems = append(problems, fmt.Sprintf(
-					"%s (%s): Rule W-1 skip in a package plans/OWNERS.tsv assigns to SP-01 — it should no longer be a stub",
+					"%s (%s): Rule W-1 skip in a package tools/devtool/OWNERS.tsv assigns to SP-01 — it should no longer be a stub",
 					k.pkg, k.test))
 			}
 		}
@@ -185,7 +185,7 @@ func hasReasonedPlatformSkip(text string) bool {
 // runStubSkips is the `devtool lint` sub-check: it runs the test suite under internal/, cmd/ and
 // test/ (whichever of those trees exist) with `-json`, and greps the resulting skip reasons for
 // Rule W-1/W-2 compliance — a Rule-W-1 skip is a merge blocker only for the subplan that owns the
-// package, per plans/OWNERS.tsv.
+// package, per tools/devtool/OWNERS.tsv.
 func runStubSkips() error {
 	patterns := existingTopLevelPatterns("internal", "cmd", "test")
 	if len(patterns) == 0 {
@@ -193,7 +193,7 @@ func runStubSkips() error {
 		return nil
 	}
 
-	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	owners, err := loadOwners(filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		return fmt.Errorf("stubskips: %w", err)
 	}

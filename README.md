@@ -258,3 +258,7 @@ are recorded as *disabled*, never as *passed*.
 - [docs/commands.md](docs/commands.md) — the slash commands (generated)
 - [docs/mcp-tools.md](docs/mcp-tools.md) — the MCP tools (generated)
 - [LICENSE](LICENSE)
+
+Pages here sometimes cite `plans/…` paths and `Qompack.md` as the provenance of a claim. Those are
+the maintainer's internal planning and verification records; they are not published in this
+repository, and the pages listed above are the public description of the product.

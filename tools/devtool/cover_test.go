@@ -236,7 +236,7 @@ func TestFloorApplies(t *testing.T) {
 // gates a package nobody has written yet — and one that drifts behind silently unmeasures a
 // package that shipped.
 func TestLandedSubplansMatchesTheBranch(t *testing.T) {
-	owners, err := loadOwners(filepath.Join(testModuleRoot(t), "plans", "OWNERS.tsv"))
+	owners, err := loadOwners(filepath.Join(testModuleRoot(t), "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		t.Fatalf("loadOwners: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 	}
 	for id := range landedSubplans {
 		if !known[id] {
-			t.Errorf("landedSubplans names %s, which owns nothing in plans/OWNERS.tsv", id)
+			t.Errorf("landedSubplans names %s, which owns nothing in tools/devtool/OWNERS.tsv", id)
 		}
 	}
 	// The missing-entry half. Wave 0, every wave-1 subplan merged so far, both wave-2 subplans

@@ -146,7 +146,7 @@ func requireKnownError(t *testing.T, err error, alsoAllowed ...error) {
 }
 
 // isStub reports whether factory currently produces a stub Ledger, using Query as the probe
-// (plans/OWNERS.tsv: negknow's probe method is Query).
+// (tools/devtool/OWNERS.tsv: negknow's probe method is Query).
 func isStub(t *testing.T, factory func(t *testing.T) negknow.Ledger) bool {
 	t.Helper()
 	_, err := factory(t).Query(context.Background(), probeTarget, probeApproach, negknow.ScopeSession)

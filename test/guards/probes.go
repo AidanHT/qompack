@@ -17,14 +17,14 @@ import (
 )
 
 // A probe calls one package's canonical operation — the method named in that package's
-// plans/OWNERS.tsv row — and reports whether it is still a stub.
+// tools/devtool/OWNERS.tsv row — and reports whether it is still a stub.
 //
 // Probing behaviour rather than reading a build tag or a version constant is deliberate: the
 // build-order guards below exist to catch a package that got IMPLEMENTED out of order, and the
 // only reliable evidence of that is the package actually doing something. A flag would have to be
 // flipped by the same person who would have to remember the ordering rule.
 type probe struct {
-	// pkg is the package name as plans/OWNERS.tsv spells it.
+	// pkg is the package name as tools/devtool/OWNERS.tsv spells it.
 	pkg string
 	// isStub reports core.IsNotImplemented over the package's OWNERS.tsv probe method.
 	isStub func(t *testing.T) bool

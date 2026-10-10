@@ -81,7 +81,7 @@ func TestParsePlanCoverageFloors_IgnoresRowsThatAreNotFloors(t *testing.T) {
 }
 
 func TestCoverageFloorProblems_CatchesThePinsDivergence(t *testing.T) {
-	// plans/OWNERS.tsv said 75; five plan sites said 90. `devtool cover` reads OWNERS.tsv, so every
+	// tools/devtool/OWNERS.tsv said 75; five plan sites said 90. `devtool cover` reads OWNERS.tsv, so every
 	// one of those checklist items could be ticked by a package sitting at 75.1 %.
 	claims := []coverageFloorClaim{
 		{file: "plans/V4-SP-10-checkpointer-l4.md", line: 1523, pkg: "checkpoint", pct: 90},

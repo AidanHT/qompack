@@ -81,7 +81,7 @@ func requireKnownError(t *testing.T, err error) {
 	require.True(t, known, "unexpected error: %v", err)
 }
 
-// isStub reports whether factory currently produces a stub Registry. plans/OWNERS.tsv names
+// isStub reports whether factory currently produces a stub Registry. tools/devtool/OWNERS.tsv names
 // canon's probe method "Canonicalize", but Registry has no method by that name — Run is
 // Registry's own operation that performs canonicalization, dispatching to every applicable
 // Canonicalizer's Canonicalize in turn — so this probes Run instead, the natural realization of

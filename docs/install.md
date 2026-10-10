@@ -327,12 +327,12 @@ claude plugin marketplace add --sparse .claude-plugin -- https://github.com/Aida
 claude plugin install qompack-linux-amd64@qompack -s user
 ```
 
-**Use `--sparse .claude-plugin`.** The host clones the marketplace's repository, and this one holds
-the project's full verification record. On Windows a full clone fails: the host clones into a
-temporary directory under `~/.claude/plugins/marketplaces/`, and the repository's longest paths
-then pass Windows' 260-character limit (`Filename too long`, `Clone succeeded, but checkout
-failed`) unless git's `core.longpaths` is on. `--sparse .claude-plugin` checks out only the
-marketplace file and the repository root, so it works on every platform and is much faster. The
+**Use `--sparse .claude-plugin`.** The host clones the marketplace's repository into a temporary
+directory under `~/.claude/plugins/marketplaces/`, and it needs only the marketplace file. A full
+clone also checks out the source tree and its test fixtures, whose deepest paths there come close
+to Windows' 260-character limit; past it, the clone fails (`Filename too long`, `Clone succeeded,
+but checkout failed`) unless git's `core.longpaths` is on. `--sparse .claude-plugin` checks out only
+the marketplace file and the repository root, so it works on every platform and is much faster. The
 `--` ends `--sparse`'s list of paths. The marketplace tracks develop: `claude plugin marketplace
 update qompack` fetches develop's newest pinned release.
 

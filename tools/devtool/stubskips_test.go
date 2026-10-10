@@ -85,7 +85,7 @@ func TestClassifySkips_RejectsBarePlatformPrefix(t *testing.T) {
 }
 
 // TestClassifySkips_BlocksW1ForSP01OwnedPackage asserts that a Rule-W-1 skip inside a package
-// plans/OWNERS.tsv assigns to SP-01 is a problem (SP-01 must ship the real behaviour, not a
+// tools/devtool/OWNERS.tsv assigns to SP-01 is a problem (SP-01 must ship the real behaviour, not a
 // stub), while the identical skip in a package owned by a different subplan is not.
 func TestClassifySkips_BlocksW1ForSP01OwnedPackage(t *testing.T) {
 	owners := []ownerRow{

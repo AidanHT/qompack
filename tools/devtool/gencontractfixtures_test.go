@@ -47,14 +47,14 @@ func TestRenderManifest_ByteIdentical(t *testing.T) {
 
 // TestVerifyFixtures_AcceptsTheFrozenSet asserts the no-argument mode passes against the committed
 // tree and writes nothing. It is the mode CI runs, and a failure here means a manifest disagrees
-// with plans/OWNERS.tsv or names a file that is not on disk.
+// with tools/devtool/OWNERS.tsv or names a file that is not on disk.
 func TestVerifyFixtures_AcceptsTheFrozenSet(t *testing.T) {
 	repo := testModuleRoot(t)
 	prev := root
 	root = repo
 	t.Cleanup(func() { root = prev })
 
-	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	owners, err := loadOwners(filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		t.Fatalf("loadOwners: %v", err)
 	}

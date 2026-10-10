@@ -109,7 +109,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Graph, using AddNode as the probe
-// (plans/OWNERS.tsv: dag's probe method is AddNode).
+// (tools/devtool/OWNERS.tsv: dag's probe method is AddNode).
 func isStub(t *testing.T, factory func(t *testing.T) dag.Graph) bool {
 	t.Helper()
 	err := factory(t).AddNode(probeNode)

@@ -138,7 +138,13 @@ func carriedDefectsDetail(t *testing.T, root, id string) (path, body string) {
 func loadCarriedDefects(t *testing.T, root string) []carriedDefect {
 	t.Helper()
 
+	// The manifest and every plan document it points at are maintainer-only: they stay on the
+	// maintainer's disk and are not published, so a public checkout has none of them. Only their
+	// absence skips; any other error reading the manifest still fails.
 	f, err := os.Open(filepath.Join(root, filepath.FromSlash(carriedDefectsPath)))
+	if os.IsNotExist(err) {
+		t.Skip("platform: " + carriedDefectsPath + " is maintainer-only and absent from this checkout")
+	}
 	require.NoError(t, err, "%s is missing; it is the record every carried defect lives in", carriedDefectsPath)
 	defer func() { _ = f.Close() }()
 

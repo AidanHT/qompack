@@ -30,7 +30,7 @@ import (
 //     bare pipe; everywhere else the escape is a live bug. Commit 84ccbfa corrected every non-table
 //     instance by hand. This check keeps them corrected.
 //
-//   - A coverage floor asserted in prose that plans/OWNERS.tsv does not carry. `devtool cover`
+//   - A coverage floor asserted in prose that tools/devtool/OWNERS.tsv does not carry. `devtool cover`
 //     grades against OWNERS.tsv and nothing else, so a checklist item holding a package to 90%
 //     while the data says 75 can be ticked by a package at 75.1%. See runPlanCoverageFloors.
 //
@@ -275,7 +275,7 @@ func planDocsInScope(files []string) map[string]bool {
 }
 
 // ownersKeyOf maps a ./-relative package argument from a plan command to the bare key
-// plans/OWNERS.tsv uses, or "" when it names no single package: the module root and the
+// tools/devtool/OWNERS.tsv uses, or "" when it names no single package: the module root and the
 // internal-wide wildcard resolve to "." and "internal", neither of which is a package name.
 func ownersKeyOf(pkg string) string {
 	dir, _ := pkgDirRel(strings.TrimSuffix(pkg, "/"))
@@ -416,10 +416,19 @@ func findPlanMarkers(file, content string) []planMarker {
 }
 
 // collectPlanDocs lists every markdown document under the plan roots.
+//
+// The plan documents are maintainer-only: they stay on the maintainer's disk and are not published
+// in the repository, so a public checkout or CI runner has no plans/ at all. A root that does not
+// exist is reported and contributes no documents; any other error reading it still fails.
 func collectPlanDocs() ([]string, error) {
 	var files []string
 	for _, r := range planDocRoots {
-		err := filepath.WalkDir(filepath.Join(root, r), func(p string, d os.DirEntry, err error) error {
+		dir := filepath.Join(root, r)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			fmt.Printf("plan documents: %s/ is maintainer-only and not in this checkout; nothing to read\n", r)
+			continue
+		}
+		err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -602,7 +611,7 @@ func runPlanRunPatterns() error {
 	}
 	scope := planDocsInScope(files)
 
-	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	owners, err := loadOwners(filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		return fmt.Errorf("runpatterns: %w", err)
 	}
@@ -740,13 +749,13 @@ func runPlanRunPatterns() error {
 type coverageFloorClaim struct {
 	file string
 	line int
-	pkg  string // the plans/OWNERS.tsv key, with any `internal/` prefix stripped
+	pkg  string // the tools/devtool/OWNERS.tsv key, with any `internal/` prefix stripped
 	pct  int
 }
 
 // The coverage-floor check exists because a floor written into a plan is a claim about a data file,
 // and claims about data files drift. 00-ARCHITECTURE.md §6.4 says so itself: "the floors themselves
-// are data, in `plans/OWNERS.tsv` — that file, not this table, is what `cover` reads, so a plan that
+// are data, in `tools/devtool/OWNERS.tsv` — that file, not this table, is what `cover` reads, so a plan that
 // asserts a floor OWNERS.tsv does not carry asserts nothing." The 2026-08-23 plan audit found the
 // drift on its first pass by hand: several plan sites held `pins` to 90 % while OWNERS.tsv recorded
 // 75, so every checklist item describing that floor could be ticked by a package sitting at 75.1 %
@@ -815,12 +824,12 @@ func coverageFloorProblems(claims []coverageFloorClaim, floorOf map[string]int) 
 		switch {
 		case !ok:
 			problems = append(problems, fmt.Sprintf(
-				"%s:%d: holds `%s` to a %d%% coverage floor, but plans/OWNERS.tsv has no row for that "+
+				"%s:%d: holds `%s` to a %d%% coverage floor, but tools/devtool/OWNERS.tsv has no row for that "+
 					"package, so `devtool cover` grades nothing against it (00-ARCHITECTURE.md §6.4)",
 				c.file, c.line, c.pkg, c.pct))
 		case floor != c.pct:
 			problems = append(problems, fmt.Sprintf(
-				"%s:%d: holds `%s` to a %d%% coverage floor; plans/OWNERS.tsv records %d%%, and that "+
+				"%s:%d: holds `%s` to a %d%% coverage floor; tools/devtool/OWNERS.tsv records %d%%, and that "+
 					"file is what `devtool cover` reads. Fix whichever is wrong — a floor a document "+
 					"asserts and OWNERS.tsv does not carry is unenforced prose (00-ARCHITECTURE.md §6.4)",
 				c.file, c.line, c.pkg, c.pct, floor))
@@ -830,7 +839,7 @@ func coverageFloorProblems(claims []coverageFloorClaim, floorOf map[string]int) 
 }
 
 // runPlanCoverageFloors is the `coveragefloors` lint sub-check: every coverage floor a plan document
-// asserts must be the floor plans/OWNERS.tsv records, because OWNERS.tsv is the only one of the two
+// asserts must be the floor tools/devtool/OWNERS.tsv records, because OWNERS.tsv is the only one of the two
 // that `devtool cover` reads.
 //
 // Unlike runpatterns this consults no scope at all. A floor claim is gradeable the day it is
@@ -841,7 +850,7 @@ func runPlanCoverageFloors() error {
 	if err != nil {
 		return err
 	}
-	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	owners, err := loadOwners(filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		return fmt.Errorf("coveragefloors: %w", err)
 	}
@@ -861,11 +870,11 @@ func runPlanCoverageFloors() error {
 
 	problems := coverageFloorProblems(claims, floorOf)
 
-	fmt.Printf("coveragefloors: %d floor claim(s) across %d plan document(s) checked against plans/OWNERS.tsv\n",
+	fmt.Printf("coveragefloors: %d floor claim(s) across %d plan document(s) checked against tools/devtool/OWNERS.tsv\n",
 		len(claims), len(files))
 	if len(problems) > 0 {
 		sort.Strings(problems)
-		return fmt.Errorf("coveragefloors: %d plan floor(s) disagree with plans/OWNERS.tsv:\n  %s",
+		return fmt.Errorf("coveragefloors: %d plan floor(s) disagree with tools/devtool/OWNERS.tsv:\n  %s",
 			len(problems), strings.Join(problems, "\n  "))
 	}
 	return nil

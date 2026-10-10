@@ -124,7 +124,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Server, using Serve as the probe
-// (plans/OWNERS.tsv: mcp's probe method is Serve). An empty reader makes the probe free for a
+// (tools/devtool/OWNERS.tsv: mcp's probe method is Serve). An empty reader makes the probe free for a
 // real implementation: it reads EOF and returns.
 func isStub(t *testing.T, factory func(t *testing.T) mcp.Server) bool {
 	t.Helper()

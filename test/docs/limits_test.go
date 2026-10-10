@@ -1,6 +1,7 @@
 package docs
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -48,17 +49,25 @@ func readDoc(t *testing.T, root, rel string) string {
 // must still appear in §12's own prose, read out of Qompack.md. Without that step this test would
 // be checking the page against a hard-coded list nobody re-reads, and a §12 revision could respell
 // or retire a limit while every assertion here kept passing.
+//
+// Qompack.md is maintainer-only: it stays on the maintainer's disk and is not published, so the first
+// step skips in a public checkout. The second step, the page against section12Nouns, always runs.
 func TestCannotDoCoversSection12Limits(t *testing.T) {
 	root := repoRoot(t)
 
-	section := planSection(t, root, "### What this plugin cannot do")
-	for _, noun := range section12Nouns {
-		if !strings.Contains(section, noun) {
-			t.Errorf("Qompack.md §12 \"What this plugin cannot do\" no longer states %q: §12 is the "+
-				"binding source, so this list and docs/cannot-do.md both follow it, not the other way around",
-				noun)
+	t.Run("section12_states_each_noun", func(t *testing.T) {
+		if _, err := os.Stat(filepath.Join(root, "Qompack.md")); os.IsNotExist(err) {
+			t.Skip("platform: Qompack.md is maintainer-only and absent from this checkout")
 		}
-	}
+		section := planSection(t, root, "### What this plugin cannot do")
+		for _, noun := range section12Nouns {
+			if !strings.Contains(section, noun) {
+				t.Errorf("Qompack.md §12 \"What this plugin cannot do\" no longer states %q: §12 is the "+
+					"binding source, so this list and docs/cannot-do.md both follow it, not the other way around",
+					noun)
+			}
+		}
+	})
 
 	body := readDoc(t, root, "docs/cannot-do.md")
 	for _, noun := range section12Nouns {

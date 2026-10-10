@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// TestLoadOwners_ParsesRealFile parses the actual plans/OWNERS.tsv and sanity-checks a few known
+// TestLoadOwners_ParsesRealFile parses the actual tools/devtool/OWNERS.tsv and sanity-checks a few known
 // rows, so a future edit that breaks the TSV shape (wrong column count, unparsable floor) is
 // caught here rather than only inside cover/stubskips at lint time.
 func TestLoadOwners_ParsesRealFile(t *testing.T) {
 	r := testModuleRoot(t)
-	rows, err := loadOwners(filepath.Join(r, "plans", "OWNERS.tsv"))
+	rows, err := loadOwners(filepath.Join(r, "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		t.Fatalf("loadOwners: %v", err)
 	}

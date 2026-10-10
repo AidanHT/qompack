@@ -46,7 +46,7 @@ import (
 
 // stubPackage is one §5 interface package, its constructor, and what SP-01 promises about it.
 type stubPackage struct {
-	// pkg is the package name as plans/OWNERS.tsv spells it.
+	// pkg is the package name as tools/devtool/OWNERS.tsv spells it.
 	pkg string
 	// build constructs the package's principal seam. A nil build means the package has no
 	// constructible interface — see compositionRootPkgs.
@@ -420,7 +420,7 @@ func errorResultIndex(t reflect.Type) int {
 
 // TestStubRegistry_ListsEveryPackageOnDisk is the completeness half of the plan's requirement.
 //
-// It compares the hand-written registry against plans/OWNERS.tsv, which
+// It compares the hand-written registry against tools/devtool/OWNERS.tsv, which
 // TestV1_StubGraphIsInertAndOwned already requires to list every package on disk. (That test, not
 // `devtool lint`: no lint sub-check reads the disk, and stubskips deliberately ignores the exit
 // status of the `go test` run it greps, so a failure there would leave the lint green.) A new §5 package that nobody adds here would otherwise
@@ -439,7 +439,7 @@ func TestStubRegistry_ListsEveryPackageOnDisk(t *testing.T) {
 	// Every package with a stub probe in OWNERS.tsv must be in the registry.
 	for _, pkg := range ownersWithProbes(t) {
 		require.True(t, registered[pkg],
-			"plans/OWNERS.tsv lists %s with a stub probe, but stubRegistry() does not mention it", pkg)
+			"tools/devtool/OWNERS.tsv lists %s with a stub probe, but stubRegistry() does not mention it", pkg)
 	}
 
 	// And every registry entry must exist on disk.
@@ -464,15 +464,15 @@ func TestStubRegistry_ListsEveryPackageOnDisk(t *testing.T) {
 // wantStubPackages is the §5 interface-package count commit 7 of the subplan enumerates, plus three:
 // SP-20 M2-01 added internal/state, SP-21's contract slice added internal/admission and the V6
 // close-out (C1.9) added internal/hostperm, all after wave 0, and
-// TestStubRegistry_ListsEveryPackageOnDisk requires every package with a plans/OWNERS.tsv stub
+// TestStubRegistry_ListsEveryPackageOnDisk requires every package with a tools/devtool/OWNERS.tsv stub
 // probe to be registered here too.
 const wantStubPackages = 26
 
-// ownersWithProbes reads plans/OWNERS.tsv and returns every package whose row names a stub probe.
+// ownersWithProbes reads tools/devtool/OWNERS.tsv and returns every package whose row names a stub probe.
 func ownersWithProbes(t *testing.T) []string {
 	t.Helper()
 
-	f, err := os.Open(filepath.Join(repoRoot(t), "plans", "OWNERS.tsv"))
+	f, err := os.Open(filepath.Join(repoRoot(t), "tools", "devtool", "OWNERS.tsv"))
 	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
 

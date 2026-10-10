@@ -72,7 +72,7 @@ type manifest struct {
 // taskGenContractFixtures maintains testdata/golden/contracts/** (implementation spec §16).
 //
 // With no arguments it VERIFIES and writes nothing: every manifest is checked against
-// plans/OWNERS.tsv and against what is actually on disk, and the frozen set is reported. That is
+// tools/devtool/OWNERS.tsv and against what is actually on disk, and the frozen set is reported. That is
 // the mode CI and a routine `devtool gen-contract-fixtures` run in, and it is a no-op by design —
 // a frozen fixture that a regeneration could rewrite would not be frozen.
 //
@@ -87,7 +87,7 @@ func taskGenContractFixtures(args []string) error {
 		return errors.Join(errUsage, err)
 	}
 
-	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	owners, err := loadOwners(filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		return fmt.Errorf("gen-contract-fixtures: %w", err)
 	}
@@ -156,9 +156,9 @@ func checkManifest(m manifest, pkg, path string, ownerByPkg map[string]ownerRow)
 	row, known := ownerByPkg[pkg]
 	switch {
 	case !known:
-		problems = append(problems, fmt.Sprintf("%s: %q is not a package in plans/OWNERS.tsv", rel, pkg))
+		problems = append(problems, fmt.Sprintf("%s: %q is not a package in tools/devtool/OWNERS.tsv", rel, pkg))
 	case m.Owner != row.Owner:
-		problems = append(problems, fmt.Sprintf("%s: owner %q disagrees with plans/OWNERS.tsv (%s)", rel, m.Owner, row.Owner))
+		problems = append(problems, fmt.Sprintf("%s: owner %q disagrees with tools/devtool/OWNERS.tsv (%s)", rel, m.Owner, row.Owner))
 	}
 
 	seen := make(map[string]bool, len(m.Fixtures))
@@ -207,7 +207,7 @@ func checkManifest(m manifest, pkg, path string, ownerByPkg map[string]ownerRow)
 func recordFixtures(pkg string, owners []ownerRow) error {
 	row, ok := ownerIndex(owners)[pkg]
 	if !ok {
-		return fmt.Errorf("gen-contract-fixtures: %q is not a package in plans/OWNERS.tsv", pkg)
+		return fmt.Errorf("gen-contract-fixtures: %q is not a package in tools/devtool/OWNERS.tsv", pkg)
 	}
 
 	m, path, err := readManifest(pkg)
@@ -227,7 +227,7 @@ func recordFixtures(pkg string, owners []ownerRow) error {
 	// prevent ("a fixture the real implementation cannot reproduce is a verification failure, not
 	// a fixture bug").
 	if row.Probe == "-" {
-		return fmt.Errorf("gen-contract-fixtures: %s has no stub phase in plans/OWNERS.tsv, so it has no behaviour to record", pkg)
+		return fmt.Errorf("gen-contract-fixtures: %s has no stub phase in tools/devtool/OWNERS.tsv, so it has no behaviour to record", pkg)
 	}
 	stub, err := isStubPackage(pkg, row.Probe)
 	if err != nil {
@@ -356,7 +356,7 @@ func promote(m *manifest, dir string, pending []string) (recorded, missing []str
 //     refusal lifts rather than blocking an owner mid-migration.
 //   - The probe exists only as an interface method — the shape of a package whose wave-0 stub type
 //     does not implement it at all yet. Nothing can produce bytes, so it is a stub.
-//   - The name appears nowhere. That is a typo in plans/OWNERS.tsv, not a fact about the code, and
+//   - The name appears nowhere. That is a typo in tools/devtool/OWNERS.tsv, not a fact about the code, and
 //     it is reported as an error rather than guessed at.
 func isStubPackage(pkg, probe string) (bool, error) {
 	files, err := parsePackageFiles(pkg)
@@ -383,7 +383,7 @@ func isStubPackage(pkg, probe string) (bool, error) {
 	if declaresInterfaceMethod(files, probe) {
 		return true, nil
 	}
-	return false, fmt.Errorf("internal/%s declares no %s, but plans/OWNERS.tsv names it as the stub probe", pkg, probe)
+	return false, fmt.Errorf("internal/%s declares no %s, but tools/devtool/OWNERS.tsv names it as the stub probe", pkg, probe)
 }
 
 // parsePackageFiles parses every non-test Go file directly under internal/<pkg>.
@@ -495,7 +495,7 @@ func readManifest(pkg string) (manifest, string, error) {
 	return m, path, nil
 }
 
-// ownerIndex keys plans/OWNERS.tsv by package name.
+// ownerIndex keys tools/devtool/OWNERS.tsv by package name.
 func ownerIndex(owners []ownerRow) map[string]ownerRow {
 	byPkg := make(map[string]ownerRow, len(owners))
 	for _, o := range owners {

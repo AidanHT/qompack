@@ -129,7 +129,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Store, using Add as the probe
-// (plans/OWNERS.tsv: pins's probe method is Add).
+// (tools/devtool/OWNERS.tsv: pins's probe method is Add).
 func isStub(t *testing.T, factory func(t *testing.T) pins.Store) bool {
 	t.Helper()
 	err := factory(t).Add(context.Background(), pins.Invariant{

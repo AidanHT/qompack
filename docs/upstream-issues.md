@@ -100,7 +100,7 @@ prepared for them here:
   `hookSpecificOutput.customInstructions`: "Hook JSON output validation failed —
   hookSpecificOutput.hookEventName: expected one of "PreToolUse" | "UserPromptSubmit" | …", and it
   appended the whole rejection, instruction text included, to the post-compaction transcript
-  ([evidence](../plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt)). Qompack now
+  (maintainer-held evidence). Qompack now
   answers PreCompact with the empty object and has retired the instruction (C1.18).
   `precompact.has_time_to_write` ("measured PreCompact wall time vs. the manifest timeout") was
   observed in the candidate 4 live lane as `p99=119ms timeout=20000ms` after a session that

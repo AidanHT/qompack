@@ -55,7 +55,7 @@ func RunRedactorSuite(t *testing.T, name string, factory func(t *testing.T) reda
 }
 
 // isStub reports whether factory currently produces a stub Redactor, using Redact as the probe
-// (plans/OWNERS.tsv: redact's probe method is Redact). Redact has no error return (§5.22a), so
+// (tools/devtool/OWNERS.tsv: redact's probe method is Redact). Redact has no error return (§5.22a), so
 // unlike most suites in this tree, isStub cannot check core.IsNotImplemented: instead it relies
 // directly on Rule 1's documented stub contract (the SP-01 stub echoes its input with no matches).
 // probeSecret is a canonical, unambiguous positive fixture for the built-in AWS-access-key rule,

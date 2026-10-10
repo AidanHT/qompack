@@ -96,7 +96,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Observer, using OnToolUse as the probe
-// (plans/OWNERS.tsv: observer's probe method is OnToolUse).
+// (tools/devtool/OWNERS.tsv: observer's probe method is OnToolUse).
 func isStub(t *testing.T, factory func(t *testing.T) observer.Observer) bool {
 	t.Helper()
 	_, err := factory(t).OnToolUse(context.Background(), toolUseEvent())

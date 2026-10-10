@@ -209,7 +209,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStubWriter reports whether factory currently produces a stub Writer, using Begin as the probe
-// (plans/OWNERS.tsv: checkpoint's probe method is Begin).
+// (tools/devtool/OWNERS.tsv: checkpoint's probe method is Begin).
 func isStubWriter(t *testing.T, factory func(t *testing.T) WriterFixture) bool {
 	t.Helper()
 	f := factory(t)
@@ -229,7 +229,7 @@ func skipIfStubWriter(t *testing.T, factory func(t *testing.T) WriterFixture) bo
 }
 
 // isStubReader reports whether factory currently produces a stub Reader, using Latest as the
-// probe: plans/OWNERS.tsv names Begin for the checkpoint package as a whole, which is a Writer
+// probe: tools/devtool/OWNERS.tsv names Begin for the checkpoint package as a whole, which is a Writer
 // method, so Latest is Reader's own closest analogue — the first read a real implementation must
 // support, exactly as storetest uses SegmentLog.Open in place of Store.PutBytes.
 func isStubReader(t *testing.T, factory func(t *testing.T) ReaderFixture) bool {

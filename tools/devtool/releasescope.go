@@ -123,6 +123,16 @@ func taskReleaseScope(args []string) error {
 		return errors.Join(errUsage, errors.New("release-scope: --json and --markdown are alternatives"))
 	}
 
+	// The default evidence directory is under plans/, which is maintainer-only and not published in
+	// the repository. Without it every row is unknown/unverified, so say why instead of rendering
+	// that silently.
+	if *evidence == scopeEvidenceDefault {
+		if _, err := os.Stat(rootRelative(*evidence)); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "release-scope: %s is maintainer-only evidence and is not in this "+
+				"checkout; every row below is unknown/unverified\n", *evidence)
+		}
+	}
+
 	ev, err := collectScopeEvidence(rootRelative(*evidence), *evidence)
 	if err != nil {
 		return err

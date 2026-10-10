@@ -134,7 +134,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Scanner, using PathScoped as the
-// probe (plans/OWNERS.tsv: rules's probe method is PathScoped).
+// probe (tools/devtool/OWNERS.tsv: rules's probe method is PathScoped).
 func isStub(t *testing.T, factory func(t *testing.T) rules.Scanner) bool {
 	t.Helper()
 	_, err := factory(t).PathScoped(context.Background(), t.TempDir(), nil)

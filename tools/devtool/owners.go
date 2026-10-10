@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// ownerRow is one line of plans/OWNERS.tsv: package name (bare, e.g. "store" or "cmd/qompack"),
+// ownerRow is one line of tools/devtool/OWNERS.tsv: package name (bare, e.g. "store" or "cmd/qompack"),
 // owning subplan, the §6.4 coverage floor that binds once the owner lands, and the probe method
 // name isStub()-style checks call to tell a stub from a real implementation ("-" when the package
 // has no stub phase because SP-01 implements it immediately).
@@ -18,7 +18,7 @@ type ownerRow struct {
 	Probe   string
 }
 
-// loadOwners parses plans/OWNERS.tsv: tab-separated, "#"-prefixed comment lines and blank lines
+// loadOwners parses tools/devtool/OWNERS.tsv: tab-separated, "#"-prefixed comment lines and blank lines
 // ignored, an optional "package\towner\tfloor\tprobe" header line ignored.
 func loadOwners(path string) ([]ownerRow, error) {
 	b, err := os.ReadFile(path)
@@ -55,7 +55,7 @@ func loadOwners(path string) ([]ownerRow, error) {
 }
 
 // packageKeyOf maps a full package import path (possibly a <pkg>test conformance subpackage) to
-// the bare key plans/OWNERS.tsv uses: both ".../internal/store" and ".../internal/store/storetest"
+// the bare key tools/devtool/OWNERS.tsv uses: both ".../internal/store" and ".../internal/store/storetest"
 // map to "store"; ".../cmd/qompack" maps to "cmd/qompack".
 func packageKeyOf(importPath string) string {
 	rel := strings.TrimPrefix(importPath, modulePath+"/")

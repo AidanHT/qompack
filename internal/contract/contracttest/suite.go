@@ -259,7 +259,7 @@ func requireKnownSeverity(t *testing.T, s contract.Severity) {
 	}
 }
 
-// isStubMonitor reports whether factory currently produces a stub Monitor. plans/OWNERS.tsv names
+// isStubMonitor reports whether factory currently produces a stub Monitor. tools/devtool/OWNERS.tsv names
 // RunAll as contract's probe method, but RunAll has no error return, so "still a stub" cannot be
 // core.IsNotImplemented of anything it returns. It is detected instead by the two ways a Monitor
 // can fail to be one: refusing to register a well-formed assertion with core.ErrNotImplemented, or

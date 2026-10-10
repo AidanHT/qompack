@@ -268,7 +268,7 @@ func requireKnownHotPathMode(t *testing.T, h ipc.HotPathMode) {
 }
 
 // isStubClient reports whether factory currently produces a stub Client, using Send as the probe
-// (plans/OWNERS.tsv: ipc's probe method is Send).
+// (tools/devtool/OWNERS.tsv: ipc's probe method is Send).
 //
 // A stub Send reports core.ErrNotImplemented, which deliberately contradicts §5.4's "never an error
 // a hook would propagate" — that contradiction is what makes the probe possible at all, and the

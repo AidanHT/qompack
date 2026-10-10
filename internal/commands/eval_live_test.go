@@ -473,7 +473,7 @@ func TestFileEvalArtifacts_RefusesWhatItCannotRead(t *testing.T) {
 // committed as C5.4 evidence — and reports it for what it is: a single-arm harness-validation run on
 // the pilot task, never a confirmatory result.
 func TestFileEvalArtifacts_ReadsTheCommittedPilotRun(t *testing.T) {
-	pilot, err := filepath.Abs(filepath.Join("..", "..", "plans", "sdd", "V6-closeout", "eval", "runs", "pilot1-plugin-dir"))
+	pilot, err := filepath.Abs(filepath.Join("..", "..", "testdata", "eval", "runs", "pilot1-plugin-dir"))
 	require.NoError(t, err)
 	in, err := commands.FileEvalArtifacts(t.TempDir())(context.Background(), pilot)
 	require.NoError(t, err)

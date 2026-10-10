@@ -93,7 +93,7 @@ func requireKnownError(t *testing.T, err error) {
 	require.True(t, known, "unexpected error: %v", err)
 }
 
-// isStub reports whether factory currently produces a stub Build (plans/OWNERS.tsv: rehydrate's
+// isStub reports whether factory currently produces a stub Build (tools/devtool/OWNERS.tsv: rehydrate's
 // probe method is Build).
 func isStub(t *testing.T, factory func(t *testing.T) BuildFunc) bool {
 	t.Helper()

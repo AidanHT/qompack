@@ -159,9 +159,17 @@ func TestQompackErrataAndRevisionLogAgree(t *testing.T) {
 }
 
 // qompackBody reads Qompack.md from the repository root.
+//
+// Qompack.md and plans/QOMPACK-ERRATA.md are maintainer-only: they stay on the maintainer's disk and
+// are not published, so a public checkout has neither. Every test here reads Qompack.md first, so
+// its absence skips them all. Any other read error still fails, and with Qompack.md present a
+// missing errata file still fails, which keeps the pairing rule enforced where the spec exists.
 func qompackBody(t *testing.T) []byte {
 	t.Helper()
 	body, err := os.ReadFile(filepath.Join("..", "..", "Qompack.md"))
+	if os.IsNotExist(err) {
+		t.Skip("platform: Qompack.md is maintainer-only and absent from this checkout")
+	}
 	require.NoError(t, err, "Qompack.md must be readable from the repository root")
 	return body
 }

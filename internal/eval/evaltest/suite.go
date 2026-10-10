@@ -87,7 +87,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Harness, using Load as the probe
-// (plans/OWNERS.tsv: eval's probe method is Load).
+// (tools/devtool/OWNERS.tsv: eval's probe method is Load).
 func isStub(t *testing.T, factory func(t *testing.T) eval.Harness) bool {
 	t.Helper()
 	_, err := factory(t).Load(t.TempDir())

@@ -144,6 +144,79 @@ func TestLiveTaskSet_FixtureTreeDirs(t *testing.T) {
 // superseded before use by qompack-live-v2 in its amendment A7.
 var preregistrationFile = filepath.Join("..", "..", "plans", "sdd", "V6-closeout", "eval", "preregistration.md")
 
+// preregistrationDoc returns the pre-registration's text with CRLF normalized. The document is
+// maintainer-only: it stays on the maintainer's disk and is not published, so a public checkout
+// skips the two document tests. Any other read error still fails, and
+// TestLivePreregistrations_MatchTheCommittedMaterials keeps the code-against-materials pins running
+// without it.
+func preregistrationDoc(t *testing.T) string {
+	t.Helper()
+	raw, err := os.ReadFile(preregistrationFile)
+	if os.IsNotExist(err) {
+		t.Skip("platform: plans/sdd/V6-closeout/eval/preregistration.md is maintainer-only and absent from this checkout")
+	}
+	require.NoError(t, err)
+	return strings.ReplaceAll(string(raw), "\r\n", "\n")
+}
+
+// preregisteredMaterialSHA256 is the SHA-256 the pre-registration's section 2 table (and, for
+// tasks-v2.json, its amendment A7 table) records for each frozen material, copied out of the
+// document so the pins hold in a checkout that does not carry it. Where the document is present,
+// TestLiveTaskSet_FrozenMaterialsMatchThePreregistration checks the same files against the
+// document itself, so a drift between these copies and the document fails one test or the other.
+var preregisteredMaterialSHA256 = map[string]string{
+	liveTasksV1:  "14e9ee33ccfff573c00db0a108824853e08d916c3099842c232b624ac5eafff0",
+	"rates.json": "97dfb469e316ca27a05957a380be64f689fb8da664a0c1d566fc462f439b0982",
+	"pilot.json": "4da30ddf165ad260b2a386872c25e347eb2ebf7e3b39b02a832e1a301b55b1a6",
+	liveTasksV2:  "d59dc09d15edb04acb567dd97ac620c41eaf00206093bdc59a5162607619af83",
+}
+
+// TestLivePreregistrations_MatchTheCommittedMaterials needs no document. Every frozen material
+// still hashes to its pre-registered SHA-256, and the code's record of each pre-registration (the
+// task-set file and hash, the fixture tree's manifest hash, the install path, the model rule, the
+// defects the candidate must not carry and the supersession) matches the committed materials. It is
+// the record `qompack eval` checks a run's plan against before calling it confirmatory.
+func TestLivePreregistrations_MatchTheCommittedMaterials(t *testing.T) {
+	for file, want := range preregisteredMaterialSHA256 {
+		content, err := os.ReadFile(liveTaskFile(file))
+		require.NoError(t, err)
+		sum := sha256.Sum256(content)
+		require.Equal(t, want, hex.EncodeToString(sum[:]), "%s is not the pre-registered file", file)
+	}
+
+	require.Len(t, eval.LivePreregistrations, 2, "every pre-registered set is checked here")
+	for id, pre := range eval.LivePreregistrations {
+		require.True(t, strings.HasPrefix(pre.TaskSetFile, "testdata/eval/live/"), id)
+		ts, taskBytes, err := eval.LoadLiveTaskSet(filepath.Join("..", "..", filepath.FromSlash(pre.TaskSetFile)))
+		require.NoError(t, err, id)
+		require.Equal(t, id, ts.ID, "the recorded file is the task set %s", id)
+
+		sum := sha256.Sum256(taskBytes)
+		require.Equal(t, hex.EncodeToString(sum[:]), pre.TaskSetSHA256,
+			"%s: the recorded task-set hash is the committed file's", id)
+		require.Equal(t, preregisteredMaterialSHA256[filepath.Base(pre.TaskSetFile)], pre.TaskSetSHA256,
+			"%s: the recorded task-set hash is the pre-registered one", id)
+
+		tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile(liveTasksV1)), ts.FixtureTreeDirs()...)
+		require.NoError(t, err)
+		require.Equal(t, tree, pre.FixtureTreeSHA256, "%s: the recorded fixture tree is the committed tree", id)
+
+		require.Equal(t, "plugin-dir", pre.Install)
+		require.Equal(t, ts.Analysis.Model, pre.Model, "the pre-registered model is the task set's")
+		require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, ts.Analysis.Model))
+		require.True(t, pre.RunsPreregisteredModel(ts.Analysis.Model, pre.ModelContingency))
+		require.False(t, pre.RunsPreregisteredModel(ts.Analysis.Model, "opus"))
+		require.False(t, pre.RunsPreregisteredModel("claude-haiku-4-5", pre.ModelContingency),
+			"the alias stands in only for the model the pre-registration froze")
+		require.Equal(t, []string{"C1.12", "C1.1"}, pre.RequiredFixed)
+		require.Equal(t, "plans/sdd/V6-closeout/eval/preregistration.md", pre.Document)
+	}
+
+	v1, v2 := eval.LivePreregistrations["qompack-live-v1"], eval.LivePreregistrations["qompack-live-v2"]
+	require.Equal(t, "qompack-live-v2", v1.SupersededBy)
+	require.Empty(t, v2.SupersededBy)
+}
+
 // TestLiveTaskSet_FrozenMaterialsMatchThePreregistration: every frozen material still hashes to the
 // SHA-256 the pre-registration's section 2 table records — read out of the document itself, so the
 // test and the document cannot drift apart — the fixture and hidden-test tree hashes to the
@@ -153,9 +226,7 @@ var preregistrationFile = filepath.Join("..", "..", "plans", "sdd", "V6-closeout
 // fixture tree (fixtures, hidden, hidden-v2) the same way, and the section 4 table still names its
 // tasks, which A7 left unchanged; qompack-live-v1's materials, superseded before use, still match.
 func TestLiveTaskSet_FrozenMaterialsMatchThePreregistration(t *testing.T) {
-	raw, err := os.ReadFile(preregistrationFile)
-	require.NoError(t, err)
-	doc := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	doc := preregistrationDoc(t)
 	for _, file := range []string{liveTasksV1, "rates.json", "pilot.json", liveTasksV2} {
 		row := regexp.MustCompile("(?m)^\\|[^|\\n]*\\|\\s*`testdata/eval/live/" + regexp.QuoteMeta(file) +
 			"`\\s*\\|\\s*`([0-9a-f]{64})`\\s*\\|")
@@ -408,9 +479,7 @@ func TestGradeLiveTrial_FileLinesCountsEveryLine(t *testing.T) {
 // now. It is the record `qompack eval` checks a run's plan against before calling it confirmatory,
 // so a run of an edited task set under the same id cannot be judged as the pre-registered study.
 func TestLivePreregistrations_MatchTheDocumentAndTheMaterials(t *testing.T) {
-	raw, err := os.ReadFile(preregistrationFile)
-	require.NoError(t, err)
-	doc := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	doc := preregistrationDoc(t)
 	flat := strings.Join(strings.Fields(doc), " ")
 
 	// The amendment that froze each set's fixture tree: A1 for qompack-live-v1, A7 for qompack-live-v2.

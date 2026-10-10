@@ -48,7 +48,7 @@ func RunExtractorSuite(t *testing.T, name string, factory func(t *testing.T) sym
 }
 
 // isStub reports whether factory currently produces a stub Extractor, using Extract as the probe
-// (plans/OWNERS.tsv: symbols's probe method is Extract). Extract has no error return (§5.22b), so
+// (tools/devtool/OWNERS.tsv: symbols's probe method is Extract). Extract has no error return (§5.22b), so
 // unlike most suites in this tree, isStub cannot check core.IsNotImplemented: instead it relies
 // directly on Rule 1's documented stub contract (the SP-01 stub always returns nil regardless of
 // input). probeSource unambiguously declares one top-level function, so any real Extractor must

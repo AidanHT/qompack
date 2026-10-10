@@ -76,7 +76,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Sequitur, using Append as the probe
-// (plans/OWNERS.tsv: grammar's probe method is Append). Append has no return value at all
+// (tools/devtool/OWNERS.tsv: grammar's probe method is Append). Append has no return value at all
 // (§5.11) — not even a zero value to inspect — so unlike almost every other suite in this tree,
 // isStub cannot observe Append's own result: instead it appends an unambiguously repeating digram
 // (A,B repeated several times) and checks Rules() afterward. Any correct Sequitur must induce at

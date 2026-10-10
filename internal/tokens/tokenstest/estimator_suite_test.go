@@ -39,7 +39,7 @@ func TestIsStub_RealEstimatorIsNotAStub(t *testing.T) {
 // skipIfStub(t, true) is deliberately NOT exercised here: doing so would emit a genuine
 // "behaviour: implementation is a stub (Rule W-1)" skip from within internal/tokens/tokenstest,
 // and devtool lint's stubskips sub-check treats any Rule-W1 skip inside a package
-// plans/OWNERS.tsv assigns to SP-01 — which tokens (and therefore tokenstest, via
+// tools/devtool/OWNERS.tsv assigns to SP-01 — which tokens (and therefore tokenstest, via
 // packageKeyOf's "tokens/tokenstest" -> "tokens" mapping) is — as a hard failure, on the theory
 // that an SP-01-owned package must never itself be a stub. isStub's detection logic is fully
 // covered by the two tests above; skipIfStub's true branch is a single documented t.Skip call.

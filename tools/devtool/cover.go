@@ -85,7 +85,7 @@ var landedSubplans = map[string]bool{
 	// probes (Run, Select, Append, Admit) were real — exactly the drift the exempt-but-real
 	// cross-check exists to catch, which nobody had run on a tree where the whole suite passes.
 	// Listed by V5-VERIFY; all four packages measured above their floors on the same run
-	// (88.0 / 88.2 / 91.4 / 100.0 %). SP-16 owns no package (plans/OWNERS.tsv) and so is NOT listed
+	// (88.0 / 88.2 / 91.4 / 100.0 %). SP-16 owns no package (tools/devtool/OWNERS.tsv) and so is NOT listed
 	// (TestLandedSubplansMatchesTheBranch forbids it), which means planDocsInScope never derives
 	// wave 5 as landed while a V5-SP-16 document exists; that is a limit of the scope rule, recorded
 	// in plans/V5-report.md, not a statement about SP-16.
@@ -141,7 +141,7 @@ func taskCover(args []string) error {
 		return err
 	}
 
-	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	owners, err := loadOwners(filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	if err != nil {
 		return fmt.Errorf("cover: %w", err)
 	}
@@ -177,7 +177,7 @@ func taskCover(args []string) error {
 			if !landedSubplans[o.Owner] && o.Probe != "-" && !probeBlind[o.Package] &&
 				dirExists(dir) && !probeStillStub(dir, o.Probe) {
 				problems = append(problems, fmt.Sprintf(
-					"%s: plans/OWNERS.tsv assigns this package to %s, which tools/devtool/cover.go's "+
+					"%s: tools/devtool/OWNERS.tsv assigns this package to %s, which tools/devtool/cover.go's "+
 						"landedSubplans does not list as landed, but its probe %q is no longer a bare "+
 						"core.ErrNotImplemented stub. If %s has landed, add it to landedSubplans so its "+
 						"§6.4 floor is enforced; if the probe simply cannot be read, add %s to probeBlind "+
@@ -193,7 +193,7 @@ func taskCover(args []string) error {
 		// but it never fires falsely, which is the direction that matters for a merge blocker.
 		if o.Probe != "-" && probeStillStub(dir, o.Probe) {
 			problems = append(problems, fmt.Sprintf(
-				"%s: plans/OWNERS.tsv assigns this package to %s, which has landed, but its probe %q still looks like a bare core.ErrNotImplemented stub",
+				"%s: tools/devtool/OWNERS.tsv assigns this package to %s, which has landed, but its probe %q still looks like a bare core.ErrNotImplemented stub",
 				o.Package, o.Owner, o.Probe))
 		}
 

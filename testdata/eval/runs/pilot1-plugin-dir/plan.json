@@ -1,0 +1,36 @@
+{
+  "run_id": "20260922T224730Z-9849a5",
+  "created_at": "2026-09-22T22:47:30Z",
+  "task_set": "qompack-live-pilot-v1",
+  "task_set_file": "testdata/eval/live/pilot.json",
+  "task_set_sha256": "4da30ddf165ad260b2a386872c25e347eb2ebf7e3b39b02a832e1a301b55b1a6",
+  "model": "claude-haiku-4-5-20251001",
+  "preregistered_model": "claude-haiku-4-5-20251001",
+  "arms": [
+    "qompack"
+  ],
+  "trials_per_arm": 1,
+  "install": "plugin-dir",
+  "plugin": {
+    "install": "plugin-dir",
+    "bundle_dir": "<maintainer-local path, redacted>",
+    "version": "0.3.0-live.pilot",
+    "commit": "251ec8b1386ac384f0100149df193095d8857abd",
+    "dirty": false,
+    "bundle_json_sha256": "b1e56c128dc8e4ccdc25e13919a2ac1ac2c73f1cdf51431ba6a5a497130e6d2a"
+  },
+  "claude_cli": "<maintainer-local path, redacted>",
+  "claude_cli_version": "2.1.280",
+  "rate_table_date": "2026-09-22",
+  "rate_table_source": "Anthropic first-party list prices as cached in the claude-api skill bundled with Claude Code 2.1.280 (model table cached 2026-06-24; cache economics from its shared/prompt-caching.md: reads 0.1x input except Claude Fable 5.1 at 0.025x and Claude Opus 5.5 at $0.20/MTok, writes 1.25x for the 5-minute TTL and 2x for the 1-hour TTL), read 2026-09-22. claude-haiku-4-5 cross-checked to the micro-dollar against Claude Code's own costUSD for the smoke1 session (plans/sdd/V6-closeout/eval/runs/smoke1-stock-compact). Estimates only: subscription sessions carry no per-token cash charge.",
+  "held_out_included": false,
+  "trials": [
+    {
+      "task": "pilot-codeword",
+      "arm": "qompack",
+      "trial": 1
+    }
+  ],
+  "host": "windows/amd64",
+  "agent": "agent-executed on the real installed host (owner decision D3); not human UAT"
+}

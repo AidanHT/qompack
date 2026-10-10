@@ -129,7 +129,7 @@ host change could lift — as prepared proposals, none of which has been filed.
   the focus instruction Qompack used to return ("Hook JSON output validation failed —
   hookSpecificOutput.hookEventName: expected one of …") and replayed the rejection into the
   post-compaction context (C1.12,
-  [evidence](../plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt)). The only
+  maintainer-held evidence). The only
   documented ways to steer the summary are `/compact <instructions>`, typed by the user, and a
   `# Compact instructions` section in the project's `CLAUDE.md`, which Qompack does not write. The
   key that once implied otherwise, `checkpoint.incrementalSpanInstruction`, is retired-meaning and
@@ -174,10 +174,10 @@ host change could lift — as prepared proposals, none of which has been filed.
   no setting or environment variable to raise it", and "Claude Code doesn't ask Claude to read the
   file". Observed on Claude Code 2.1.280: an 11,082-character SessionStart context reached Claude as
   a 2,391-character `<persisted-output>` block, and the model could quote only what the preview held
-  ([evidence](../plans/sdd/V6-closeout/packaging/evidence/review/f2-live-host-cap-probe/README.txt)).
+  (maintainer-held evidence).
   The host accepts such a response, so no check fails. The unit is UTF-16 code units: the host's own
   code tests `field.length <= 1e4`
-  ([evidence](../plans/sdd/V6-closeout/rehydrate-cap/evidence/host-cap-unit.txt)).
+  (maintainer-held evidence).
 - **What Qompack does instead.** It fits the cap (owner decision D5). The whole compact
   `additionalContext`, contract probe included, is at most 9,500 host characters. Records are chosen
   in the fixed §8.6 order and admitted whole or not at all; each one left out is named in section 7

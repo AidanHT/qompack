@@ -180,7 +180,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStubSelector reports whether factory currently produces a stub Selector, using Select as the
-// probe (plans/OWNERS.tsv: analyzer's probe method is Select).
+// probe (tools/devtool/OWNERS.tsv: analyzer's probe method is Select).
 //
 // It has to look in two places, because there are two distinct ways this package can still be a
 // stub: the ship-order gate can refuse to construct a Selector at all (core.ErrNotImplemented
@@ -209,7 +209,7 @@ func skipIfStubSelector(t *testing.T, factory func(t *testing.T) NewSelectorFunc
 
 // isStubScorer reports whether factory currently produces a stub DeltaScorer, using Score as the
 // probe: it is DeltaScorer's only operation with an error return, and therefore its own analogue
-// of the Select probe plans/OWNERS.tsv names for the package as a whole.
+// of the Select probe tools/devtool/OWNERS.tsv names for the package as a whole.
 func isStubScorer(t *testing.T, factory func(t *testing.T) analyzer.DeltaScorer) bool {
 	t.Helper()
 	_, err := factory(t).Score(context.Background(), legalBlocks(), coveringContinuation())

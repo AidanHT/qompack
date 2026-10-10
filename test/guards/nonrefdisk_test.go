@@ -178,6 +178,11 @@ func TestNonReferenceDisk_IsHostedCIOnly(t *testing.T) {
 
 	t.Run("reference_run_scripts_never_declare_it", func(t *testing.T) {
 		dir := filepath.Join(root, "plans", "sdd", "V6-closeout", "coordinator")
+		// The reference-run scripts are maintainer-only, under plans/, and absent from a public
+		// checkout. Only their absence skips; any other error still fails.
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			t.Skip("platform: plans/sdd/V6-closeout/coordinator is maintainer-only and absent from this checkout")
+		}
 		for _, name := range referenceRunScripts {
 			b, err := os.ReadFile(filepath.Join(dir, name))
 			require.NoError(t, err, "the reference-run script %s must exist where this guard reads it", name)

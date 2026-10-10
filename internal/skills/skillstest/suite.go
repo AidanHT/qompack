@@ -136,7 +136,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Indexer, using Index as the probe
-// (plans/OWNERS.tsv: skills's probe method is Index).
+// (tools/devtool/OWNERS.tsv: skills's probe method is Index).
 func isStub(t *testing.T, factory func(t *testing.T) skills.Indexer) bool {
 	t.Helper()
 	_, _, err := factory(t).Index(context.Background(), t.TempDir(), core.Tokens(probeBudgetTokens))

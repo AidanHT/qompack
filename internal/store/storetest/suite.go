@@ -152,7 +152,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStubStore reports whether factory currently produces a stub Store, using PutBytes as the
-// probe (plans/OWNERS.tsv: store's probe method is PutBytes).
+// probe (tools/devtool/OWNERS.tsv: store's probe method is PutBytes).
 func isStubStore(t *testing.T, factory func(t *testing.T) store.Store) bool {
 	t.Helper()
 	_, err := factory(t).PutBytes(context.Background(), probeBytes, store.PutOptions{})

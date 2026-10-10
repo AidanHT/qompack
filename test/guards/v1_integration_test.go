@@ -258,7 +258,7 @@ func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 }
 
 // v1CoverageFloors is 00-ARCHITECTURE.md §6.4's table, transcribed. It is written out here rather
-// than read from plans/OWNERS.tsv because IT-6 is asserting that OWNERS.tsv AGREES with §6.4 —
+// than read from tools/devtool/OWNERS.tsv because IT-6 is asserting that OWNERS.tsv AGREES with §6.4 —
 // reading the floor from the file under test would make the assertion tautological.
 var v1CoverageFloors = map[string]int{
 	"config": 90, "store": 90, "sketch": 90, "chunk": 90,
@@ -293,7 +293,7 @@ const v1DefaultFloor = 75
 
 // TestV1_StubGraphIsInertAndOwned is §4 IT-6.
 //
-// Crosses all 24 stub packages -> plans/OWNERS.tsv -> the on-disk package set.
+// Crosses all 24 stub packages -> tools/devtool/OWNERS.tsv -> the on-disk package set.
 //
 // TestAllStubsReturnNotImplemented already walks the seams; what this adds is the OWNERSHIP half:
 // that the table naming who implements what is in exact correspondence with what is on disk, and
@@ -303,7 +303,7 @@ const v1DefaultFloor = 75
 func TestV1_StubGraphIsInertAndOwned(t *testing.T) {
 	root := repoRoot(t)
 
-	rows := v1ReadOwners(t, filepath.Join(root, "plans", "OWNERS.tsv"))
+	rows := v1ReadOwners(t, filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	require.NotEmpty(t, rows, "OWNERS.tsv parsed to nothing — the assertions below would be vacuous")
 
 	// 1. Exact correspondence with disk.
@@ -323,11 +323,11 @@ func TestV1_StubGraphIsInertAndOwned(t *testing.T) {
 
 	for pkg := range onDisk {
 		require.True(t, inFile[pkg],
-			"package %q exists on disk but has no plans/OWNERS.tsv row: a package cannot appear without an ownership decision", pkg)
+			"package %q exists on disk but has no tools/devtool/OWNERS.tsv row: a package cannot appear without an ownership decision", pkg)
 	}
 	for pkg := range inFile {
 		require.True(t, onDisk[pkg],
-			"plans/OWNERS.tsv names %q, which is not on disk", pkg)
+			"tools/devtool/OWNERS.tsv names %q, which is not on disk", pkg)
 	}
 
 	// 2. Every floor matches §6.4.
@@ -337,7 +337,7 @@ func TestV1_StubGraphIsInertAndOwned(t *testing.T) {
 			want = v1DefaultFloor
 		}
 		require.Equal(t, want, r.floor,
-			"plans/OWNERS.tsv gives %q a floor of %d; 00-ARCHITECTURE.md §6.4 says %d", r.pkg, r.floor, want)
+			"tools/devtool/OWNERS.tsv gives %q a floor of %d; 00-ARCHITECTURE.md §6.4 says %d", r.pkg, r.floor, want)
 	}
 
 	// 3. Every SP-01 row is implemented (probe "-"); every other row still names a probe.
@@ -1009,13 +1009,13 @@ func v1BudgetByID(t *testing.T, id obs.BudgetID) obs.Budget {
 	return obs.Budget{}
 }
 
-// v1OwnerRow is one parsed plans/OWNERS.tsv line.
+// v1OwnerRow is one parsed tools/devtool/OWNERS.tsv line.
 type v1OwnerRow struct {
 	pkg, owner, probe string
 	floor             int
 }
 
-// v1ReadOwners parses plans/OWNERS.tsv into rows.
+// v1ReadOwners parses tools/devtool/OWNERS.tsv into rows.
 func v1ReadOwners(t *testing.T, path string) []v1OwnerRow {
 	t.Helper()
 	b, err := os.ReadFile(path)

@@ -22,7 +22,7 @@ type lintSubcheck struct {
 // A third specification-document check, `coveragefloors`, appends itself to this slice from
 // planchecks.go's init() so that the whole plan-document group lives in one file, which means the
 // order a run actually reports is these nine followed by that one. It reads Markdown and
-// plans/OWNERS.tsv and builds nothing, so running it last costs nothing.
+// tools/devtool/OWNERS.tsv and builds nothing, so running it last costs nothing.
 var lintSubchecks = []lintSubcheck{
 	{"golangci-lint", runGolangciLintCheck},
 	{"nomagic", runNomagicCheck},

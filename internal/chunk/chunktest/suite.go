@@ -69,7 +69,7 @@ func requireKnownError(t *testing.T, err error) {
 }
 
 // isStub reports whether factory currently produces a stub Chunker, using Split as the probe
-// (plans/OWNERS.tsv: chunk's probe method is Split). Split has no error return (§5.5), so unlike
+// (tools/devtool/OWNERS.tsv: chunk's probe method is Split). Split has no error return (§5.5), so unlike
 // almost every other suite in this tree, isStub cannot probe via core.IsNotImplemented: instead it
 // relies directly on Rule 1's documented stub contract (the SP-01 stub always returns nil
 // regardless of input). Splitting probeDataSize bytes of non-empty content and getting zero chunks

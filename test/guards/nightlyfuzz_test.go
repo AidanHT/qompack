@@ -50,7 +50,7 @@ const nightlyFuzzMatrixLen = 25
 //
 // It is transcribed rather than imported because tools/devtool is package main and no test can
 // import it — the same constraint that makes v1_integration_test.go's v1CoverageFloors a
-// transcription of 00-ARCHITECTURE.md §6.4 rather than a read of plans/OWNERS.tsv.
+// transcription of 00-ARCHITECTURE.md §6.4 rather than a read of tools/devtool/OWNERS.tsv.
 // TestNightlyFuzz_LandedSubplansMirrorsCoverGo below is the mechanical half of the pin: it reads
 // cover.go's literal and fails when the two sets drift, so the transcription cannot rot silently
 // the way a comment alone would let it.
@@ -82,7 +82,7 @@ var nightlyFuzzLandedSubplans = map[string]bool{
 //
 //   - A target that EXISTS satisfies the matrix whoever owns its package. The nightly leg will
 //     run it, which is the whole point; there is nothing left to waive.
-//   - A MISSING target is waivable only while its owning subplan (plans/OWNERS.tsv) has not
+//   - A MISSING target is waivable only while its owning subplan (tools/devtool/OWNERS.tsv) has not
 //     landed. Once the owner is in nightlyFuzzLandedSubplans the waiver is gone and the row is a
 //     hard failure: the package is real code, the matrix claims it is fuzzed, and the nightly leg
 //     would print a warning nobody reads.
@@ -130,7 +130,7 @@ func TestNightlyFuzzMatrix(t *testing.T) {
 
 			pkgName := pkgKey(pkgPath)
 			owner, known := owners[pkgName]
-			require.True(t, known, "nightly.yml fuzzes %s, which has no plans/OWNERS.tsv row", pkgPath)
+			require.True(t, known, "nightly.yml fuzzes %s, which has no tools/devtool/OWNERS.tsv row", pkgPath)
 
 			if fuzzTargetExists(t, root, pkgPath, fn) {
 				t.Logf("live: %s declares %s; the nightly leg fuzzes it for real", pkgPath, fn)
@@ -189,7 +189,7 @@ func TestNightlyFuzz_LandedSubplansMirrorsCoverGo(t *testing.T) {
 			"its §6.4 coverage floor, this one turns off its nightly-fuzz waiver.")
 }
 
-// pkgKey maps a matrix package path such as "./internal/canon" to the plans/OWNERS.tsv key
+// pkgKey maps a matrix package path such as "./internal/canon" to the tools/devtool/OWNERS.tsv key
 // "canon". Package paths outside internal/ come back unchanged and fail the OWNERS.tsv lookup,
 // which is the correct answer: the matrix has no business naming one.
 func pkgKey(pkgPath string) string {
@@ -217,11 +217,11 @@ func fuzzTargetExists(t *testing.T, root, pkgPath, fn string) bool {
 	return false
 }
 
-// ownersByPackage reads plans/OWNERS.tsv into a package-name to owning-subplan map.
+// ownersByPackage reads tools/devtool/OWNERS.tsv into a package-name to owning-subplan map.
 func ownersByPackage(t *testing.T, root string) map[string]string {
 	t.Helper()
 
-	f, err := os.Open(filepath.Join(root, "plans", "OWNERS.tsv"))
+	f, err := os.Open(filepath.Join(root, "tools", "devtool", "OWNERS.tsv"))
 	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
 

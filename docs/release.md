@@ -113,6 +113,13 @@ so read its record before tagging.
    GitHub-hosted runner or any other non-reference disk does not stand in for it. On the Windows
    reference host the run is made on AC power: a run on battery is not a reference measurement,
    neither a pass nor a fail (D57(d)).
+   The run is made with the maintainer-only records (`plans/`, `Qompack.md`) on the host's disk.
+   Without them the guard and docs tests that read them skip with `platform: <file> is
+   maintainer-only and absent from this checkout`, and neither CI nor the tag's `release-check`
+   enforces them; the plan-document lint checks likewise read nothing without `plans/`. Before
+   tagging, `go test -count=1 -v ./test/guards/ ./test/docs/ ./internal/eval/` must pass with no
+   such skip, and `go run ./tools/devtool lint --only=runpatterns,docmarkers,coveragefloors` must
+   pass without its `plans/ is maintainer-only` notice.
 4. **Tag and push the tag.** `.github/workflows/release.yml` is tag-triggered on `v*`.
 5. The workflow runs `release-check --tag "$GITHUB_REF_NAME"`, assembles and archives the six
    bundles (a `.zip` each), generates `dist/bundle/marketplace.json` from their `checksums.txt`

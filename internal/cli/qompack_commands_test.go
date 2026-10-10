@@ -223,7 +223,7 @@ func TestSlashCommands_EvalReportsTheLatestLiveRun(t *testing.T) {
 	dir := t.TempDir()
 	run := filepath.Join(dir, "dist", "live-eval", "pilot1-plugin-dir")
 	require.NoError(t, os.MkdirAll(run, 0o755))
-	pilot := filepath.Join("..", "..", "plans", "sdd", "V6-closeout", "eval", "runs", "pilot1-plugin-dir")
+	pilot := filepath.Join("..", "..", "testdata", "eval", "runs", "pilot1-plugin-dir")
 	for _, f := range []string{"plan.json", "summary.json"} {
 		raw, err := os.ReadFile(filepath.Join(pilot, f))
 		require.NoError(t, err)
