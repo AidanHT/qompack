@@ -42,18 +42,6 @@ func TestIngestWALIsExactBytes(t *testing.T) {
 	require.Equal(t, string(line)+"\n", string(got), "the WAL must contain exactly the received bytes plus one newline")
 }
 
-// ingestAcceptBudget is a generous but still meaningful upper bound on the TOTAL wall-clock cost
-// of 5 in-process Accept calls: the measured per-call cost is single-digit microseconds
-// (BenchmarkIngestAccept), so 500ms for 5 calls is roughly 15,000x headroom over the real cost —
-// tight enough to fail on a regression that makes Accept actually block (a full ring's channel
-// send has no default case, or a spill re-appears and does synchronous I/O), nowhere near tight
-// enough to be flaky under normal OS scheduling jitter. This test does not run in parallel with
-// the rest of the suite (no t.Parallel()) specifically so that jitter from unrelated tests'
-// goroutines (several of which hold real OS sockets/pipes) cannot pollute this measurement — a
-// per-call bound in the low tens of milliseconds was observed to flake under -race with many
-// parallel tests contending for scheduler time, for reasons unrelated to Accept's own cost.
-const ingestAcceptBudget = 500 * time.Millisecond
-
 // TestIngestRingFullWALsEveryLineAndNeverSpills pins the non-blocking overflow path: a full ring
 // never blocks Accept. Every accepted line reaches the WAL regardless of ring capacity — the WAL
 // append always happens first — and a ring-full request is simply dropped from the ring (counted
@@ -75,14 +63,31 @@ func TestIngestRingFullWALsEveryLineAndNeverSpills(t *testing.T) {
 	t.Cleanup(func() { _ = ing.Close() })
 	ing.ring = make(chan job, 2) // override the 4096 default so this test can actually fill it
 
+	// Nothing drains this ring, so an Accept that blocked on it would never return: the calls run
+	// on their own goroutine and the wait is a hangGuard. A wall-clock bound stood here
+	// (ingestAcceptBudget, 500 ms for the five calls) on the premise that Accept costs microseconds;
+	// it makes every line durable first, and five fsyncs on hosted windows-latest took 657 ms in ci
+	// run 38093108786 with nothing blocked. The bound said nothing that this wait does not: a
+	// blocking send fails here, and a spill's synchronous write fails the spool assertion below.
 	const n = 5
-	start := time.Now()
-	for i := 0; i < n; i++ {
-		line := []byte(`{"op":"observe.tool","s":"sess-1","t":` + string(rune('0'+i)) + `}`)
-		req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1"}
-		require.NoError(t, ing.Accept(req, line))
+	accepted := make(chan error, 1)
+	go func() {
+		for i := 0; i < n; i++ {
+			line := []byte(`{"op":"observe.tool","s":"sess-1","t":` + string(rune('0'+i)) + `}`)
+			req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1"}
+			if err := ing.Accept(req, line); err != nil {
+				accepted <- err
+				return
+			}
+		}
+		accepted <- nil
+	}()
+	select {
+	case err := <-accepted:
+		require.NoError(t, err)
+	case <-hangGuard(t):
+		t.Fatal("Accept blocked on a full ring that nothing drains")
 	}
-	require.Less(t, time.Since(start), ingestAcceptBudget, "Accept must never block on a full ring")
 
 	// All 5 lines reached the WAL regardless of ring capacity.
 	walPath := filepath.Join(paths.Of(root).Spool, "wal-sess-1.ndjson")
