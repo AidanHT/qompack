@@ -639,6 +639,17 @@ that was left out. Only a budget that cannot hold even `- N items dropped; call 
 nothing, and its drop report says so (D59,
 [ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md)).
 
+**Small tool results inline, and the record framing (0.3.2).** Item 6 labels each tool pointer with
+the call that returns it, `expand(tool_use_id="…")`, and renders a result of at most 512 bytes
+verbatim, fenced, under its pointer: the bytes `expand` would return, read through the same index
+entry and store root, judged by `expand`'s origin rule and redacted with the live `runtime.redact`
+policy. Inlined bytes are priced like any other unit against the budget and the 9,500-character
+ceiling and bounded to 4 KiB per payload in builder order, and a pointer whose inlined text does not
+fit keeps its bare line (`internal/rehydrate/inline.go`). The payload is tagged
+`<!-- qompack:session-record seq=N ver=V -->` and headed as Qompack's record of the session before
+compaction; `checkpoint.StripInjections` still removes a span tagged `qompack:injected` by 0.3.1
+or earlier.
+
 **What "the verbatim original intent" guarantees (SP08-D3, owner decision D35).** Item 2 injects the
 L0 capture `prompt_<session>_0`, resolved by derived id: the session's first *captured* prompt,
 verbatim. Captured turns follow the order prompts reach the daemon and are never renumbered.

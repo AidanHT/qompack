@@ -14,9 +14,9 @@ as "injected" content.
 
 ### Changed
 
-- **The rehydration block reads as the session's own record.** Its first line is now "Qompack's
-  record of this session before compaction" and its marker `<!-- qompack:session-record ... -->`.
-  Blocks written by 0.3.x (`qompack:injected`) are still recognized and stripped.
+- **The rehydration block reads as the session's own record.** Its heading now reads "Qompack's
+  record of this session before compaction" and its marker is `<!-- qompack:session-record ... -->`.
+  Blocks written by 0.3.1 and earlier (`qompack:injected`) are still recognized and stripped.
 - **Small tool results are shown in full.** A result of 512 bytes or less appears verbatim under
   its pointer, through the same store read, path checks and live redaction as `expand`, up to
   4 KiB per block; a result that does not fit leaves the bare pointer, as before.

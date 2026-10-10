@@ -825,7 +825,9 @@ host change could lift — as prepared proposals, none of which has been filed.
   wildcard (D67(l)). The records in sections 2 to 4 are not screened: they are your own prompts and
   the model's own earlier text (which `already_tried` and `why` return as well), and decision D50's
   rule covers pointers (decision D60(c)(i) for sections 3 and 4, D62(f) for section 2, your
-  verbatim prompts).
+  verbatim prompts). A small tool result shown in full under its pointer (from 0.3.2) is shown only
+  when that pointer's summary is, and is judged as `expand` judges it, so a shell result is not
+  screened beyond its command's summary ([docs/security.md §1](security.md#1-trust-boundaries)).
 - **Why.** Two rounds tried to find every path inside arbitrary text, and each closed some
   spellings while opening others or withholding harmless commands (decision D61(b)). A third, D61's
   blacklist screen, did not converge either: undoing shell quoting cannot be made complete, so D63

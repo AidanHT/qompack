@@ -202,7 +202,15 @@ gated, nor are the block's records of eliminated approaches and decisions, which
 earlier text too. Section 2's verbatim user intent, your own prompts, is outside these rules as well
 (coordinator decision D62(f)). So is section 5's goal line under "Current work": it is your latest
 prompt verbatim, so it can name a path the host denied after you typed it. Qompack neither reads nor
-shows the denied file; the line is only your own words (D76(e)). The screen's limits (aliases, 8.3
+shows the denied file; the line is only your own words (D76(e)). From 0.3.2 a small tool result is
+shown in full under its pointer (at most 512 bytes each and 4 KiB per block), and only after
+`expand`'s own checks: it is read from the store only while the stored record still matches the
+checkpoint's hash, a result with a path is shown only when that path lies inside the project and
+these rules allow it (none while the rules cannot be read), a pathless result (shell output, a
+prompt, a subagent's reply) only when its pointer's summary is shown, and every result is redacted
+with the current `runtime.redact` policy, as `expand` redacts. A path rule cannot match a pathless
+result, so, as with `expand` (§8), the output of a shell command that printed a denied file without
+naming it, such as a script that reads it, can be shown. The screen's limits (aliases, 8.3
 names, links and Unicode normalization or
 compatibility variants of a name — an NFD spelling of an NFC literal, a fullwidth spelling that a
 code page's best-fit mapping reads as ASCII — are never resolved in free text, nor are names built at
@@ -461,7 +469,10 @@ Open at this release, stated here rather than left to discovery.
   honours the Read deny and ask rules saved in the files Claude Code reads (§1), but a read the host
   would refuse only through a session-only rule, a command-line flag, a hook or an embedding host's
   policy can still be served from the archive. A path rule never matches a pathless record: the
-  output of `cat .env` archived as shell output is served even when `Read(./.env)` is denied. A
+  output of `cat .env` archived as shell output is served even when `Read(./.env)` is denied. From
+  0.3.2 the rehydration block shows a small shell result inline only when the command's summary
+  passes its screen, which withholds `cat .env` under that rule but not a script that reads the
+  file (§1). A
   search result is judged by the directory it searched, as the host judges a Grep, so its lines may
   quote a file a later rule denies. `CLAUDE_CONFIG_DIR` is seen only if the host passes it to
   subprocesses (`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` removes it).

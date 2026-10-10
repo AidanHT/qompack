@@ -1544,10 +1544,12 @@ do reach the injected block all resolve to something.
   both observed on this tree
   ([docs/troubleshooting.md](troubleshooting.md#6-configuration-and-schema-compatibility)).
 - Step 6: every pointer resolves through `expand` (by `hash`) or `re_read` (by `path`). Section 6's
-  own heading says contents are **not** restored and that `expand`/`re_read` are how you get them
-  (`internal/rehydrate/render.go`). A pointer that resolves to nothing is a **fail**; a pointer whose
-  content is `redacted` or `truncated` is **not** — that is a recorded fidelity, and the privacy
-  policy applied at capture is why ([docs/troubleshooting.md](troubleshooting.md#3-capture-gaps)).
+  own heading says small results are shown inline and that `expand`/`re_read` give the full content
+  (`internal/rehydrate/render.go`): from 0.3.2 a tool result of at most 512 bytes can appear
+  verbatim under its pointer, read and redacted as `expand` reads it. A pointer that resolves to
+  nothing is a **fail**; a pointer whose content is `redacted` or `truncated` is **not** — that is a
+  recorded fidelity, and the privacy policy applied at capture is why
+  ([docs/troubleshooting.md](troubleshooting.md#3-capture-gaps)).
 
 **Evidence to record**
 

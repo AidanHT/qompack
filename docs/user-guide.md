@@ -288,8 +288,9 @@ It returns pointers rather than content, so it never counts as demand for promot
 
 ### `expand`
 
-Materializes archived content by `hash` or `tool_use_id` — the identifiers a tombstone or a
-`recall` hit gives you. Call it when a reference is not enough. Minimal span by default; `full:
+Materializes archived content by `hash` or `tool_use_id` — the identifiers a tombstone, a `recall`
+hit or a rehydration block's `expand(tool_use_id="…")` pointer gives you. Call it when a reference
+is not enough. Minimal span by default; `full:
 true` or an explicit `span` when it is not; `next_span` to page. The response describes this read
 — `span`, `total_bytes`, `truncated`, `next_span` — and carries no fidelity or coverage field: what
 you hold may be a partial capture, so treat it as the archive's copy, not as the whole original.
@@ -322,6 +323,13 @@ rather than ephemeral. A change to any `depends_on` path flips the record to sta
 deleting it. A `session`-scoped record (the default) belongs to the session that made it and is
 answered only there; `project` scope carries it to later sessions. Check the response before relying
 on persistence: when no ledger can be opened it is a tool error and nothing is recorded.
+
+From 0.3.2 Qompack also records an elimination when one of your prompts says an approach failed in
+one of a fixed list of phrases ("that didn't work", "we already tried", "that was a dead end", and
+a few more). Its target is the last file edited in the turn you are answering, its approach the
+first line of Claude's reply in that turn, and its reason your prompt, the last two redacted with
+the current `runtime.redact` policy. A statement after a turn that edited no file records nothing.
+The daemon does this after it has stored the prompt, never while the hook waits.
 
 ### `timeline`
 
@@ -510,7 +518,9 @@ in a digest as a claim that has not been verified end to end.
 
 ## Additional context: budget and overflow
 
-After a compaction, Qompack injects one block. Its size is capped and its order is fixed, per
+After a compaction, Qompack injects one block, headed "Qompack's record of this session before
+compaction" (0.3.1 and earlier headed it "Qompack rehydration"). Its size is capped and its order
+is fixed, per
 [ADR 0011](adr/0011-rehydration-budget-and-item-order.md):
 
 - **It always fits what Claude Code delivers whole.** Claude Code hands a hook's
@@ -532,6 +542,11 @@ After a compaction, Qompack injects one block. Its size is capped and its order 
 - **A path rule is restored whole or not at all.** A half-restored instruction is worse than an
   absent one, because you cannot tell you are reading half of it; an absent one at least appears in
   the drop report.
+- **Small tool results come back whole (from 0.3.2).** Section 6 names each tool pointer by the
+  call that fetches it, `expand(tool_use_id="…")`, and shows a result of 512 bytes or less verbatim
+  under it, read and redacted as `expand` would return it, up to 4 KiB per block. A larger result,
+  or one `expand` would refuse, stays a pointer
+  ([docs/security.md §1](security.md#1-trust-boundaries)).
 - **Overflow is explicit, never silent.** What did not fit is named in section 7 ("No longer in
   context") with the call that brings it back — `why(<decision id>)`, `re_read(<path>)`,
   `expand(tool_use_id=…)`, `already_tried(target="…", approach="…")` for an elimination, or `Read`
