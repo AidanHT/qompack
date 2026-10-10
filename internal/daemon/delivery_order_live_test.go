@@ -168,12 +168,18 @@ func TestDeliveryOrder_LiveSameSessionArrivalsPublishWithoutDrain(t *testing.T) 
 		acceptPrompt(t, dd, req)
 		leases[i] = liveOrderLease(t, dd, req.Nonce)
 		require.Equal(t, uint64(i+1), leases[i].ArrivalSeq)
+		if i == 0 {
+			liveOrderAwaitHeldHead(t, dd, sess) // arrival 1 is in flight before any later one arrives
+		}
 	}
 
-	// Every job has reached a worker. Give the pre-fix dispatch its chance to defer arrivals 2..K
-	// while arrival 1 is still in flight; the poll ends as soon as it has.
-	require.Eventually(t, func() bool { return len(dd.ing.ring) == 0 }, liveOrderBound, liveOrderTick,
-		"the worker pool never took the queued jobs")
+	// Every job has reached a worker, and every one of them the session's lane. Give the pre-fix
+	// dispatch its chance to defer arrivals 2..K while arrival 1 is still in flight; the poll ends as
+	// soon as it has.
+	require.Eventually(t, func() bool {
+		queued, running := liveOrderLane(dd, sess)
+		return len(dd.ing.ring) == 0 && queued == k && running
+	}, liveOrderBound, liveOrderTick, "the worker pool never queued the jobs in the session's lane")
 	liveOrderPollUntil(liveOrderRelease, func() bool { return dd.m.Counter(counterOrderingDeferred).Value() >= k-1 })
 	open()
 
@@ -266,6 +272,24 @@ func liveOrderLane(dd *daemon, sess core.SessionID) (queued int, running bool) {
 	return 0, false
 }
 
+// liveOrderAwaitHeldHead waits until sess's lane holds exactly its first arrival and a worker owns
+// the lane: the arrival a test's gate (liveOrderPromptGate) then holds in flight. Accept puts jobs on
+// the ring in arrival order, but the workers take them off it concurrently, and a worker that has
+// taken arrival 1 can be descheduled before it joins the lane. Arrival 2 then reaches the lane
+// first, runs as its head and is deferred by the ordering gate — correctly, as
+// TestDeliveryOrder_LiveReversedRingOrderPublishesWithoutDrain pins — and a parked lane asks for a
+// drain. A test that means to queue the later arrivals behind an arrival already in flight must
+// wait for that arrival to be in the lane before it accepts them: hosted CI run 38083972920 met the
+// other order, one deferral and then every arrival published in order, and the row that asserts no
+// deferral failed.
+func liveOrderAwaitHeldHead(t *testing.T, dd *daemon, sess core.SessionID) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		queued, running := liveOrderLane(dd, sess)
+		return queued == 1 && running
+	}, liveOrderBound, liveOrderTick, "the session's first arrival never reached its lane")
+}
+
 // TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor: a live successor whose predecessor never
 // reached the worker pool (here it exists only as a client spool line, as it would after a ring drop
 // or an ACK-deadline spool) parks: the gate defers it once and nothing spins. When a drain then
@@ -345,6 +369,9 @@ func TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain(t *testin
 		req := spD3Prompt(dd, root, sess, orderNonce(i), fmt.Sprintf("p%d", i))
 		acceptPrompt(t, dd, req)
 		leases[i] = liveOrderLease(t, dd, req.Nonce)
+		if i == 0 {
+			liveOrderAwaitHeldHead(t, dd, sess) // the lane is busy before any later arrival
+		}
 	}
 	require.Eventually(t, func() bool { return dd.m.Counter(counterOrderingLaneFull).Value() == k-capacity },
 		liveOrderBound, liveOrderTick, "every job past the capacity is counted and left in the WAL")
@@ -769,26 +796,23 @@ func TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing(t *testing.T) 
 	laneTestSetSettle(dd, liveOrderTick, liveOrderTick) // far shorter than the held delivery below
 
 	const sess core.SessionID = "sess-flush-unsettled"
-	release := make(chan struct{})
-	var once sync.Once
-	open := func() { once.Do(func() { close(release) }) }
+	held := liveOrderTool(dd, root, sess, 1) // held in flight past the bound
+	run, open, inFlight := settleGate(dd, held.Nonce)
 	t.Cleanup(open)
-	run := func(ctx context.Context, req ipc.Request) ipc.Response {
-		if req.Event != nil && req.Event.ToolUseID == "toolu_lane_01" {
-			<-release
-		}
-		return dd.runIngested(ctx, req)
-	}
 	liveOrderWorkers(t, dd, 2, run)
 
 	first := spD3Prompt(dd, root, sess, orderNonce(0), "p0")
 	acceptPrompt(t, dd, first)
-	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 1)) // held in flight past the bound
+	acceptPrompt(t, dd, held)
 	acceptPrompt(t, dd, liveOrderTool(dd, root, sess, 2))
 	leases := []deliveryLease{
-		liveOrderLease(t, dd, first.Nonce), liveOrderLease(t, dd, orderNonce(101)), liveOrderLease(t, dd, orderNonce(102)),
+		liveOrderLease(t, dd, first.Nonce), liveOrderLease(t, dd, held.Nonce), liveOrderLease(t, dd, orderNonce(102)),
 	}
 	require.Eventually(t, func() bool { return liveOrderAcked(dd, leases[:1]) == 1 }, liveOrderBound, liveOrderTick)
+	// The flush must come while the held delivery is in flight. Its worker can still be on its way to
+	// the lane once the first has published (liveOrderAwaitHeldHead says why); a flush then finds the
+	// lane quiet, and its drain publishes the delivery the row means to be in flight.
+	require.True(t, heldWithin(inFlight, liveOrderBound), "fixture sanity: the lane is publishing the held delivery")
 
 	resp := dd.flushRoute(context.Background(), liveOrderFlush(dd, root, sess), true)
 	require.Equal(t, int64(1), dd.m.Counter(counterFlushUnsettled).Value(), "the unsettled SessionEnd is counted")

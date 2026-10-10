@@ -95,9 +95,13 @@ func TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes(t *testing.T
 		acceptPrompt(t, dd, req)
 		stuckLeases[i] = liveOrderLease(t, dd, req.Nonce)
 	}
+	// The lane never settles a job of the stuck session, so once it holds its share and has refused
+	// every arrival past it, each of them has been through a worker's join: none is left behind the
+	// ring, between a worker and the lane, to be refused after the count below is read.
 	require.Eventually(t, func() bool {
 		queued, running := liveOrderLane(dd, stuck)
-		return len(dd.ing.ring) == 0 && queued > 0 && !running
+		return len(dd.ing.ring) == 0 && queued > 0 && !running &&
+			dd.m.Counter(counterOrderingLaneFull).Value() == int64(stuckArrivals-perSession)
 	}, liveOrderBound, liveOrderTick, "the stuck session's lane parks on its failing head")
 
 	var otherLeases []deliveryLease
@@ -242,6 +246,9 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 		req := spD3Prompt(dd, root, sess, orderNonce(i), fmt.Sprintf("p%d", i))
 		acceptPrompt(t, dd, req)
 		leases[i] = liveOrderLease(t, dd, req.Nonce)
+		if i == 0 {
+			liveOrderAwaitHeldHead(t, dd, sess) // the lane is busy before any later arrival
+		}
 	}
 	require.Eventually(t, func() bool { return dd.m.Counter(counterOrderingLaneFull).Value() == k-perSession },
 		liveOrderBound, liveOrderTick, "every job past the session's share is refused while its lane is busy")
