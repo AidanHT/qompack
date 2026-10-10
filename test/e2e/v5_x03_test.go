@@ -23,6 +23,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -177,9 +178,11 @@ func (r *x3v5Rig) Gaps(t *testing.T) daemon.DrainGapState {
 	return rep.DrainGaps()
 }
 
-// x3v5ReadJSONL hands every non-empty line of the named state file to decode and returns the raw
-// bytes, so a caller can assert append-only growth as well as content. A missing file is an empty
-// journal.
+// x3v5ReadJSONL hands every complete non-empty line of the named state file to decode and returns
+// the raw bytes, so a caller can assert append-only growth as well as content. A missing file is an
+// empty journal. The daemon writes each record whole and newline-terminated, and callers poll while
+// it appends, so a final line with no newline yet is a record still being written and is not
+// decoded.
 func x3v5ReadJSONL(t *testing.T, root, name string, decode func([]byte)) []byte {
 	t.Helper()
 	raw, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).State, name)))
@@ -187,7 +190,8 @@ func x3v5ReadJSONL(t *testing.T, root, name string, decode func([]byte)) []byte 
 		return nil
 	}
 	require.NoError(t, err)
-	for _, line := range strings.Split(string(raw), "\n") {
+	complete := raw[:bytes.LastIndexByte(raw, '\n')+1]
+	for _, line := range strings.Split(string(complete), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -358,6 +362,19 @@ func x3v5GapKinds(st daemon.DrainGapState) map[daemon.DrainGapKind]int {
 		out[g.Kind] += g.Count
 	}
 	return out
+}
+
+// TestV5_DeliveryJournalReadSkipsUnterminatedRecord: x3v5Acks is polled while the daemon appends,
+// and a final line with no newline yet is a record still being written, not a corrupt one.
+func TestV5_DeliveryJournalReadSkipsUnterminatedRecord(t *testing.T) {
+	root := t.TempDir()
+	state := paths.Of(root).State
+	require.NoError(t, os.MkdirAll(paths.Long(state), 0o700))
+	raw := `{"delivery":"d1","observation_id":"o1"}` + "\n" + `{"delivery":"d2","obse`
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(state, x3v5AckFile)), []byte(raw), 0o600))
+	acks, got := x3v5Acks(t, root)
+	require.Equal(t, []x3v5Ack{{Delivery: "d1", ObservationID: "o1"}}, acks)
+	require.Equal(t, raw, string(got), "the raw bytes are returned whole, for the append-only checks")
 }
 
 // TestV5_HookEventToTombstoneToRetrievalAfterRestart is V5-VERIFY §4.3.

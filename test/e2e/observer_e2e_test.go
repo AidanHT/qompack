@@ -225,12 +225,16 @@ func obsAwaitSessionEnded(t *testing.T, root string, sess core.SessionID, before
 		sess, obsWaitDiag{root})
 }
 
-// obsToolUseLines returns index/tool_use.jsonl's non-empty lines, or nil before the file exists.
+// obsToolUseLines returns index/tool_use.jsonl's complete non-empty lines, or nil before the file
+// exists. The store writes each record whole and newline-terminated, so a final line with no
+// newline yet is a record the daemon is still appending: it is left for the next read rather than
+// handed to a caller that decodes it.
 func obsToolUseLines(root string) []string {
 	b, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).Index, "tool_use.jsonl")))
 	if err != nil {
 		return nil
 	}
+	b = b[:bytes.LastIndexByte(b, '\n')+1]
 	var out []string
 	for _, line := range strings.Split(string(b), "\n") {
 		if strings.TrimSpace(line) != "" {
@@ -238,6 +242,22 @@ func obsToolUseLines(root string) []string {
 		}
 	}
 	return out
+}
+
+// TestE2E_ObsToolUseLinesSkipsUnterminatedRecord: a final line with no newline yet is a record
+// the daemon is still appending, so obsToolUseLines must not hand it to a caller that decodes it
+// (release.yml run 38036509072: "unexpected end of JSON input").
+func TestE2E_ObsToolUseLinesSkipsUnterminatedRecord(t *testing.T) {
+	root := t.TempDir()
+	index := paths.Of(root).Index
+	require.NoError(t, os.MkdirAll(paths.Long(index), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(index, "tool_use.jsonl")),
+		[]byte(`{"id":"toolu_a","tool":"Read"}`+"\n"+`{"id":"toolu_b","to`), 0o600))
+	lines := obsToolUseLines(root)
+	require.Equal(t, []string{`{"id":"toolu_a","tool":"Read"}`}, lines)
+	for _, line := range lines {
+		require.True(t, json.Valid([]byte(line)), "index line must be JSON: %s", line)
+	}
 }
 
 // TestE2E_ObserverThroughDaemon: session-start, 40 observe tool, 3 observe prompt, 1 observe stop
