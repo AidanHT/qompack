@@ -152,3 +152,19 @@ re-check add is appended here first.
     block's section 7 and `dropped()` do not name them. Nothing is lost: the daemon stores them right
     after, and `recall` and `expand` find them then. Fixed in 0.3.1 on fix/v031-settle (D73(b), D81(c)(4),
     D82; C6.4 review round 3, finding 3.2.)
+
+## Added by D84
+
+21. **A checkpoint can point at a removed file object without saying so.** finalize's keepResolvableFiles
+    (internal/checkpoint/finalize.go) seals a file pointer without checking its hash against the store,
+    so after a file's object is removed from outside Qompack the pointer is sealed and no DropEntry names
+    it; `qompack fsck` (internal/cli/fsck.go) reports the dangling hash, and rehydration reads the file
+    by path (internal/rehydrate/items.go), so no context is lost. Found by
+    TestFault_CheckpointDropsAnUnresolvablePointer in ci 37923557517 attempt 2; the same failure is in
+    ci 37669105758, 37690640302 and 37690895373, all before v0.3.0. After 0.3.1: check file-pointer
+    hashes the way tool pointers are checked (D84).
+
+- TestFault_CheckpointDropsAnUnresolvablePointer (test/fault/historical_test.go) picks its target with
+  firstIndexedToolUse, whose order varies, and seedSession dedups src/alpha.ts with a Read result into one
+  chunk, so the row only sometimes exercises known issue 21. After 0.3.1: pick the target
+  deterministically (D84).
