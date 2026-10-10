@@ -7,6 +7,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Changes aimed at what the 0.3.0 live evaluation (`plans/sdd/V6-closeout/eval/runs/c55-c8/`)
+showed: the model never followed a pointer (0 Qompack tool calls in 20 sessions), a 22-byte
+value restored only as a pointer was lost, and in 3 of 20 sessions the model distrusted the block
+as "injected" content.
+
+### Changed
+
+- **The rehydration block reads as the session's own record.** Its first line is now "Qompack's
+  record of this session before compaction" and its marker `<!-- qompack:session-record ... -->`.
+  Blocks written by 0.3.x (`qompack:injected`) are still recognized and stripped.
+- **Small tool results are shown in full.** A result of 512 bytes or less appears verbatim under
+  its pointer, through the same store read, path checks and live redaction as `expand`, up to
+  4 KiB per block; a result that does not fit leaves the bare pointer, as before.
+- **Pointers are copyable calls.** Each tool pointer reads `expand(tool_use_id="...")`.
+- **Shorter fixed text.** The MCP server instructions and tool descriptions, which every session
+  loads, are about a fifth smaller; slash-command descriptions are shorter. Tool names, arguments
+  and behaviour are unchanged.
+- **Eliminations a user states are recorded.** A prompt matching negknow's fixed phrase list
+  ("that didn't work", ...) becomes an elimination against the file edited in the turn it answers,
+  redacted, in the daemon and never on the hook path, so `already_tried` and the block's ruled-out
+  section can name it.
+
 ### Fixed
 
 - **A checkpoint no longer points at a removed file object without saying so** (known issue 21).
@@ -14,6 +36,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   whose stored copy is gone is left out of the checkpoint and named in its drop report.
 - The daemon's warning when a PreCompact seals before every capture is replayed now says how long
   the settle ran and why it stopped.
+
+### Known issues
+
+- A 0.3.1 or older binary does not recognize the new marker; after downgrading, one 0.3.2 block
+  can be carried into the next checkpoint.
+- A stated elimination is lost if the daemon stops between storing the prompt and recording it.
 
 ## [0.3.1] - 2026-10-09
 
