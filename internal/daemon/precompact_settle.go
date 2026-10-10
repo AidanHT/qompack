@@ -238,7 +238,8 @@ func captureOf(req ipc.Request) pendingCapture {
 func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) *sealReport {
 	cfg := d.currentCfg()
 	bound := precompactSettleBound(cfg)
-	sctx, cancel := context.WithDeadline(ctx, time.Now().Add(bound))
+	start := time.Now()
+	sctx, cancel := context.WithDeadline(ctx, start.Add(bound))
 	defer cancel()
 	var reads int64 // the files this settle's own looks read
 	defer func() {
@@ -283,9 +284,21 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 	if d.m != nil {
 		d.m.Counter(counterPrecompactUnreplayed).Add(int64(len(left)))
 	}
+	// Why the settle stopped, so a host stall past the bound (D55's degrade) reads apart from the
+	// others: the PreCompact's own context ended, the bound expired, or the waits and the replay
+	// stopped with time left (the lane went quiet, a replay ended early or advanced no further, or a
+	// spool failed to read).
+	reason := "no further progress before the bound"
+	switch {
+	case ctx.Err() != nil:
+		reason = "cancelled"
+	case sctx.Err() != nil:
+		reason = "bound reached"
+	}
 	d.log.Warn("daemon: PreCompact sealed before some of the session's captures were replayed; "+
 		"the checkpoint's drop report counts them, and the daemon replays them next",
-		"session", string(sess), "captures", len(left), "unread_spools", len(last.unread), "bound", bound.String())
+		"session", string(sess), "captures", len(left), "unread_spools", len(last.unread), "bound", bound.String(),
+		"elapsed", time.Since(start).String(), "reason", reason)
 	return &sealReport{left: left, unread: len(last.unread), allowance: unreplayedNamesAllowance(cfg)}
 }
 

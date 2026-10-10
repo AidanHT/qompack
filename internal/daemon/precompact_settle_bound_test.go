@@ -569,3 +569,46 @@ func TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain(t *t
 	_, _, read = dd.spoolHeads.heads(ctx, root, l[0])
 	require.False(t, read, "control: once the removal returned, the index remembers the file again")
 }
+
+// TestPreCompactSettle_TheWarnSaysHowLongTheSettleRanAndWhyItStopped: the Warn a settle logs when it
+// seals with captures left carries how long it ran and why it stopped, so a host stall past the bound
+// (D55's designed degrade) can be told from a settle that stopped for another reason. The drain's
+// mutex is held throughout, so the replay of the session's spooled Read waits out the bound; a
+// cancelled PreCompact stops it at once.
+func TestPreCompactSettle_TheWarnSaysHowLongTheSettleRanAndWhyItStopped(t *testing.T) {
+	const bound = 50 * time.Millisecond
+	dd, root := settleTestDaemon(t, bound)
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
+	log := newRecordingLogger()
+	dd.log = log
+	const sess core.SessionID = "sess-precompact-warn"
+	own := liveOrderTool(dd, root, sess, 1)
+	writeHookSpool(t, root, "client-7878.ndjson", own)
+	dr := dd.drain.Load()
+	dr.mu.Lock()
+	defer dr.mu.Unlock()
+
+	warnKV := func() map[string]any {
+		t.Helper()
+		es := log.entries(logWarn)
+		require.NotEmpty(t, es)
+		kv := es[len(es)-1].KV
+		m := map[string]any{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			m[kv[i].(string)] = kv[i+1]
+		}
+		return m
+	}
+
+	require.NotNil(t, dd.settleBeforeSeal(context.Background(), sess, own.TS+1))
+	kv := warnKV()
+	require.Equal(t, "bound reached", kv["reason"])
+	elapsed, err := time.ParseDuration(fmt.Sprint(kv["elapsed"]))
+	require.NoError(t, err, "elapsed is a duration")
+	require.GreaterOrEqual(t, elapsed, bound, "a settle that reached its bound ran at least the bound")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.NotNil(t, dd.settleBeforeSeal(ctx, sess, own.TS+1))
+	require.Equal(t, "cancelled", warnKV()["reason"])
+}
