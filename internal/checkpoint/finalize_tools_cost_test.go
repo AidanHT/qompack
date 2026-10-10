@@ -102,7 +102,7 @@ func TestKeepResolvableToolsStatsEachChunkOnceAndNeverTheRoot(t *testing.T) {
 		{ToolUseID: "toolu_c", Hash: small.Hash}, // same root again: a repeated read
 		{ToolUseID: "toolu_d", Hash: large.Hash},
 	}
-	out, drops := keepResolvableTools(context.Background(), in, nil, SourceSet{Store: s})
+	out, drops := keepResolvableTools(context.Background(), in, nil, SourceSet{Store: s}, oncePerHash(objectPresent(s)))
 	require.Equal(t, in, out, "every pointer resolves")
 	require.Empty(t, drops)
 
@@ -171,7 +171,7 @@ func TestKeepResolvableToolsVerdictsMatchTheDefinition(t *testing.T) {
 	require.Len(t, wantOut, 3, "held, the chunk named directly and held again survive by definition")
 
 	prior := []DropEntry{{Kind: dropPointerMissing, ID: "src/gone.ts"}}
-	out, drops := keepResolvableTools(ctx, in, prior, SourceSet{Store: s})
+	out, drops := keepResolvableTools(ctx, in, prior, SourceSet{Store: s}, oncePerHash(objectPresent(s)))
 	require.Equal(t, wantOut, out)
 	require.Equal(t, append(prior, wantDrops...), drops, "drops append after the ones already collected")
 }

@@ -84,9 +84,12 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 	// 2. Ground truth (G2.5). ValidatePointers errors only on ctx cancellation, and a cancelled
 	//    context here must not cost us the artifact — §12's PreCompact-timeout row says finalize
 	//    as-is, so a cancellation falls through to truncation with whatever we have.
+	//    One presence memo serves both pointer kinds: a file pointer usually names the same root as
+	//    the tool pointer that read or wrote it, so its chunks are statted once, not twice.
 	drops, _ := ValidatePointers(ctx, w.root, cp.Pointers)
-	cp.Pointers.Files = keepResolvableFiles(cp.Pointers.Files, drops)
-	cp.Pointers.Tools, drops = keepResolvableTools(ctx, cp.Pointers.Tools, drops, src)
+	present := oncePerHash(objectPresent(src.Store))
+	cp.Pointers.Files, drops = keepResolvableFiles(ctx, cp.Pointers.Files, drops, src, present)
+	cp.Pointers.Tools, drops = keepResolvableTools(ctx, cp.Pointers.Tools, drops, src, present)
 	cp.Dropped = append(cp.Dropped, drops...)
 
 	// 3. Importance-ordered truncation (§6.9). Truncate has no error return and always yields a
@@ -417,30 +420,40 @@ func (w *FileWriter) commitSegmentMarks(ctx context.Context, r store.SegmentRese
 	}
 }
 
-// keepResolvableFiles returns the file pointers that survive validation. Only pointer_missing and
-// pointer_invalid remove a pointer: pointer_dirty and pointer_untracked are informational, because
-// a dirty file is exactly the file the agent is working on and dropping it would discard the most
-// relevant pointer in the set.
-func keepResolvableFiles(in []FilePointer, drops []DropEntry) []FilePointer {
-	if len(drops) == 0 {
-		return in
-	}
+// keepResolvableFiles returns the file pointers that survive validation, appending a
+// pointer_unresolvable drop, named by path, for each one whose stored content the store no longer
+// holds. Of ValidatePointers' verdicts only pointer_missing and pointer_invalid remove a pointer:
+// pointer_dirty and pointer_untracked are informational, because a dirty file is exactly the file
+// the agent is working on and dropping it would discard the most relevant pointer in the set.
+//
+// A file pointer's Hash is the content root of the file's latest stored version (Advance takes it
+// from FileHistory), the same kind of root a tool pointer names, so it is resolved the same way:
+// through toolResultResolvable and the caller's presence memo. ValidatePointers checks only the
+// working tree, and without this a pointer into collected or removed bytes was sealed with no
+// drop at all (known issue 21).
+func keepResolvableFiles(ctx context.Context, in []FilePointer, drops []DropEntry, src SourceSet, present func(core.Hash) bool) ([]FilePointer, []DropEntry) {
 	remove := make(map[string]bool, len(drops))
 	for _, d := range drops {
 		if d.Kind == dropPointerMissing || d.Kind == dropPointerInvalid {
 			remove[d.ID] = true
 		}
 	}
-	if len(remove) == 0 {
-		return in
-	}
 	out := in[:0:0]
 	for _, p := range in {
-		if !remove[p.Path] {
-			out = append(out, p)
+		if remove[p.Path] {
+			continue
 		}
+		if toolResultResolvable(ctx, src.Store, present, p.Hash) {
+			out = append(out, p)
+			continue
+		}
+		drops = append(drops, DropEntry{
+			Kind:   dropPointerUnresolvable,
+			ID:     p.Path,
+			Detail: "object missing from the store (collected?)",
+		})
 	}
-	return out
+	return out, drops
 }
 
 // keepResolvableTools returns the tool pointers whose stored content is still present, appending a
@@ -454,9 +467,10 @@ func keepResolvableFiles(in []FilePointer, drops []DropEntry) []FilePointer {
 // on the production path (V5-VERIFY §4.8). The pointer is therefore kept when its root resolves
 // and every chunk the root names is still held, which is exactly what expand(hash) will need; a
 // pointer that names a chunk directly is still honoured through Has.
-func keepResolvableTools(ctx context.Context, in []ToolPointer, drops []DropEntry, src SourceSet) ([]ToolPointer, []DropEntry) {
+//
+// present is the caller's oncePerHash(objectPresent(src.Store)), shared with keepResolvableFiles.
+func keepResolvableTools(ctx context.Context, in []ToolPointer, drops []DropEntry, src SourceSet, present func(core.Hash) bool) ([]ToolPointer, []DropEntry) {
 	out := in[:0:0]
-	present := oncePerHash(objectPresent(src.Store))
 	for _, p := range in {
 		if toolResultResolvable(ctx, src.Store, present, p.Hash) {
 			out = append(out, p)
@@ -492,9 +506,10 @@ func objectPresent(s store.Store) func(core.Hash) bool {
 	return s.Has
 }
 
-// oncePerHash memoizes present for the length of one keepResolvableTools call, so a chunk shared
-// by several tool pointers — a file read twice, a test re-run whose output deduped — is statted
-// once per Finalize rather than once per pointer (SP10-D1). The answer is the same point-in-time
+// oncePerHash memoizes present for the length of one Finalize's pointer pass, so a chunk shared
+// by several pointers — a file read twice, a test re-run whose output deduped, a file pointer and
+// the tool pointer that read it — is statted once per Finalize rather than once per pointer
+// (SP10-D1). The answer is the same point-in-time
 // observation either way: a Finalize already reads each object's presence at some instant during
 // the call, and nothing orders one pointer's stat against another's.
 func oncePerHash(present func(core.Hash) bool) func(core.Hash) bool {
@@ -509,14 +524,14 @@ func oncePerHash(present func(core.Hash) bool) func(core.Hash) bool {
 	}
 }
 
-// toolResultResolvable reports whether h — a tool result's root, or a chunk named directly — can
-// still be materialized from the store: the object itself is on disk, or the root resolves and every
+// toolResultResolvable reports whether h — a tool result's or stored file version's root, or a
+// chunk named directly — can still be materialized from the store: the object itself is on disk, or the root resolves and every
 // chunk it lists is on disk. A root whose chunks were collected is unresolvable even though the
 // root index still remembers it, because expand(hash) reads chunks, not index entries.
 //
 // The two arms are asked in the cheap order, and the order cannot change the verdict because
-// neither arm has a side effect: GetRoot is an in-memory index lookup, and a tool pointer names a
-// ROOT, which is never an object file itself. Asking present(h) first — as this function did until
+// neither arm has a side effect: GetRoot is an in-memory index lookup, and a tool or file pointer
+// names a ROOT, which is never an object file itself. Asking present(h) first — as this function did until
 // SP10-D1 — cost every pointer two failing stats (one per candidate spelling) before the index was
 // consulted, which on Windows was most of BenchmarkFinalize. A chunk named directly still gets
 // its stat, one lookup later.

@@ -251,3 +251,45 @@ func removeChunkObject(t *testing.T, root string, h core.Hash) {
 	}
 	t.Fatalf("object %s was not present to remove", h.Short())
 }
+
+// TestFinalizeDropsAFilePointerWhoseChunkFileIsGone is known issue 21. A file pointer's Hash is the
+// content root of the file's latest stored version — the same kind of root a tool pointer names —
+// and ValidatePointers checks only the working tree, so a pointer whose stored bytes are gone used
+// to be sealed with no drop. It must be removed and named by its path, exactly as the tool pointer
+// sharing its chunk is.
+func TestFinalizeDropsAFilePointerWhoseChunkFileIsGone(t *testing.T) {
+	f := newFx(t)
+	// The file is on disk, so ValidatePointers finds nothing wrong with the working-tree half.
+	p := filepath.Join(f.p.Root, "src", "alpha.ts")
+	require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+	require.NoError(t, os.WriteFile(p, []byte("export const alpha = 1\n"), 0o600))
+
+	f.prompt(0, "Read the alpha module.", true)
+	root := f.tool("toolu_file_disk_0001", 1, "Read", "src/alpha.ts", "export const alpha = 1\n", false)
+	f.closedSeg(1, 0, 3)
+
+	held, err := f.store.GetRoot(f.ctx(), root)
+	require.NoError(t, err)
+	require.NotEmpty(t, held.Chunks)
+	removeChunkObject(t, f.p.Root, held.Chunks[0].Hash)
+
+	d := f.begin()
+	f.advance(d, 1)
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err)
+	raw, err := os.ReadFile(paths.Long(ref.Path))
+	require.NoError(t, err)
+	cp, err := checkpoint.Unmarshal(raw)
+	require.NoError(t, err)
+
+	for _, fp := range cp.Pointers.Files {
+		require.NotEqual(t, "src/alpha.ts", fp.Path, "a file pointer whose stored content is gone must not be sealed")
+	}
+	var found bool
+	for _, dr := range cp.Dropped {
+		if dr.Kind == "pointer_unresolvable" && dr.ID == "src/alpha.ts" {
+			found = true
+		}
+	}
+	require.True(t, found, "the file pointer's removal is reported under its path; got %+v", cp.Dropped)
+}
