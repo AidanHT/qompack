@@ -164,9 +164,10 @@ build does not support is disabled, and can be seen to be disabled.
   printed and the `version` in the bundle's `BUNDLE.json`, because `devtool bundle` stamps one
   version into the binary, `plugin.json` and `BUNDLE.json` alike, and strips the source tree's
   `plugin/` prefix so the manifest sits at the bundle's root. The source tree's own
-  `plugin/.claude-plugin/plugin.json` reads `0.3.0` from 0.3.0's version commit on and `0.3.1` from
-  0.3.1's (it read `0.1.0` before 0.3.0's, as the Result below records), and the tag `v0.2.0` was
-  never a release (the first release is `v0.3.0`); record all three as they stand
+  `plugin/.claude-plugin/plugin.json` reads `0.3.0` from 0.3.0's version commit on, `0.3.1` from
+  0.3.1's and `0.3.2` from 0.3.2's (it read `0.1.0` before 0.3.0's, as the Result below records),
+  and the tag `v0.2.0` was never a release (the first release is `v0.3.0`); record all three as they
+  stand
   ([README.md](../README.md#status-released)).
 - Step 5's hook list is the seven events `plugin/hooks/hooks.json` declares — `PostToolUse`,
   `PreCompact`, `SessionEnd`, `SessionStart`, `Stop`, `SubagentStop`, `UserPromptSubmit` — each

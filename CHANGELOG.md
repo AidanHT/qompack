@@ -5,12 +5,31 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.2] - 2026-10-11
 
-Changes aimed at what the 0.3.0 live evaluation (`plans/sdd/V6-closeout/eval/runs/c55-c8/`)
-showed: the model never followed a pointer (0 Qompack tool calls in 20 sessions), a 22-byte
-value restored only as a pointer was lost, and in 3 of 20 sessions the model distrusted the block
-as "injected" content.
+A release on 0.3.1 (tag `v0.3.1`, `c7e45af9`). Its rehydration block changes are aimed at what
+0.3.0's live evaluation (C5.5) showed: the model never followed a pointer (0 Qompack tool calls in
+20 sessions), a 22-byte value restored only as a pointer was lost, and in 3 of 20 sessions the
+model distrusted the block as "injected" content. It also fixes known issue 21 and a Windows
+daemon stop that could leave its pipe bound, and shortens the text every session loads. Its product
+code is 0.3.1's plus the fixes owed after 0.3.1 (decision D86), the rehydration, negative-knowledge
+and description changes below, the pipe-close fix, and the version commit.
+The block's growth on the replay corpus is accepted under decision D90. No live evaluation is part
+of 0.3.2's release gate, and nothing here claims the changes improve recovery, task success or
+constraint retention. The [release notes](docs/release-notes/v0.3.2.md) say where it was
+verified.
+
+**Upgrading from 0.3.1.** Update the marketplace, then the entry you installed (`docs/install.md`
+§9), and restart Claude Code when the update says so:
+
+```sh
+claude plugin marketplace update qompack
+claude plugin update qompack-windows-amd64@qompack -s user
+```
+
+Replace `qompack-windows-amd64` with the entry you installed. No data migration is needed: 0.3.2
+keeps 0.3.1's store and state formats. Going back to 0.3.1 has one cost, listed under Known issues
+below.
 
 ### Changed
 
@@ -25,7 +44,7 @@ as "injected" content.
   from 96,583 in 0.3.1 to 102,585, almost all of it the `expand(...)` call on each tool pointer.
   The replay has no store, so inlined results come on top of that: at most 4 KiB per block, and
   the block stays within its 9,500-character limit. The committed replay baseline is re-recorded
-  for this.
+  for this, with the replay gate's sign-off (D90).
 - **Shorter fixed text.** The MCP server instructions and tool descriptions, which every session
   loads, are about a fifth smaller; slash-command descriptions are shorter. Tool names, arguments
   and behaviour are unchanged.
@@ -38,11 +57,59 @@ as "injected" content.
 
 - **A checkpoint no longer points at a removed file object without saying so** (known issue 21).
   Finalize checks each file pointer's stored content the way it checks a tool result's, and a file
-  whose stored copy is gone is left out of the checkpoint and named in its drop report.
+  whose stored copy is gone is left out of the checkpoint and named in its drop report (D86).
 - The daemon's warning when a PreCompact seals before every capture is replayed now says how long
-  the settle ran and why it stopped.
+  the settle ran and why it stopped (D84(b), D86).
+- **On Windows, a daemon that stops frees its pipe.** go-winio v0.6.2's named-pipe listener could
+  lose its Close when an accept was pending, as one is after a hook's liveness probe dials and hangs
+  up. The stop then waited out its 2-second bound and reported success with the pipe name still
+  bound until the process exited, so a daemon listening on it from the same process failed with
+  "Access is denied"; the test suite hit it in about one stop in sixty. The stop now calls Close
+  again every 50 ms until one returns, within the same bound.
+
+### Development
+
+Test, comment and repository changes, with no product change. No assertion, bound or threshold is
+loosened; the last two items are the two places a check now reads differently:
+
+- The fault harness's flush waits for the session's final drain, which publishes what only a
+  hook's client spool holds, before a row audits the store.
+- `TestFault_CheckpointDropsAnUnresolvablePointer` targets the alpha Read by its tool-use id, the
+  one read whose stored root a file pointer shares (D86).
+- The `test/e2e` readers of `index/tool_use.jsonl` and the delivery journals leave out a final line
+  the daemon is still appending (D86).
+- `TestIntegration_HookEventThroughDaemonToStore` treats a late live dispatch as late, not lost,
+  with a hang guard of twice the daemon's longest idle tick and a Drain retried while a live
+  worker holds the line (D86). Two post-0.3.1 rows satisfy errcheck and sleepcheck.
+- `TestGC_DeadlineTruncatesAndResumes` prices its deadline only from control marks that read above
+  zero.
+- Seven `TestDeliveryOrder_*` rows wait for the arrival they hold to be in its session's lane
+  before they accept the later arrivals, since the ring's workers take jobs concurrently, and
+  each asserts from the state it waited for.
+- `TestIngestRingFullWALsEveryLineAndNeverSpills` checks that Accept never blocks on a full ring
+  with a hang guard instead of a wall-clock bound, which a slow host could miss with nothing
+  blocked.
+- The `TestSpawnClaim_*` rows fail at once with the daemon's own error when its Run returns before
+  the daemon is up, and the fake daemons report a failed listen instead of leaving the row to wait
+  out its bound. `TestServerCloseFreesTheEndpoint` guards the pipe-close fix above.
+- Thirteen pass-budget rows (drain, spool-watch and delivery-order lanes) run each healthy handler
+  call without the drain's 5-second line deadline, so a stalled host cannot cut a line the row
+  needs. A line that arrives with an earlier deadline, or that the pass budget cancels, still
+  fails the row.
+- Rows that read the maintainer-only records (`plans/` and the design document) skip with a
+  `platform:` reason when those files are absent, as in every public checkout and on hosted CI,
+  and run unchanged where they are present; `OWNERS.tsv` moved to `tools/devtool/`, and
+  CODEOWNERS dropped its `/plans/` rule.
+- The replay gate's baseline is re-recorded by the replay driver for the 0.3.2 block, with
+  `Sign-off` lines for its two moved rows. This is an accepted trade, not a pass (D90): the
+  sign-off reads +7.75% rehydration tokens against the previous baseline (95,203, recorded before
+  0.3.1's own +1.45%), and no cap or threshold moved.
 
 ### Known issues
+
+0.3.0's known issues 1 to 16 and 18 are carried into 0.3.2 unchanged and are listed under [0.3.0]'s
+Known issues below; 0.3.1 fixed 17, 19 and 20, and 0.3.2 fixes 21, above. 0.3.0's Known limits
+hold for 0.3.2 as 0.3.1 narrowed them. 0.3.2 adds two:
 
 - A 0.3.1 or older binary does not recognize the new marker; after downgrading, one 0.3.2 block
   can be carried into the next checkpoint.

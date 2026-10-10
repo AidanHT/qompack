@@ -4,20 +4,37 @@ How a release is cut, what each gate proves, what the release actually claims to
 it deliberately does not claim. Configuration keys are named but never described here —
 `docs/config-reference.md` is generated from the schema and owns every default.
 
-**Release status: 0.3.1, a patch release on 0.3.0** (V6 close-out decisions D81 and D82). Its
-product code is 0.3.0's (the tag `v0.3.0`, `1a368a4b`) plus five fix branches, `fix/v031-spoolid`,
-`fix/v031-status`, `fix/v031-flakes`, `fix/v031-ci` and `fix/v031-settle`. They fix 0.3.0's known
-issues 17, 19 and 20 and the `checkpoint.decision_read_error` count (D76(d)), and change tests and
-CI without loosening a check (D81(c)(5)). Its version commit is in: `internal/core.Version` and
-`plugin.json` say `0.3.1` (§1, step 1). Its release gate is decision D81(c)(8): hosted `ci.yml` and
-`nightly.yml` on the merged branches, the Linux `-race` run on the touched packages, the C1.16 rig
+**Release status: 0.3.2, a release on 0.3.1.** Its product code is 0.3.1's (the tag `v0.3.1`,
+`c7e45af9`) plus the fixes owed after 0.3.1 (decision D86: known issue 21 and the `PreCompact`
+settle warning's elapsed time and reason) and the 0.3.2 rehydration, negative-knowledge and
+description changes: small tool results shown verbatim under their pointers through `expand`'s
+store read, path checks and live redaction, tool pointers labelled with their
+`expand(tool_use_id="…")` call, the block framed as the session's record under the
+`qompack:session-record` marker, eliminations users state recorded, and shorter MCP and
+slash-command descriptions. The block's growth on the replay corpus, about 6%, is accepted under
+decision D90, with the replay gate's baseline re-recorded under its sign-off. Its version commit
+is in: `internal/core.Version` and `plugin.json` say `0.3.2` (§1, step 1). Its release gate runs
+on the release commit: hosted `ci.yml` and `nightly.yml`, the C1.16 rig with no extra load and
 under D78's co-load condition with 0 missing Reads and 0 `LOUD.log` spool drops,
-`release-check --tag v0.3.1` on the reference host on AC power, and the install from the published
-marketplace on Windows and Linux. [Its release notes](release-notes/v0.3.1.md) carry the evidence
+`release-check --tag v0.3.2` on the reference host on AC power, and the install from the published
+marketplace on Windows and Linux. [Its release notes](release-notes/v0.3.2.md) carry the evidence
 from before the tag, and on the tag push `release-check` fails while they still say it is to come
-(§1, step 2). 0.3.1 changes the status of no row in the
-[capability table](#capability-status-at-030); one row's residual is narrower, as the row says. The
-rest of this status describes 0.3.0.
+(§1, step 2). 0.3.2 changes the status of no row in the
+[capability table](#capability-status-at-030).
+
+**0.3.1, published on 2026-10-10** (V6 close-out decisions D81, D82 and D85), a patch release on
+0.3.0. Its product code is 0.3.0's (the tag `v0.3.0`, `1a368a4b`) plus five fix branches,
+`fix/v031-spoolid`, `fix/v031-status`, `fix/v031-flakes`, `fix/v031-ci` and `fix/v031-settle`. They
+fix 0.3.0's known issues 17, 19 and 20 and the `checkpoint.decision_read_error` count (D76(d)), and
+change tests and CI without loosening a check (D81(c)(5)). Its version commit set
+`internal/core.Version` and `plugin.json` to `0.3.1` (§1, step 1). Its release gate was decision
+D81(c)(8): hosted `ci.yml` and `nightly.yml` on the merged branches, the Linux `-race` run on the
+touched packages, the C1.16 rig under D78's co-load condition with 0 missing Reads and 0
+`LOUD.log` spool drops, `release-check --tag v0.3.1` on the reference host on AC power, and the
+install from the published marketplace on Windows and Linux;
+[its release notes](release-notes/v0.3.1.md) record the figures. 0.3.1 changes the status of no
+row in the [capability table](#capability-status-at-030); one row's residual is narrower, as the
+row says. The rest of this status describes 0.3.0.
 
 **0.3.0, released on 2026-10-08 from candidate 8.** Release 0.3.0 is cut from release candidate 8
 (decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are recorded in

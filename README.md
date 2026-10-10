@@ -19,12 +19,25 @@ evict anything from the native context, and performs no network I/O of any kind.
 
 ## Status: released
 
-**0.3.1** is a patch release on 0.3.0 (V6 close-out decisions D81 and D82). It fixes three of
-0.3.0's known issues: a capture dropped when Windows gives a new hook an earlier hook's process id
-(19), a checkpoint drop report that left out captures still waiting in the daemon (20), and
-`/qompack:status`'s description promising a last decision (17). Its product code is 0.3.0's plus
-those fixes, so the evidence below, which is 0.3.0's, does not carry to it by a byte comparison.
-Its own release gate is decision D81(c)(8), the
+**0.3.2** is a release on 0.3.1. Its rehydration block shows small tool results (at most 512 bytes
+each, 4 KiB per block) verbatim under their pointers, labels each tool pointer with the
+`expand(tool_use_id="…")` call that fetches it, and reads as the session's own record, changes
+aimed at what 0.3.0's live evaluation showed: the model never followed a pointer, a small value
+restored only as a pointer was lost, and the block was sometimes distrusted as injected. Qompack
+also records an approach a user says did not work, its MCP and slash-command descriptions are
+shorter, and a checkpoint no longer keeps a pointer to a removed file object without saying so
+(known issue 21, decision D86). The block is about 6% larger on the replay corpus, a trade accepted
+under decision D90. Its product code is 0.3.1's plus those changes, so neither 0.3.1's evidence nor
+the evidence below carries to it by a byte comparison. The
+[0.3.2 release notes](docs/release-notes/v0.3.2.md) say where it was verified, and
+[CHANGELOG.md](CHANGELOG.md) lists every change.
+
+**0.3.1**, published on 2026-10-10 (decision D85), is a patch release on 0.3.0 (V6 close-out
+decisions D81 and D82). It fixes three of 0.3.0's known issues: a capture dropped when Windows
+gives a new hook an earlier hook's process id (19), a checkpoint drop report that left out
+captures still waiting in the daemon (20), and `/qompack:status`'s description promising a last
+decision (17). Its product code is 0.3.0's plus those fixes, so the evidence below, which is
+0.3.0's, does not carry to it by a byte comparison. Its own release gate is decision D81(c)(8), the
 [0.3.1 release notes](docs/release-notes/v0.3.1.md) say where it was verified, and
 [CHANGELOG.md](CHANGELOG.md) lists every change. The rest of this section describes 0.3.0.
 
@@ -44,9 +57,9 @@ on develop ([docs/install.md §9](docs/install.md#9-installing-from-the-public-m
 
 The source tree declares the version it builds: `internal/core.Version` and
 `plugin/.claude-plugin/plugin.json` read `0.3.0` from 0.3.0's own version commit on (release §1,
-step 1) and `0.3.1` from 0.3.1's, so a binary from a plain `go build ./cmd/qompack` reports the
-version its tree declares. The tag before `v0.3.0`, `v0.2.0`, was an internal verification
-checkpoint and never a release.
+step 1), `0.3.1` from 0.3.1's and `0.3.2` from 0.3.2's, so a binary from a plain
+`go build ./cmd/qompack` reports the version its tree declares. The tag before `v0.3.0`, `v0.2.0`,
+was an internal verification checkpoint and never a release.
 
 **What 0.3.0 is.** A local recorder and retriever for Claude Code sessions: it keeps a durable record
 of what the hooks deliver, seals a checkpoint when the host is about to compact, puts a bounded
