@@ -836,13 +836,15 @@ func TestIntegration_HookEventThroughDaemonToStore(t *testing.T) {
 	// the next pass (drain.go); a live dispatch has no deadline, so that one answer is retried
 	// within hookflowSettleHangGuard and any other error fails at once.
 	drainStart := time.Now()
+	drainTick := time.NewTicker(hookflowSettleTick)
+	defer drainTick.Stop()
 	for {
 		_, err = d.Drain(ctx)
 		if err == nil || !strings.Contains(err.Error(), "delivery still in progress") ||
 			time.Since(drainStart) > hookflowSettleHangGuard {
 			break
 		}
-		time.Sleep(hookflowSettleTick)
+		<-drainTick.C
 	}
 	require.NoError(t, err, "Drain after %v (hang guard %v); %d/%d distinct events through the binding",
 		time.Since(drainStart).Round(time.Millisecond), hookflowSettleHangGuard,

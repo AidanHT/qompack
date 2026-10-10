@@ -595,7 +595,9 @@ func TestPreCompactSettle_TheWarnSaysHowLongTheSettleRanAndWhyItStopped(t *testi
 		kv := es[len(es)-1].KV
 		m := map[string]any{}
 		for i := 0; i+1 < len(kv); i += 2 {
-			m[kv[i].(string)] = kv[i+1]
+			k, ok := kv[i].(string)
+			require.True(t, ok, "log key %d is %T, not a string", i, kv[i])
+			m[k] = kv[i+1]
 		}
 		return m
 	}
