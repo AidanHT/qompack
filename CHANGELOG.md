@@ -114,6 +114,11 @@ listed under [0.3.0]'s Known issues below; 0.3.1 fixes 17, 19 and 20, above. 0.3
 hold for 0.3.1 too, except that a 0.3.1 hook's reused process id no longer puts a prompt out of host
 order.
 
+- **21. A checkpoint can point at a removed file object without saying so.** A checkpoint can keep a pointer to a file whose stored copy was removed from outside Qompack, and
+  no drop entry names it. Finalize checks that each tool result's stored object still exists, but
+  not each file's. `qompack fsck` reports the dangling hash, and rehydration reads such a file by
+  its path, so no context is lost. It predates 0.3.0 (D84).
+
 ## [0.3.0] - 2026-10-08
 
 The release 0.3.0 entry (V6 close-out decision D1). It summarises the user-visible changes since
