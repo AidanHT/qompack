@@ -2441,6 +2441,31 @@ of 15 on each of 71e5133d and eca33155, the long s's three passing. The long-s s
 previous paragraph, the twin's comment, the rehydrate rows' comment and `rootRelatives`' comment
 now say where the long s's answer holds.
 
+## 24. Amendment (2026-10-10, 0.3.2, coordinator decision D91): item 6 may carry a small result verbatim under its pointer
+
+**What changed.** §11's guard still judges every pointer line, and it still runs over items 4 to 6
+only. From 0.3.2, after the guard has passed a tool pointer's line, `buildPointers` may append the
+pointer's result under it as one fenced block (`internal/rehydrate/inline.go`). That fence is the
+one exception to "no snippets" at the injection boundary, and it is bounded: a result of at most 512
+bytes after redaction, at most 4 KiB of inlined bytes per payload (eight full-size results), and at
+most 16 inline reads per build. Every inlined byte is priced against the budget and the host
+ceiling like any other unit text, and a pointer that fits only without its result is emitted bare.
+
+**What is inlined.** Exactly what `expand(tool_use_id=…)` would return for the record, and nothing
+expand would refuse: the tool_use index entry must still name the content the checkpoint names; a
+path-bearing record's path must resolve inside the project and pass the host's Read rules (none
+while the rules cannot be read); a pathless record must come from Bash, PowerShell,
+UserPromptSubmit or SubagentStop, and is shown only when its pointer's summary is shown; and the
+bytes pass the current `runtime.redact` policy. Without a redactor nothing is inlined. A
+superseded record, bytes that are not UTF-8 text, and bytes holding a Qompack tag are never
+inlined; the pointer line alone stands for them.
+
+**Why.** The live eval made no Qompack MCP call in 20 sessions, so a result restored only as a
+pointer was a result lost, and a result this small costs less inline than the expand call that
+would fetch it. Keeping exact small spans is what the design asks of a pointer, not an exception to
+it, so no revision of the design document was owed (D91). Items 1 to 3 are unchanged: verbatim
+human text is still never inspected and never rejected.
+
 ## Consequences
 
 *The bullets below are the 2026-09-06 record. §21 bounds the first one's "8–12K" by the host's
