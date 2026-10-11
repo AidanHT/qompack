@@ -3,6 +3,9 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,8 +70,10 @@ func TestIngestRingFullWALsEveryLineAndNeverSpills(t *testing.T) {
 	// on their own goroutine and the wait is a hangGuard. A wall-clock bound stood here
 	// (ingestAcceptBudget, 500 ms for the five calls) on the premise that Accept costs microseconds;
 	// it makes every line durable first, and five fsyncs on hosted windows-latest took 657 ms in ci
-	// run 38093108786 with nothing blocked. The bound said nothing that this wait does not: a
-	// blocking send fails here, and a spill's synchronous write fails the spool assertion below.
+	// run 38093108786 with nothing blocked. That bound also caught an Accept that waits a while on
+	// a full ring and then drops, which this wait cannot: TestIngestAcceptNeverWaitsOnTheRing reads
+	// Accept's code for that instead. A blocking send fails here, and a spill's synchronous write
+	// fails the spool assertion below.
 	const n = 5
 	accepted := make(chan error, 1)
 	go func() {
@@ -104,6 +109,139 @@ func TestIngestRingFullWALsEveryLineAndNeverSpills(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, files, 1, "the only file in the spool directory must be this session's WAL")
 	require.Equal(t, filepath.Base(walPath), filepath.Base(files[0]))
+}
+
+// TestIngestAcceptNeverWaitsOnTheRing is the ring-full row's other half. That row fails an Accept
+// that blocks for good on a full ring, but it cannot time one that waits a while and then drops:
+// every Accept first makes its line durable, and a hosted runner's fsync tail outlasts any bound
+// short enough to catch such a wait (the 500 ms bound that row carried until 0.3.2 failed on five
+// fsyncs taking 657 ms, with nothing blocked). So this row reads Accept's code. Its one send on
+// i.ring is the case of a select whose only other clause is default, and that default, with every
+// ingest method it calls, waits on no channel and no clock: each select in them keeps a default,
+// and they hold no bare send, no bare receive and no timer.
+func TestIngestAcceptNeverWaitsOnTheRing(t *testing.T) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "ingest.go", nil, 0)
+	require.NoError(t, err)
+	methods := map[string]*ast.FuncDecl{}
+	for _, d := range f.Decls {
+		fd, ok := d.(*ast.FuncDecl)
+		if !ok || fd.Recv == nil || len(fd.Recv.List) != 1 {
+			continue
+		}
+		if star, ok := fd.Recv.List[0].Type.(*ast.StarExpr); ok {
+			if id, ok := star.X.(*ast.Ident); ok && id.Name == "ingest" {
+				methods[fd.Name.Name] = fd
+			}
+		}
+	}
+	accept := methods["Accept"]
+	require.NotNil(t, accept, "ingest.go declares (*ingest).Accept")
+
+	isRing := func(e ast.Expr) bool {
+		sel, ok := e.(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != "ring" {
+			return false
+		}
+		id, ok := sel.X.(*ast.Ident)
+		return ok && id.Name == "i"
+	}
+	var sends []*ast.SendStmt
+	var ringSelect *ast.SelectStmt
+	ast.Inspect(accept.Body, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.SendStmt:
+			if isRing(x.Chan) {
+				sends = append(sends, x)
+			}
+		case *ast.SelectStmt:
+			for _, cc := range commClauses(x) {
+				if send, ok := cc.Comm.(*ast.SendStmt); ok && isRing(send.Chan) {
+					ringSelect = x
+				}
+			}
+		}
+		return true
+	})
+	require.Len(t, sends, 1, "Accept sends on i.ring exactly once")
+	require.NotNil(t, ringSelect, "Accept's send on i.ring is a select case, never a bare send")
+
+	var dflt *ast.CommClause
+	for _, cc := range commClauses(ringSelect) {
+		if cc.Comm == nil {
+			dflt = cc
+		}
+	}
+	require.Len(t, ringSelect.Body.List, 2, "%s: the ring select has the send and default only, so no "+
+		"clause (a timer, a context) can hold Accept on a full ring", fset.Position(ringSelect.Pos()))
+	require.NotNil(t, dflt, "%s: the ring select keeps a default, so a full ring drops the job at once",
+		fset.Position(ringSelect.Pos()))
+
+	timeWaits := map[string]bool{"Sleep": true, "After": true, "NewTimer": true, "NewTicker": true, "Tick": true}
+	seen := map[string]bool{"Accept": true}
+	var waits []string
+	var visit func(n ast.Node)
+	visit = func(n ast.Node) {
+		ast.Inspect(n, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.SelectStmt:
+				hasDefault := false
+				for _, cc := range commClauses(x) {
+					hasDefault = hasDefault || cc.Comm == nil
+				}
+				if !hasDefault {
+					waits = append(waits, fset.Position(x.Pos()).String()+": a select with no default")
+				}
+				// A case of a select that has a default never waits; what runs in each case might.
+				for _, cc := range commClauses(x) {
+					for _, st := range cc.Body {
+						visit(st)
+					}
+				}
+				return false
+			case *ast.SendStmt:
+				waits = append(waits, fset.Position(x.Pos()).String()+": a bare send")
+			case *ast.UnaryExpr:
+				if x.Op == token.ARROW {
+					waits = append(waits, fset.Position(x.Pos()).String()+": a bare receive")
+				}
+			case *ast.CallExpr:
+				sel, ok := x.Fun.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				id, ok := sel.X.(*ast.Ident)
+				if !ok {
+					return true
+				}
+				if id.Name == "time" && timeWaits[sel.Sel.Name] {
+					waits = append(waits, fset.Position(x.Pos()).String()+": time."+sel.Sel.Name)
+				}
+				if fd := methods[sel.Sel.Name]; id.Name == "i" && fd != nil && !seen[sel.Sel.Name] {
+					seen[sel.Sel.Name] = true
+					visit(fd.Body)
+				}
+			}
+			return true
+		})
+	}
+	for _, st := range dflt.Body {
+		visit(st)
+	}
+	require.Empty(t, waits, "a full ring must cost Accept no wait: its default clause, and the ingest "+
+		"methods it calls, wait on nothing")
+	require.True(t, seen["requestDrain"], "the default clause still asks for a drain (and was read through it)")
+}
+
+// commClauses is sel's clauses: the parser builds every clause of a select as an *ast.CommClause.
+func commClauses(sel *ast.SelectStmt) []*ast.CommClause {
+	out := make([]*ast.CommClause, 0, len(sel.Body.List))
+	for _, c := range sel.Body.List {
+		if cc, ok := c.(*ast.CommClause); ok {
+			out = append(out, cc)
+		}
+	}
+	return out
 }
 
 // hangGuard is the bound on every wait in this package's tests that only turns a deadlock into a
