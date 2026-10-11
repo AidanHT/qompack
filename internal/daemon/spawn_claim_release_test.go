@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -51,12 +52,12 @@ func strayClaimThenStop(t *testing.T) (root string, clk core.Clock) {
 		ConnectDeadline: spawnLockTestBound, AckDeadline: spawnLockTestBound,
 	})
 	defer func() { _ = c.Close() }()
-	require.Eventually(t, func() bool {
+	awaitWhileRunning(t, errChA, stopCleanupBound, func() bool {
 		resp, sendErr := c.Send(context.Background(), ipc.Request{
 			Op: ipc.OpAdminPing, TS: core.NowMilli(clk), Reply: true,
 		}, spawnLockTestBound)
 		return sendErr == nil && resp.OK
-	}, stopCleanupBound, ensureRunningPollInterval, "daemon A never answered admin.ping")
+	}, "daemon A never answered admin.ping")
 
 	_, st := ipc.ClaimSpawn(root, clk)
 	require.Equal(t, ipc.SpawnClaimed, st, "fixture: the hook's lazy spawn claims spawn.lock")
@@ -77,6 +78,39 @@ func strayClaimThenStop(t *testing.T) (root string, clk core.Clock) {
 	_, held := ReadLock(root)
 	require.False(t, held, "fixture: no daemon holds the lock once A has stopped")
 	return root, clk
+}
+
+// awaitWhileRunning polls cond every ensureRunningPollInterval until it holds, and fails the row at
+// once, with what Run returned, if the daemon's Run ends first: a Run that has returned (a listen
+// that failed, a lock it lost) can never make cond hold. The require.Eventually it replaced never
+// read Run's channel, so such a Run was reported only as a condition that never held, bound later:
+// the 0.3.2 cover run's AFlush row failed at 7.3 s, while its daemon had exited 26 ms after the
+// spawn with "listen: Access is denied" (ipc.TestServerCloseFreesTheEndpoint has the cause).
+func awaitWhileRunning(t *testing.T, runErr <-chan error, bound time.Duration, cond func() bool, msg string) {
+	t.Helper()
+	tick := time.NewTicker(ensureRunningPollInterval)
+	defer tick.Stop()
+	deadline := time.NewTimer(bound)
+	defer deadline.Stop()
+	for !cond() {
+		// The bound is checked before the next tick is waited for, not raced against it: a select
+		// with both ready picks either, and a cond as slow as admin.ping's Send could then run again
+		// past the bound.
+		select {
+		case err := <-runErr:
+			t.Fatalf("%s: the daemon's Run returned first, with %v", msg, err)
+		case <-deadline.C:
+			t.Fatalf("%s: not within %s", msg, bound)
+		default:
+		}
+		select {
+		case err := <-runErr:
+			t.Fatalf("%s: the daemon's Run returned first, with %v", msg, err)
+		case <-deadline.C:
+			t.Fatalf("%s: not within %s", msg, bound)
+		case <-tick.C:
+		}
+	}
 }
 
 // TestSpawnClaim_ALostRaceLeavesNoClaimOnceTheRunningDaemonStops: once the daemon that won stops,
@@ -124,10 +158,10 @@ func TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon(t *te
 	require.NoError(t, err)
 
 	require.EqualValues(t, 1, spawns.Load(), "the flush's lazy spawn must start the daemon, once")
-	require.Eventually(t, func() bool {
+	awaitWhileRunning(t, errChC, spawnLockTestBound, func() bool {
 		info, ok := ReadLock(root)
 		return ok && info.PID == os.Getpid() && ipc.Probe(addr, spawnClaimDialTimeout)
-	}, spawnLockTestBound, ensureRunningPollInterval, "the daemon the flush spawned must come up and hold the lock")
+	}, "the daemon the flush spawned must come up and hold the lock")
 
 	cancelC()
 	select {

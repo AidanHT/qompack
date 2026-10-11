@@ -86,18 +86,24 @@ func (f *fakeDaemons) serveAfter(root string, d time.Duration) {
 // in Run's order (NewServer, Serve, WriteState, removeSpawnLockFile). A second daemon for a root
 // already served exits without listening or touching the lock, as a real one that loses the
 // singleton lock (daemon.lock) does.
+//
+// A daemon that cannot listen fails the row with its error. It used to return quietly, so a row
+// waiting for it reported only that nothing came up, its bound later; the listen it failed on is
+// the cause (ipc.TestServerCloseFreesTheEndpoint).
 func (f *fakeDaemons) serve(root string) {
 	addr, err := ipc.Resolve(root)
-	if err != nil {
-		return
-	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.closed || f.up[root] {
 		return
 	}
+	if err != nil {
+		f.t.Errorf("fake daemon for %s: resolve: %v", root, err)
+		return
+	}
 	srv, err := ipc.NewServer(addr, logging.Nop(), nil, 0)
 	if err != nil {
+		f.t.Errorf("fake daemon for %s: listen: %v", root, err)
 		return
 	}
 	if f.up == nil {
