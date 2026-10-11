@@ -9,8 +9,10 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,16 +33,18 @@ import (
 // So every drainer a test builds over the daemon's own dispatch says which it is:
 //
 //   - contentDrainConfig: the row's subject is what the pass does. Each line is dispatched without
-//     the drain's deadline (withoutLineDeadline) and keeps every cancellation, so a pass the row or
-//     Stop ends still ends the line it is in.
-//   - budgetDrainConfig: the row's subject is a pass budget. A lifted deadline could stand in for the
-//     budget (a product that put the budget on the line as a deadline is exactly what such a row must
-//     catch), so the row fails on any line that reaches the dispatch with a deadline earlier than the
-//     drain's own drainLineDeadline could have set; past that check the line runs without the drain's
-//     deadline, as a content row's does. Keeping the product's dispatch as it is instead made such a
-//     row need every healthy handler call to finish inside 5 s: one the co-loaded night host held
-//     past it cut the line that was the pass's progress, and the row failed on 'fixture: the pass made
-//     its progress (err context deadline exceeded)' after 20.79 s against 0.5 s alone.
+//     the drain's deadline (withoutLineDeadline) and keeps every cancellation but a deadline's own
+//     expiry, so a pass the row or Stop ends still ends the line it is in.
+//   - budgetDrainConfig: the row's subject is a pass budget, and a product that put the budget on a
+//     line is exactly what such a row must catch, whether as a deadline or as a cancellation
+//     (budgetLineCheck). A line that reaches the dispatch with a deadline earlier than the drain's own
+//     drainLineDeadline could have set fails the row; a cancellation for any cause but a deadline's
+//     own expiry still reaches the handler, errPassBudgetSpent included; past that the line runs
+//     without the drain's deadline, as a content row's does. Keeping the product's dispatch as it is
+//     instead made such a row need every healthy handler call to finish inside 5 s: one the co-loaded
+//     night host held past it cut the line that was the pass's progress, and the row failed on
+//     'fixture: the pass made its progress (err context deadline exceeded)' after 20.79 s against
+//     0.5 s alone.
 //   - lineDeadlineDrainConfig: the row keeps the product's dispatch as it is, because a line's own
 //     deadline is part of what it pins (a line only that deadline ends, the settle's deadline a replay
 //     carries, a slow part timed against it), or because it never needs a line published on its
@@ -51,20 +55,31 @@ import (
 // withoutLineDeadline is dispatch with every deadline on the line's context lifted (the drain's own
 // drainLineDeadline, and any deadline a caller above it set), keeping the context's values (the
 // observation and the replayed delivery the drain attaches) and every cancellation: when the line's
-// context is cancelled for any cause but a deadline (a settle's cut, a test's cancel, Stop), the
-// dispatch's context is cancelled with that cause.
+// context ends for any cause but a deadline's own expiry (a settle's cut, a test's cancel, Stop), the
+// dispatch's context is cancelled with that cause. A deadline's expiry is a cause that is exactly
+// context.DeadlineExceeded (isDeadlineExpiry); a cause that only wraps it, as errPassBudgetSpent does,
+// is a cancellation like any other and reaches the handler.
 func withoutLineDeadline(dispatch func(context.Context, ipc.Request) ipc.Response) func(context.Context, ipc.Request) ipc.Response {
 	return func(ctx context.Context, req ipc.Request) ipc.Response {
 		lifted, cancel := context.WithCancelCause(context.WithoutCancel(ctx))
 		defer cancel(nil)
 		stop := context.AfterFunc(ctx, func() {
-			if cause := context.Cause(ctx); !errors.Is(cause, context.DeadlineExceeded) {
+			if cause := context.Cause(ctx); !isDeadlineExpiry(cause) {
 				cancel(cause)
 			}
 		})
 		defer stop()
 		return dispatch(lifted, req)
 	}
+}
+
+// isDeadlineExpiry reports whether cause is a deadline's own expiry. context.WithDeadline and
+// context.WithTimeout end a context with context.DeadlineExceeded itself (the drain's drainLineDeadline
+// is a context.WithTimeout), and so does a parent's expiring deadline, so the comparison is by identity:
+// errors.Is would also lift an error that only wraps it, such as errPassBudgetSpent, and a pass budget
+// the product put on a line as a cancellation would then never reach the handler.
+func isDeadlineExpiry(cause error) bool {
+	return cause == context.DeadlineExceeded
 }
 
 // contentDrainConfig is dd.drainConfig() for a row whose subject is what a pass publishes, holds,
@@ -121,6 +136,23 @@ func TestWithoutLineDeadline_LiftsDeadlinesAndKeepsValuesAndCancellations(t *tes
 		})(line, ipc.Request{})
 		require.True(t, dispatched)
 	})
+
+	// A cause that only wraps DeadlineExceeded is a cancellation, not a deadline's expiry: a pass
+	// budget the product put on a line as a cancellation (errPassBudgetSpent wraps DeadlineExceeded)
+	// must reach the handler, or a budget row could not notice it.
+	t.Run("a cancellation whose cause wraps a deadline still ends the dispatch", func(t *testing.T) {
+		line, cancel := context.WithCancelCause(base)
+		defer cancel(nil)
+		var dispatched bool
+		withoutLineDeadline(func(ctx context.Context, _ ipc.Request) ipc.Response {
+			dispatched = true
+			cancel(errPassBudgetSpent) // while the handler runs, as a budget timer would
+			<-ctx.Done()               // a hang here is left to go test -timeout
+			require.ErrorIs(t, context.Cause(ctx), errPassBudgetSpent, "the dispatch ends for the line's own cause")
+			return ipc.Response{Err: ctx.Err().Error()}
+		})(line, ipc.Request{})
+		require.True(t, dispatched)
+	})
 }
 
 // budgetDrainConfig is dd.drainConfig() for a row whose subject is a pass budget (withPassBudget) and
@@ -131,45 +163,81 @@ func budgetDrainConfig(t testing.TB, dd *daemon) DrainConfig {
 	return cfg
 }
 
-// budgetDispatch is dispatch for a budget row's drainer, built before the row's first pass. It checks
-// every line first: the drain hands a line a context whose deadline is its own drainLineDeadline,
-// counted from the dispatch, so no earlier than drainLineDeadline after budgetDispatch was called, and
-// a line whose context ends sooner, as one would if the drain put the pass's budget on its lines as a
-// deadline, fails the row. The line is then dispatched without the drain's deadline
-// (withoutLineDeadline), so how long a healthy handler call takes on a loaded host decides nothing the
-// row asserts.
+// budgetDispatch is dispatch for a budget row's drainer, built just before the row's first pass: every
+// line goes through a budgetLineCheck, and what the check recorded fails the row in its cleanup.
 func budgetDispatch(t testing.TB, dispatch func(context.Context, ipc.Request) ipc.Response,
 ) func(context.Context, ipc.Request) ipc.Response {
-	earliest := time.Now().Add(drainLineDeadline)
+	check := newBudgetLineCheck()
+	t.Cleanup(func() {
+		for _, found := range check.reported() {
+			t.Error(found)
+		}
+	})
+	return check.wrap(dispatch)
+}
+
+// budgetLineCheck holds a budget row's lines to both ways a product could put the pass's budget on a
+// line, then runs each line without the drain's deadline, so how long a healthy handler call takes on a
+// loaded host decides nothing the row asserts:
+//
+//   - As a deadline. The drain hands a line a context whose deadline is its own drainLineDeadline,
+//     counted from the dispatch, so no earlier than drainLineDeadline after the check was built; a line
+//     whose context has an earlier deadline is recorded. That bound is fixed when the check is built,
+//     so a pass that starts more than drainLineDeadline - idleRunBudget after it would carry a budget
+//     put on its lines as a deadline past the check unseen. Every budget row builds its drainer
+//     immediately before its first pass, and the lanes rows also catch that defect through the stall
+//     they hold under the line's own context, outside this dispatch.
+//   - As a cancellation. withoutLineDeadline lifts only a deadline's own expiry (isDeadlineExpiry), so a
+//     line cancelled for any other cause, errPassBudgetSpent included, ends the handler's context too:
+//     the handler returns without acknowledging, the drain publishes nothing, and the row's assertions
+//     on what the pass published see it.
+//
+// The check runs on the daemon's drain goroutines, which can outlive the row, so it records what it
+// finds rather than calling t.Errorf there (which panics once the test has completed); budgetDispatch
+// reports the record in the row's cleanup. A line dispatched after that cleanup has run is not reported.
+type budgetLineCheck struct {
+	earliest time.Time
+	mu       sync.Mutex
+	found    []string
+}
+
+func newBudgetLineCheck() *budgetLineCheck {
+	return &budgetLineCheck{earliest: time.Now().Add(drainLineDeadline)}
+}
+
+// wrap is dispatch behind the check, lifted from the drain's deadline (withoutLineDeadline).
+func (c *budgetLineCheck) wrap(dispatch func(context.Context, ipc.Request) ipc.Response,
+) func(context.Context, ipc.Request) ipc.Response {
 	lifted := withoutLineDeadline(dispatch)
 	return func(ctx context.Context, req ipc.Request) ipc.Response {
-		if dl, ok := ctx.Deadline(); ok && dl.Before(earliest) {
-			t.Errorf("line %s reached its handler with a deadline %v before the earliest the drain's own "+
-				"drainLineDeadline sets: a pass budget must never reach a line as a deadline", req.Nonce, earliest.Sub(dl))
+		if dl, ok := ctx.Deadline(); ok && dl.Before(c.earliest) {
+			c.mu.Lock()
+			c.found = append(c.found, fmt.Sprintf("line %s reached its handler with a deadline %v before the "+
+				"earliest the drain's own drainLineDeadline sets: a pass budget must never reach a line as a deadline",
+				req.Nonce, c.earliest.Sub(dl)))
+			c.mu.Unlock()
 		}
 		return lifted(ctx, req)
 	}
 }
 
-// budgetRowTB is a testing.TB that records what budgetDispatch's check reports instead of failing the
-// row that pins the check.
-type budgetRowTB struct {
-	testing.TB
-	errs []string
-}
-
-func (b *budgetRowTB) Errorf(format string, args ...any) {
-	b.errs = append(b.errs, fmt.Sprintf(format, args...))
+// reported is what the check has recorded so far.
+func (c *budgetLineCheck) reported() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.found)
 }
 
 // TestBudgetDispatch_ReportsADeadlineShorterThanTheDrainsOwnAndLiftsTheDrains pins what a budget row's
 // dispatch does: a line carrying the drain's own drainLineDeadline, or a later one, passes the check and
 // runs with no deadline; a line carrying a shorter one, as a pass budget put on the line would be, is
-// reported, and so is one whose deadline has already passed when it arrives.
+// reported, and so is one whose deadline has already passed when it arrives; and a line cancelled with
+// errPassBudgetSpent while its handler runs, as a pass budget put on the line as a cancellation would
+// be, ends the handler's context with that cause.
 func TestBudgetDispatch_ReportsADeadlineShorterThanTheDrainsOwnAndLiftsTheDrains(t *testing.T) {
-	rec := &budgetRowTB{TB: t}
+	check := newBudgetLineCheck()
 	var lifted bool
-	dispatch := budgetDispatch(rec, func(ctx context.Context, _ ipc.Request) ipc.Response {
+	dispatch := check.wrap(func(ctx context.Context, _ ipc.Request) ipc.Response {
 		_, has := ctx.Deadline()
 		lifted = !has && ctx.Err() == nil
 		return ipc.Response{OK: true}
@@ -178,24 +246,38 @@ func TestBudgetDispatch_ReportsADeadlineShorterThanTheDrainsOwnAndLiftsTheDrains
 	own, cancel := context.WithTimeout(context.Background(), drainLineDeadline)
 	defer cancel()
 	require.True(t, dispatch(own, ipc.Request{}).OK)
-	require.Empty(t, rec.errs, "the drain's own drainLineDeadline passes the check")
+	require.Empty(t, check.reported(), "the drain's own drainLineDeadline passes the check")
 	require.True(t, lifted, "and the line runs without it")
 
 	later, cancel := context.WithDeadline(context.Background(), time.Now().Add(drainLineDeadline+time.Second))
 	defer cancel()
 	require.True(t, dispatch(later, ipc.Request{}).OK)
-	require.Empty(t, rec.errs, "a deadline later than the drain's own passes the check too")
+	require.Empty(t, check.reported(), "a deadline later than the drain's own passes the check too")
 
 	budget, cancel := context.WithTimeout(context.Background(), idleRunBudget)
 	defer cancel()
 	require.True(t, dispatch(budget, ipc.Request{Nonce: "budget"}).OK)
-	require.Len(t, rec.errs, 1, "a line whose deadline is a pass budget fails the row")
-	require.Contains(t, rec.errs[0], "line budget")
+	require.Len(t, check.reported(), 1, "a line whose deadline is a pass budget fails the row")
+	require.Contains(t, check.reported()[0], "line budget")
 
 	spent, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	defer cancel()
 	require.True(t, dispatch(spent, ipc.Request{}).OK)
-	require.Len(t, rec.errs, 2, "so does one whose deadline had passed before it arrived")
+	require.Len(t, check.reported(), 2, "so does one whose deadline had passed before it arrived")
+
+	line, cancelLine := context.WithCancelCause(context.Background())
+	defer cancelLine(nil)
+	var handled bool
+	resp := newBudgetLineCheck().wrap(func(ctx context.Context, _ ipc.Request) ipc.Response {
+		handled = true
+		cancelLine(errPassBudgetSpent) // while the handler runs, as a budget's timer would
+		<-ctx.Done()                   // a hang here is left to go test -timeout
+		require.ErrorIs(t, context.Cause(ctx), errPassBudgetSpent,
+			"a pass budget put on the line as a cancellation reaches the handler, with its cause")
+		return ipc.Response{Err: ctx.Err().Error()}
+	})(line, ipc.Request{})
+	require.True(t, handled)
+	require.False(t, resp.OK, "and the line is not acknowledged")
 }
 
 // drainDeadlineHelpers are the only functions in this package's tests that may call drainConfig().
