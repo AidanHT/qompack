@@ -40,8 +40,9 @@ below.
   its pointer, through the same store read, path checks and live redaction as `expand`, up to
   4 KiB per block; a result that does not fit leaves the bare pointer, as before.
 - **Pointers are copyable calls.** Each tool pointer reads `expand(tool_use_id="...")`.
-- Section 6's heading now says that `expand` or `re_read` gives the full content, and the block no
-  longer prints an empty "blocked on: none" line.
+- Section 6's heading no longer says contents are not restored: it reads "Pointers (small results
+  inline; expand or re_read gives full content)". The block no longer prints an empty "blocked on:
+  none" line.
 - **The block is about 6% larger.** On the 24-session synthetic replay corpus its tokens rise
   from 96,583 in 0.3.1 to 102,585, almost all of it the `expand(...)` call on each tool pointer.
   The replay has no store, so inlined results come on top of that: at most 4 KiB per block, and
@@ -80,9 +81,9 @@ catches or how long it waits, the item says so:
   one read whose stored root a file pointer shares (D86).
 - The `test/e2e` readers of `index/tool_use.jsonl` and the delivery journals leave out a final line
   the daemon is still appending (D86).
-- `TestIntegration_HookEventThroughDaemonToStore` treats a late live dispatch as late, not lost,
-  with a hang guard of twice the daemon's longest idle tick and a Drain retried while a live
-  worker holds the line (D86). Two post-0.3.1 rows satisfy errcheck and sleepcheck.
+- `TestIntegration_HookEventThroughDaemonToStore` treats a late live dispatch as late, not lost:
+  its 5 s wait, the drain's line deadline, is now a hang guard of twice the daemon's longest idle
+  tick, and a Drain is retried while a live worker holds the line (D86). Two post-0.3.1 rows satisfy errcheck and sleepcheck.
 - `TestGC_DeadlineTruncatesAndResumes` prices its deadline only from control marks that read above
   zero.
 - Seven `TestDeliveryOrder_*` rows wait for the arrival they hold to be in its session's lane
@@ -91,9 +92,10 @@ catches or how long it waits, the item says so:
 - `TestIngestRingFullWALsEveryLineAndNeverSpills` waits for its ring-full Accepts with a hang
   guard instead of a 500 ms bound, which five durable writes on a hosted runner outlasted with
   nothing blocked. That bound also caught an Accept that waits a while on a full ring and then
-  drops; the new `TestIngestAcceptNeverWaitsOnTheRing` catches that instead by reading Accept's
-  code: its ring send keeps a default clause, and nothing on the full-ring path waits on a channel
-  or a clock.
+  drops; the new `TestIngestAcceptNeverWaitsOnTheRing` catches that instead by reading the
+  package's code: Accept's ring send keeps a default clause, and nothing Accept runs past its
+  durable writes, through the ingest methods and package functions it calls, waits on a channel or
+  a clock. It reads names, not types, so a wait behind another type's method is outside it.
 - The `TestSpawnClaim_*` rows fail at once with the daemon's own error when its Run returns before
   the daemon is up, and the fake daemons report a failed listen instead of leaving the row to wait
   out its bound. `TestServerCloseFreesTheEndpoint` guards the pipe-close fix above.
