@@ -26,7 +26,7 @@ func openPrefix() string {
 	return checkpoint.InjectionOpenTag[:strings.IndexByte(checkpoint.InjectionOpenTag, '%')]
 }
 
-// legacyOpenTag and legacyOpenPrefix are openTag and openPrefix for the 0.3.x spelling, which
+// legacyOpenTag and legacyOpenPrefix are openTag and openPrefix for the 0.3.1 spelling, which
 // transcripts still hold and StripInjections still strips.
 func legacyOpenTag(seq int) string {
 	return fmt.Sprintf(checkpoint.LegacyInjectionOpenTag, seq, checkpoint.SchemaVersion)
@@ -159,7 +159,7 @@ func TestStripInjections_IsIdempotent(t *testing.T) {
 //
 // 0.3.2 renamed the model-visible spelling from qompack:injected to qompack:session-record (the
 // c55-c8 eval saw a model call an "injected-looking" block untrustworthy); the legacy pair is pinned
-// too, because spans written by 0.3.x must keep stripping.
+// too, because spans written by 0.3.1 and earlier must keep stripping.
 func TestInjectionTags_AreTheFrozenSpellings(t *testing.T) {
 	require.Equal(t, "<!-- qompack:session-record seq=%d ver=%d -->", checkpoint.InjectionOpenTag)
 	require.Equal(t, "<!-- /qompack:session-record -->", checkpoint.InjectionCloseTag)
@@ -170,7 +170,7 @@ func TestInjectionTags_AreTheFrozenSpellings(t *testing.T) {
 }
 
 // TestStripInjections_LegacySpellingKeepsEveryGuarantee runs the three normative properties, the
-// count and the splice neutralization over the 0.3.x spelling, and over the two spellings mixed: a
+// count and the splice neutralization over the 0.3.1 spelling, and over the two spellings mixed: a
 // span ends only at its own spelling's close tag, the other spelling's being ordinary text.
 func TestStripInjections_LegacySpellingKeepsEveryGuarantee(t *testing.T) {
 	lclose := checkpoint.LegacyInjectionCloseTag

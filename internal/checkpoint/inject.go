@@ -20,16 +20,16 @@ import (
 //
 // The tags are model-visible, so they name what the span IS — Qompack's saved record of the
 // session — rather than how it arrived: the c55-c8 live eval saw a model distrust a block whose tag
-// read "injected". Releases through 0.3.x wrote the Legacy spelling; transcripts still hold it, so
+// read "injected". Releases through 0.3.1 wrote the Legacy spelling; transcripts still hold it, so
 // StripInjections recognizes both, each with every guarantee documented on it.
 const (
 	// InjectionOpenTag opens an injected span. Format arguments: seq, ver.
 	InjectionOpenTag = "<!-- qompack:session-record seq=%d ver=%d -->"
 	// InjectionCloseTag closes an injected span.
 	InjectionCloseTag = "<!-- /qompack:session-record -->"
-	// LegacyInjectionOpenTag is the open tag 0.3.x and earlier wrote. Format arguments: seq, ver.
+	// LegacyInjectionOpenTag is the open tag 0.3.1 and earlier wrote. Format arguments: seq, ver.
 	LegacyInjectionOpenTag = "<!-- qompack:injected seq=%d ver=%d -->"
-	// LegacyInjectionCloseTag is the close tag 0.3.x and earlier wrote.
+	// LegacyInjectionCloseTag is the close tag 0.3.1 and earlier wrote.
 	LegacyInjectionCloseTag = "<!-- /qompack:injected -->"
 )
 
