@@ -11,7 +11,8 @@ description changes: small tool results shown verbatim under their pointers thro
 store read, path checks and live redaction, tool pointers labelled with their
 `expand(tool_use_id="…")` call, the block framed as the session's record under the
 `qompack:session-record` marker, eliminations users state recorded, and shorter MCP and
-slash-command descriptions. The block's growth on the replay corpus, about 6%, is accepted under
+slash-command descriptions; and the Windows pipe-close fix, so that a daemon that stops no longer
+leaves its named pipe bound. The block's growth on the replay corpus, about 6%, is accepted under
 decision D90, with the replay gate's baseline re-recorded under its sign-off. Its version commit
 is in: `internal/core.Version` and `plugin.json` say `0.3.2` (§1, step 1). Its release gate runs
 on the release commit: hosted `ci.yml` and `nightly.yml`, the C1.16 rig with no extra load and

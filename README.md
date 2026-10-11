@@ -26,7 +26,8 @@ aimed at what 0.3.0's live evaluation showed: the model never followed a pointer
 restored only as a pointer was lost, and the block was sometimes distrusted as injected. Qompack
 also records an approach a user says did not work, its MCP and slash-command descriptions are
 shorter, and a checkpoint no longer keeps a pointer to a removed file object without saying so
-(known issue 21, decision D86). The block is about 6% larger on the replay corpus, a trade accepted
+(known issue 21, decision D86). On Windows, a daemon that stops no longer leaves its named pipe
+bound. The block is about 6% larger on the replay corpus, a trade accepted
 under decision D90. Its product code is 0.3.1's plus those changes, so neither 0.3.1's evidence nor
 the evidence below carries to it by a byte comparison. The
 [0.3.2 release notes](docs/release-notes/v0.3.2.md) say where it was verified, and

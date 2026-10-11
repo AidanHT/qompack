@@ -40,6 +40,8 @@ below.
   its pointer, through the same store read, path checks and live redaction as `expand`, up to
   4 KiB per block; a result that does not fit leaves the bare pointer, as before.
 - **Pointers are copyable calls.** Each tool pointer reads `expand(tool_use_id="...")`.
+- Section 6's heading now says that `expand` or `re_read` gives the full content, and the block no
+  longer prints an empty "blocked on: none" line.
 - **The block is about 6% larger.** On the 24-session synthetic replay corpus its tokens rise
   from 96,583 in 0.3.1 to 102,585, almost all of it the `expand(...)` call on each tool pointer.
   The replay has no store, so inlined results come on top of that: at most 4 KiB per block, and
@@ -69,8 +71,8 @@ below.
 
 ### Development
 
-Test, comment and repository changes, with no product change. No assertion, bound or threshold is
-loosened; the last two items are the two places a check now reads differently:
+Test, comment and repository changes, with no product change. Where an item changes what a check
+catches or how long it waits, the item says so:
 
 - The fault harness's flush waits for the session's final drain, which publishes what only a
   hook's client spool holds, before a row audits the store.
@@ -86,9 +88,12 @@ loosened; the last two items are the two places a check now reads differently:
 - Seven `TestDeliveryOrder_*` rows wait for the arrival they hold to be in its session's lane
   before they accept the later arrivals, since the ring's workers take jobs concurrently, and
   each asserts from the state it waited for.
-- `TestIngestRingFullWALsEveryLineAndNeverSpills` checks that Accept never blocks on a full ring
-  with a hang guard instead of a wall-clock bound, which a slow host could miss with nothing
-  blocked.
+- `TestIngestRingFullWALsEveryLineAndNeverSpills` waits for its ring-full Accepts with a hang
+  guard instead of a 500 ms bound, which five durable writes on a hosted runner outlasted with
+  nothing blocked. That bound also caught an Accept that waits a while on a full ring and then
+  drops; the new `TestIngestAcceptNeverWaitsOnTheRing` catches that instead by reading Accept's
+  code: its ring send keeps a default clause, and nothing on the full-ring path waits on a channel
+  or a clock.
 - The `TestSpawnClaim_*` rows fail at once with the daemon's own error when its Run returns before
   the daemon is up, and the fake daemons report a failed listen instead of leaving the row to wait
   out its bound. `TestServerCloseFreesTheEndpoint` guards the pipe-close fix above.
