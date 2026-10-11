@@ -409,40 +409,60 @@ func (s *server) Close() error {
 	return s.closeErr
 }
 
-// closeListenerBounded closes the underlying listener, giving up after serverCloseWait rather
-// than blocking Close forever if the platform's own Close hangs.
+// listenerCloseResignal is how long closeListenerBounded waits on the platform listener's Close
+// before calling it again. A Close that works returns in well under a millisecond on every
+// platform, so on POSIX it never fires; on Windows it is what a lost close signal (below) costs
+// the stop, in place of serverCloseWait and an endpoint left bound.
+const listenerCloseResignal = 50 * time.Millisecond
+
+// closeListenerBounded closes the underlying listener, calling the platform Close again every
+// listenerCloseResignal until one returns, and giving up after serverCloseWait rather than
+// blocking Close forever if the platform's own Close hangs.
 //
-// This is not a hypothetical: it is a real, reproduced behaviour of go-winio v0.6.2's
-// win32PipeListener.Close on Windows, found while building N-2a's regression stress test
-// (TestServerConcurrentDialVsClose). win32PipeListener.Close sends on an unbuffered closeCh and
-// waits synchronously for its internal listener goroutine to acknowledge shutdown by closing
+// The repeat is for go-winio v0.6.2's win32PipeListener on Windows, whose Close can lose its
+// signal. Close sends on an unbuffered closeCh and then waits for the listener goroutine to close
 // doneCh (pipe.go's win32PipeListener.Close/listenerRoutine). When that goroutine is between
-// Accept cycles it acknowledges almost instantly, but when Close races a freshly-issued Accept
-// that has not yet connected, the close signal is instead consumed by
-// makeConnectedServerPipe's own inner select, which aborts the pending connect by closing the
-// half-open pipe handle and then waits for the connectPipe goroutine's overlapped I/O to
-// actually return before acknowledging shutdown — and in this specific race, that wait was
-// observed exceeding 20s (untested how much further) in roughly one iteration in ten to twenty
-// of a 100-iteration dial-vs-Close stress loop; the vast majority of iterations complete in
-// well under a millisecond. Nothing in this package's own accept loop or registerConn logic
-// causes it — it is entirely inside go-winio's own Accept/Close synchronization, and it existed,
-// unnoticed, before this fix round.
+// accepts it takes the signal itself and exits at once. When an accept is pending — Serve
+// re-posts one after every connection, so a liveness probe's dial-and-hang-up (Probe,
+// daemon.lockIsStale) leaves one behind — the signal is taken instead by
+// makeConnectedServerPipe's inner select, which aborts the pending connect by closing its handle
+// and maps the connect's result to ErrPipeListenerClosed only when that result is nil or
+// ErrFileClosed. The aborted connect can also come back as a bare ERROR_OPERATION_ABORTED; then the
+// accept fails with that error, the listener goroutine goes back to waiting for its next signal
+// with its first pipe handle still open, and the Close that sent the first one waits on doneCh
+// for good. That was measured, not inferred: an instrumented copy of go-winio printed the raw
+// 0x3e3 for every close it lost, about one daemon stop in sixty under -covermode=atomic.
 //
-// An orderly shutdown must have an upper bound even when a layer below this package does not
-// honour one — the same trade-off waitForConns already makes for wg.Wait. Giving up here does
-// not itself leak resources this package owns: it abandons waiting for the platform Close's own
-// goroutine, not the daemon process, and s.closing is already true by the time this runs, so
-// Serve's own loop still recognises the shutdown on its own the next time Accept returns for any
-// reason.
+// A second Close is the signal the listener goroutine is waiting for, and go-winio's Close is safe
+// to call any number of times: each either delivers a signal or sees doneCh closed, so every one
+// of them returns as soon as the goroutine exits. Before the repeat, closeListenerBounded gave up
+// after serverCloseWait and reported success with the pipe name still bound for the life of the
+// process: the next listen on that address failed with "Access is denied", and a Serve whose
+// accept loop had re-posted after the lost signal never returned (TestServerCloseFreesTheEndpoint
+// failed both ways before the repeat, in each of five runs).
+//
+// An orderly shutdown must still have an upper bound even when a layer below this package does
+// not honour one — the same trade-off waitForConns already makes for wg.Wait. Giving up here does
+// not itself leak resources this package owns: it abandons waiting for the platform Close calls'
+// goroutines (at most serverCloseWait/listenerCloseResignal of them, each returning once the
+// listener goroutine exits), not the daemon process, and s.closing is already true by the time
+// this runs, so Serve's own loop still recognises the shutdown on its own the next time Accept
+// returns for any reason.
 func (s *server) closeListenerBounded() error {
 	done := make(chan error, 1)
 	go func() { done <- s.ln.Close() }()
 	t := time.NewTimer(serverCloseWait)
 	defer t.Stop()
-	select {
-	case err := <-done:
-		return err
-	case <-t.C:
-		return nil
+	resignal := time.NewTicker(listenerCloseResignal)
+	defer resignal.Stop()
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-resignal.C:
+			go func() { _ = s.ln.Close() }()
+		case <-t.C:
+			return nil
+		}
 	}
 }
