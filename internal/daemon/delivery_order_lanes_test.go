@@ -215,7 +215,7 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 	const sess core.SessionID = "sess-overflow-cut-short"
 	const perSession, k = 2, 5
 	laneTestSetLanes(dd, laneCapacity, perSession)
-	cfg := lineDeadlineDrainConfig(dd)
+	cfg := budgetDrainConfig(t, dd)
 	dispatch := cfg.Dispatch
 	var cut atomic.Bool
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -230,11 +230,12 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 				return ipc.Response{Err: ctx.Err().Error()}
 			}
 			// The stall has spent 3 s of the line's 5 s drainLineDeadline. The real publication
-			// that follows runs without it: under it, a host that needs more than the 2 s left
-			// cuts the line with nothing published, and passLeftWork rightly does not ask again
-			// after a pass that made no progress, so the row stranded whatever its bound (D73(2)).
-			// The row is about the pass budget, which the stall alone spends.
-			return withoutLineDeadline(dispatch)(ctx, req)
+			// that follows runs without it, as every line of a budget row does (budgetDrainConfig):
+			// under it, a host that needs more than the 2 s left cuts the line with nothing
+			// published, and passLeftWork rightly does not ask again after a pass that made no
+			// progress, so the row stranded whatever its bound (D73(2)). The row is about the pass
+			// budget, which the stall alone spends.
+			return dispatch(ctx, req)
 		}
 		return dispatch(ctx, req)
 	}
@@ -277,7 +278,7 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 // a requested pass must give a line it has started its own deadline, and stop starting lines once
 // its budget is spent. The row counts the attempts cancelled inside their slow part: the pass budget
 // did that to every attempt, and a line's own deadline, which ends after it, cannot. The real
-// publication after the slow part runs without the line's deadline (withoutLineDeadline): under it, a
+// publication after the slow part runs without the line's deadline (budgetDrainConfig): under it, a
 // loaded host that needed more than the 2 s the slow part left cut the line with nothing published,
 // and a pass that publishes nothing is not asked again (passLeftWork), so the row stranded (D73(2)).
 func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing.T) {
@@ -287,7 +288,7 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 	slow := idleRunBudget + time.Second // longer than a pass's budget, inside drainLineDeadline
 	require.Less(t, slow, drainLineDeadline, "fixture: the slow line must fit its own deadline")
 	laneTestSetLanes(dd, laneCapacity, perSession)
-	cfg := lineDeadlineDrainConfig(dd)
+	cfg := budgetDrainConfig(t, dd)
 	dispatch := cfg.Dispatch
 	var attempts, cutInside atomic.Int32
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -301,9 +302,10 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 				cutInside.Add(1)
 				return ipc.Response{Err: ctx.Err().Error()}
 			}
-			// The real publication after the slow part runs without the line's deadline, for the
-			// reason the row above gives (D73(2)): the slow part is what this row prices.
-			return withoutLineDeadline(dispatch)(ctx, req)
+			// The real publication after the slow part runs without the line's deadline
+			// (budgetDrainConfig), for the reason the row above gives (D73(2)): the slow part, which
+			// runs under the line's own deadline, is what this row prices.
+			return dispatch(ctx, req)
 		}
 		return dispatch(ctx, req)
 	}
@@ -348,7 +350,10 @@ func TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress(t *testin
 	dd, _, root := laneTestDaemon(t)
 	ahead := liveOrderTool(dd, root, "sess-requested-ahead", 1)
 	wedged := liveOrderTool(dd, root, "sess-requested-wedged", 2)
-	cfg := lineDeadlineDrainConfig(dd)
+	// The line ahead runs without the line's deadline (budgetDrainConfig), so it publishes however
+	// long its handler takes on a loaded host. The wedged line is held here, outside that dispatch,
+	// where the line's own drainLineDeadline is still on its context.
+	cfg := budgetDrainConfig(t, dd)
 	dispatch := cfg.Dispatch
 	var attempts atomic.Int32
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {

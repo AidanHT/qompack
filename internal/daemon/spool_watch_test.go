@@ -514,7 +514,7 @@ func TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesA
 	first := liveOrderTool(dd, root, "sess-spool-slow-sync", 1)
 	second := liveOrderTool(dd, root, "sess-spool-slow-sync", 2)
 	writeSpoolLines(t, root, "client-8301.ndjson", first, second)
-	dr := newDrainer(lineDeadlineDrainConfig(dd))
+	dr := newDrainer(budgetDrainConfig(t, dd))
 	sync := dr.syncFile
 	dr.syncFile = func(path string) error {
 		timer := time.NewTimer(idleRunBudget + spoolWatchTick) // longer than the whole budget
