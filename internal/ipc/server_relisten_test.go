@@ -13,9 +13,10 @@ import (
 )
 
 // relistenIterations is how many stop-and-replace cycles TestServerCloseFreesTheEndpoint runs. The
-// race it guards was hit in a few percent of cycles on a quiet Windows host (the first failure came
-// at cycles 6, 42, 90, 98 and 222 in five runs before the fix), and a cycle takes 10 to 25 ms there,
-// so the whole row runs in a few seconds.
+// race it guards was hit in a few percent of cycles on a quiet Windows host (before the fix, the
+// first failure came at cycles 6, 42, 90, 98 and 222 in five runs, and a reviewer's three runs failed
+// twice), so the row catches a regression in most runs, not every run. A cycle takes 10 to 25 ms
+// there, so the whole row runs in a few seconds.
 const relistenIterations = 300
 
 // TestServerCloseFreesTheEndpoint: once Close has returned, the address is free, so the daemon that

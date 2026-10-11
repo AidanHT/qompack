@@ -317,9 +317,8 @@ func TestServerCloseWithLiveConnection(t *testing.T) {
 	}
 }
 
-// slowCloseListener is a listener whose Close takes delay before closing the real one: go-winio
-// v0.6.2's win32PipeListener.Close racing a fresh Accept (closeListenerBounded's doc comment), or a
-// host that descheduled the close.
+// slowCloseListener is a listener whose Close takes delay before closing the real one: a platform
+// Close that is slow to return, such as a host that descheduled the close.
 type slowCloseListener struct {
 	net.Listener
 	delay time.Duration
@@ -351,9 +350,9 @@ func (l slowCloseListener) Close() error {
 // "Add called concurrently with Wait" panic crashes the whole test binary unconditionally, on
 // the spot — no timeout involved. And Close is now hard-capped in both of its own waits —
 // closeListenerBounded and waitForConns are each capped at serverCloseWait — so it cannot
-// legitimately take more than roughly 2×serverCloseWait regardless of load or of go-winio's own
-// Close occasionally hanging (see closeListenerBounded's doc comment, server.go). This bound
-// gives that theoretical worst case real headroom rather than sitting right on top of it.
+// legitimately take more than roughly 2×serverCloseWait regardless of load or of a platform Close
+// that never returns (closeListenerBounded's doc comment, server.go). This bound gives that
+// theoretical worst case real headroom rather than sitting right on top of it.
 const stressTestBound = 2*serverCloseWait + time.Second
 
 // serveDrainBound bounds the best-effort drain phase at the end of TestServerConcurrentDialVsClose
@@ -403,16 +402,13 @@ func TestServerConcurrentDialVsClose(t *testing.T) {
 
 	// Serve's own return is a separate, decoupled liveness property from Close's promptness:
 	// Serve only notices a shutdown once its blocked Accept call actually returns, and that
-	// depends on the underlying platform listener's Close taking effect. closeListenerBounded's
-	// doc comment (server.go) documents that go-winio's own Close/Accept synchronization can,
-	// independent of anything this package does, occasionally leave that Accept call unblocked
-	// only after a very long delay — empirically, sometimes still not within 30s. No bound this
-	// test could reasonably wait would turn that into a hard guarantee, so gating iterations (or
-	// even failing the test outright) on Serve returning promptly would make this test's
-	// pass/fail turn on a pre-existing, go-winio-level limitation rather than on the registerConn
-	// race it exists to guard. Every Serve goroutine is instead drained here on a best-effort
-	// basis: whichever ones return within serveDrainBound must report a nil error (the actual
-	// correctness assertion), and any still outstanding after that are logged, not failed — they
+	// depends on the underlying platform listener's Close taking effect. go-winio v0.6.2 could
+	// lose that Close when it raced a pending accept, leaving Accept blocked for good; since 0.3.2
+	// closeListenerBounded calls Close again until one returns (server.go), and
+	// TestServerCloseFreesTheEndpoint is the row that guards it. This test guards the registerConn
+	// race instead, so its drain stays best-effort: whichever Serve goroutines return within
+	// serveDrainBound must report a nil error (the actual correctness assertion), and any still
+	// outstanding after that are logged, not failed, until there is evidence to tighten it — they
 	// keep running harmlessly in the background until the test binary exits.
 	deadline := time.After(serveDrainBound)
 	stragglers := 0
@@ -427,9 +423,9 @@ drain:
 		}
 	}
 	if stragglers > 0 {
-		t.Logf("%d/%d Serve goroutine(s) had not returned within the %s drain window — see "+
-			"closeListenerBounded's doc comment (server.go) for the known, unrelated go-winio "+
-			"limitation this reflects, not a regression in this package's own logic",
+		t.Logf("%d/%d Serve goroutine(s) had not returned within the %s drain window: a slow "+
+			"platform Close, not the registerConn race this test guards (a lost Close signal is "+
+			"TestServerCloseFreesTheEndpoint's to catch)",
 			stragglers, iterations, serveDrainBound)
 	}
 }

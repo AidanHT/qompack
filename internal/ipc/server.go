@@ -439,7 +439,7 @@ const listenerCloseResignal = 50 * time.Millisecond
 // after serverCloseWait and reported success with the pipe name still bound for the life of the
 // process: the next listen on that address failed with "Access is denied", and a Serve whose
 // accept loop had re-posted after the lost signal never returned (TestServerCloseFreesTheEndpoint
-// failed both ways before the repeat, in each of five runs).
+// failed both ways before the repeat, in most runs of its 300 cycles: the race is probabilistic).
 //
 // An orderly shutdown must still have an upper bound even when a layer below this package does
 // not honour one — the same trade-off waitForConns already makes for wg.Wait. Giving up here does

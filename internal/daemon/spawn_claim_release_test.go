@@ -85,7 +85,10 @@ func strayClaimThenStop(t *testing.T) (root string, clk core.Clock) {
 // that failed, a lock it lost) can never make cond hold. The require.Eventually it replaced never
 // read Run's channel, so such a Run was reported only as a condition that never held, bound later:
 // the 0.3.2 cover run's AFlush row failed at 7.3 s, while its daemon had exited 26 ms after the
-// spawn with "listen: Access is denied" (ipc.TestServerCloseFreesTheEndpoint has the cause).
+// spawn with "listen: Access is denied" (ipc.TestServerCloseFreesTheEndpoint has the cause). cond
+// runs on this goroutine, so a cond that blocks can overrun bound by one call of its own (admin.ping's
+// Send is itself bounded by spawnLockTestBound); neither row asserts a latency, so the bound is a
+// hang guard, not a claim.
 func awaitWhileRunning(t *testing.T, runErr <-chan error, bound time.Duration, cond func() bool, msg string) {
 	t.Helper()
 	tick := time.NewTicker(ensureRunningPollInterval)
