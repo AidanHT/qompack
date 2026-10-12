@@ -11,8 +11,8 @@
       "description": "Qompack for Linux on x86-64 (linux/amd64). Install only the one entry that matches your machine.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.1/qompack-plugin-0.3.1-linux-amd64.zip",
-        "sha256": "247eae749f40fc825aea7968d81d7ca812ef62f6da5014f91ddb00e93a6b244e"
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.2/qompack-plugin-0.3.2-linux-amd64.zip",
+        "sha256": "7b92922de6bf26e789f5cfb6e58f286b4fe8418ba66556287f16618a23584929"
       },
       "homepage": "https://github.com/AidanHT/qompack",
       "repository": "https://github.com/AidanHT/qompack",
@@ -23,8 +23,8 @@
       "description": "Qompack for Linux on ARM64 (linux/arm64). Install only the one entry that matches your machine.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.1/qompack-plugin-0.3.1-linux-arm64.zip",
-        "sha256": "8980c1739da09d04035dc102c7d2a424d87939c78e175bb0f433221e65cfa3d2"
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.2/qompack-plugin-0.3.2-linux-arm64.zip",
+        "sha256": "7801680a7cf2ced661a374386db9abc406be8725ddeb3f872eaa8cc2195bc656"
       },
       "homepage": "https://github.com/AidanHT/qompack",
       "repository": "https://github.com/AidanHT/qompack",
@@ -35,8 +35,8 @@
       "description": "Qompack for macOS on x86-64 (darwin/amd64). Install only the one entry that matches your machine.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.1/qompack-plugin-0.3.1-darwin-amd64.zip",
-        "sha256": "8868ebaeb8603e5e2bed415a5a2f0dc258cc2988f439d57740d65bcc537c9024"
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.2/qompack-plugin-0.3.2-darwin-amd64.zip",
+        "sha256": "6614be543c3332348ffa7bfc8efb78c672a93cd8302119ce29093a23652adb3f"
       },
       "homepage": "https://github.com/AidanHT/qompack",
       "repository": "https://github.com/AidanHT/qompack",
@@ -47,8 +47,8 @@
       "description": "Qompack for macOS on ARM64 (darwin/arm64). Install only the one entry that matches your machine.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.1/qompack-plugin-0.3.1-darwin-arm64.zip",
-        "sha256": "abd67a9f3c3c55d16d379f7908cffb79afb6ff59ad9168c4d3c4519191488f4d"
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.2/qompack-plugin-0.3.2-darwin-arm64.zip",
+        "sha256": "ef5092c71587fe7f7e3fb07d82bfbee3b6d6db809470a06f8dd5d89688d7aeb0"
       },
       "homepage": "https://github.com/AidanHT/qompack",
       "repository": "https://github.com/AidanHT/qompack",
@@ -59,8 +59,8 @@
       "description": "Qompack for Windows on x86-64 (windows/amd64). Install only the one entry that matches your machine.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.1/qompack-plugin-0.3.1-windows-amd64.zip",
-        "sha256": "215dc6d8a6fe56f4b7baa76502ac50a924d6281b19c518a19588e363bd1e6cc9"
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.2/qompack-plugin-0.3.2-windows-amd64.zip",
+        "sha256": "f6044144c850fff0b7024896ff646c961d94d085722af00e84ee494ce82cf92e"
       },
       "homepage": "https://github.com/AidanHT/qompack",
       "repository": "https://github.com/AidanHT/qompack",
@@ -71,8 +71,8 @@
       "description": "Qompack for Windows on ARM64 (windows/arm64). Install only the one entry that matches your machine.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.1/qompack-plugin-0.3.1-windows-arm64.zip",
-        "sha256": "dc37d97c3f4a47adb0a8fcfc3036d327530b7a49eb7df640ad790816aab699ff"
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.2/qompack-plugin-0.3.2-windows-arm64.zip",
+        "sha256": "f498e3ec31bccb884676a1375842aef9c327b19ec79c35c4b467ec07c7ea48e4"
       },
       "homepage": "https://github.com/AidanHT/qompack",
       "repository": "https://github.com/AidanHT/qompack",
