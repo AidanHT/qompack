@@ -5,6 +5,23 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Development
+
+- **`install-check.yml` installs the published release on all six targets.** Weekly, on demand and
+  whenever develop's marketplace changes, it installs the release from the public marketplace with
+  the newest Claude Code on each target's own hosted runner (linux and windows on amd64 and arm64,
+  macOS on arm64 and Intel), with an isolated profile and no model session. It fails unless the
+  installed binary equals the release zip's and a rebuild of the release tag from source, is
+  executable, reports the version it was installed as, and runs `qompack doctor`. Its scratch run on
+  0.3.2, with Claude Code 2.1.296, passed on every target: the installed binary, the release zip's
+  and the rebuild from the tag were the same bytes, and on macOS the installed binary carried no
+  quarantine attribute.
+- Nightly's `race-windows` runs `internal/daemon` in a step of its own after the rest of the tree.
+  Inside the tree run it took 869-1475 s against the 30-minute timeout and hit it once; alone, each
+  half of it took 186-449 s. The timeout is unchanged and no test is left out.
+
 ## [0.3.2] - 2026-10-12
 
 A release on 0.3.1 (tag `v0.3.1`, `c7e45af9`). Its rehydration block changes are aimed at what
