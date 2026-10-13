@@ -411,8 +411,10 @@ func (s *server) Close() error {
 
 // listenerCloseResignal is how long closeListenerBounded waits on the platform listener's Close
 // before calling it again. A Close that works returns in well under a millisecond on every
-// platform, so on POSIX it never fires; on Windows it is what a lost close signal (below) costs
-// the stop, in place of serverCloseWait and an endpoint left bound.
+// platform, so on an unloaded host it does not fire; on Windows it is what a lost close signal
+// (below) costs the stop, in place of serverCloseWait and an endpoint left bound. A loaded host can
+// still keep the first call from finishing in time, on POSIX too (macos-15-intel under -race, ci.yml
+// run 38478943482), and then the repeat is what closes the listener.
 const listenerCloseResignal = 50 * time.Millisecond
 
 // closeListenerBounded closes the underlying listener, calling the platform Close again every
@@ -441,6 +443,11 @@ const listenerCloseResignal = 50 * time.Millisecond
 // accept loop had re-posted after the lost signal never returned (TestServerCloseFreesTheEndpoint
 // failed both ways before the repeat, in most runs of its 300 cycles: the race is probabilistic).
 //
+// Only this method closes the listener, so a call that reports net.ErrClosed is one that another
+// of its own calls beat to the close: on POSIX, net.UnixListener's second Close returns that error
+// (go-winio's Close returns nil however many times it is called). The listener is closed either
+// way, and that is the outcome Close reports.
+//
 // An orderly shutdown must still have an upper bound even when a layer below this package does
 // not honour one — the same trade-off waitForConns already makes for wg.Wait. Giving up here does
 // not itself leak resources this package owns: it abandons waiting for the platform Close calls'
@@ -458,6 +465,9 @@ func (s *server) closeListenerBounded() error {
 	for {
 		select {
 		case err := <-done:
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
 			return err
 		case <-resignal.C:
 			go func() { _ = s.ln.Close() }()
