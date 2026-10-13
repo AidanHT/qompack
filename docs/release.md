@@ -283,9 +283,13 @@ that it is broken. `excluded` = deliberately out of scope, with the reason state
   into support.
 
 Read that table as the release's actual claim for the artifacts it names. Outside `windows/amd64`
-no Claude Code session has run: linux/amd64 was installed only, from the published marketplace in a
-container with no model, where `bin/qompack` kept its executable bit and ran (D80(c)), and macOS and
-the arm64 targets were never installed. Those targets are shipped as such.
+no Claude Code session has run. The other five targets have been installed only, with no model:
+linux/amd64 from the published marketplace in a container, where `bin/qompack` kept its executable
+bit and ran (D80(c)), and, from 0.3.2, all six from the public marketplace on hosted runners of
+their own platform by `install-check.yml` (first run `38466277419`), where each installed binary
+equals the release zip's, kept its executable bit, reported its version and ran `qompack doctor`.
+Those installs are not SP-17 records, so the table does not count them. Those targets are shipped
+as such.
 
 ## Capability status at 0.3.0
 
@@ -438,7 +442,8 @@ asserting.
   `plans/sdd/V6-closeout/live/` are agent-executed (owner decision D3) and are not inputs to that
   table. linux/amd64 was installed from the published marketplace at the release's install
   rehearsal, in a container with no model session, and kept `bin/qompack`'s executable bit (D80(c));
-  no Linux session with a model has run, and macOS and the arm64 targets were never installed.
+  no Linux session with a model has run. macOS and the arm64 targets have been installed only on
+  hosted runners with no model session, by `install-check.yml` from 0.3.2.
 - **No secure erasure.** Deleting `.qompack/` deletes the store; it does not promise anything about
   backups, copies or snapshotting filesystems.
 - **No automatic downgrade.** See §5.

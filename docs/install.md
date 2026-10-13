@@ -402,10 +402,12 @@ with it develop's newest pinned release. To remove the marketplace, run `claude 
 remove qompack` (which, per the host docs, also uninstalls the plugins installed from it; your
 `.qompack/` data is not in the plugin cache, §6).
 
-**The executable bit: kept on Linux, unverified on macOS.** The zip records `bin/qompack` as 0755.
+**The executable bit: kept on Linux and macOS.** The zip records `bin/qompack` as 0755.
 Installed from the 0.3.0 release's `qompack-linux-amd64` entry with Claude Code 2.1.293, the
-installed `bin/qompack` kept mode `-rwxr-xr-x` and ran (D80). No macOS host has installed it. If a
-hook reports `permission denied` on macOS, `claude plugin list --json` gives the `installPath`, and
+installed `bin/qompack` kept mode `-rwxr-xr-x` and ran (D80). The 0.3.2 release, installed from
+the public marketplace with Claude Code 2.1.293 on hosted macOS runners, Apple silicon and Intel,
+kept it too and ran (`install-check.yml`, first run `38466277419`), and so did linux/arm64. If a
+hook still reports `permission denied`, `claude plugin list --json` gives the `installPath`, and
 `chmod +x <installPath>/bin/qompack` is the workaround. `qompack doctor` run with
 `CLAUDE_PLUGIN_ROOT=<installPath>` reports this case on its own `version.pluginRoot` row:
 `degraded`, "set but the binary is not executable".

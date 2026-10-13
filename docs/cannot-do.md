@@ -916,11 +916,11 @@ These are the limits that can move. Each names the gate or the owner that would 
   [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery);
   [docs/release.md §5](release.md#5-rollback); `plans/V5-report.md` §29 item 7.
 
-### Installed in Claude Code on windows/amd64 only
+### Sessions in Claude Code on windows/amd64 only
 
-- **Limit.** Installed-host evidence exists for **windows/amd64 only**. There, SP-17 installed the
-  bundle into Claude Code 2.1.263 and the launcher resolved from the host's plugin cache, which is the
-  record that makes that one target read `installed-verified`
+- **Limit.** Sessions in an installed host have run on **windows/amd64 only**. There, SP-17
+  installed the bundle into Claude Code 2.1.263 and the launcher resolved from the host's plugin
+  cache, which is the record that makes that one target read `installed-verified`
   ([docs/release.md](release.md#3-supported-scope) §3), and the V6 close-out's live lane installed
   the frozen bundles of candidates 3, 4 and 7 into Claude Code 2.1.280 and ran real sessions
   against a live model. Candidate 7's lane also installed through a local marketplace entry named
@@ -928,10 +928,12 @@ These are the limits that can move. Each names the gate or the owner that would 
   `/qompack:<name>` commands and `mcp__plugin_qompack_qompack__<tool>` tools as under an entry
   named `qompack` ([docs/install.md §9](install.md#9-installing-from-the-public-marketplace)).
   Those sessions were run by an agent on the owner's machine (owner decision D3), never as human
-  UAT. No other release target has been installed into a host: no macOS or windows/arm64
-  machine with Claude Code installed was available to the live lane (macOS runs the test suites on
-  hosted runners, which install nothing into Claude Code), and Linux sessions with a model could not
-  run in the container, which has no login (D34(c)).
+  UAT. No session with a model has run on any other release target: no macOS or windows/arm64
+  machine with Claude Code installed was available to the live lane, and Linux sessions with a model
+  could not run in the container, which has no login (D34(c)). The other five targets have been
+  installed into Claude Code without a model: from 0.3.2, `install-check.yml` installs the published
+  release from the public marketplace on a hosted runner of each platform and checks the installed
+  binary ([docs/install.md §9](install.md#9-installing-from-the-public-marketplace)).
 - **Why.** A host install needs a host of that platform. Separately, `qompack self-test` runs the host
   contracts against a zero `daemon.Services`, so `hook.additional_context_delivered`,
   `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and
