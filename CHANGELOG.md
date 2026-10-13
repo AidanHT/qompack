@@ -27,6 +27,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   0.3.2, with Claude Code 2.1.296, passed on every target: the installed binary, the release zip's
   and the rebuild from the tag were the same bytes, and on macOS the installed binary carried no
   quarantine attribute.
+- **test/e2e pairs this build with the previous release, both ways.** A daemon keeps running its own
+  version across a plugin update, so after every update the new hooks meet the previous release's
+  daemon and an unrestarted session's old hooks meet the new one. `TestE2E_ReleaseSkewBothWays`
+  builds the newest release tag merged into HEAD from that tag's tree with the release flags (on
+  windows/amd64, 0.3.2's build is the published binary to the byte), runs a session of each build
+  against the other's daemon on one project, then recalls what both recorded and runs `fsck`. It
+  found no incompatibility between 0.3.2 and develop. test/e2e now needs the repository's tags:
+  every CI job that runs it already checks out with `fetch-depth: 0`, and a shallow clone needs
+  `git fetch --tags`.
 - Nightly's `race-windows` runs `internal/daemon` in a step of its own after the rest of the tree.
   Inside the tree run it took 869-1475 s against the 30-minute timeout and hit it once; alone, each
   half of it took 186-449 s. The timeout is unchanged and no test is left out. Its first nightly
