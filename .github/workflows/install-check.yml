@@ -1,0 +1,95 @@
+name: install-check
+# Installs the published release the way a user does (docs/install.md section 9's command, from the
+# public marketplace on develop) on each of the six targets' own hardware, with an isolated Claude
+# Code profile and no model session, and checks what lands: the binary is byte-identical to the
+# release zip's and to a rebuild of the release tag from source, it is executable, it reports the
+# version it was installed as, and `qompack doctor` runs. It installs with the newest Claude Code,
+# so a host update that breaks the install shows here before a user meets it. It runs weekly, on
+# demand, and when develop's marketplace changes. Its scratch run on 0.3.2 (38467150495, Claude
+# Code 2.1.296) passed on every target: on each, the installed binary, the release zip's and the
+# rebuild from the tag were the same bytes.
+on:
+  schedule:
+    - cron: '17 7 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths: ['.claude-plugin/marketplace.json']
+permissions:
+  contents: read
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, target: linux-amd64, bin: qompack }
+          - { runner: ubuntu-24.04-arm, target: linux-arm64, bin: qompack }
+          - { runner: macos-latest, target: darwin-arm64, bin: qompack }
+          - { runner: macos-15-intel, target: darwin-amd64, bin: qompack }
+          - { runner: windows-latest, target: windows-amd64, bin: qompack.exe }
+          - { runner: windows-11-arm, target: windows-arm64, bin: qompack.exe }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.9', cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: install from the public marketplace and check what lands
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          BIN: ${{ matrix.bin }}
+        run: |
+          set -eu
+          npm install -g @anthropic-ai/claude-code > /dev/null
+          PY=$(command -v python3 || command -v python)
+          SRC=$PWD
+          export CLAUDE_CONFIG_DIR="$RUNNER_TEMP/cc"
+          mkdir -p "$CLAUDE_CONFIG_DIR" "$RUNNER_TEMP/proj"
+          cd "$RUNNER_TEMP/proj"
+          git init -q .
+          echo "host: $(uname -sm), Claude Code $(claude --version)"
+          claude plugin marketplace add --json --sparse .claude-plugin -- https://github.com/AidanHT/qompack.git | tail -c 300; echo
+          claude plugin install "qompack-$TARGET@qompack" -s user --json | tail -c 300; echo
+          f=$(find "$CLAUDE_CONFIG_DIR/plugins/cache/qompack" -type f -path "*/bin/$BIN" | head -1)
+          [ -n "$f" ] || { echo "FAIL: no bin/$BIN under the installed plugin"; exit 1; }
+          ls -l "$f"
+          v=$(basename "$(dirname "$(dirname "$f")")")
+          fail=0
+          [ -x "$f" ] || { echo "FAIL: the installed binary is not executable"; fail=1; }
+          got=$("$f" version 2>&1 | head -1 | tr -d '\r')
+          [ "$got" = "$v" ] || { echo "FAIL: the binary reports '$got', installed as $v"; fail=1; }
+          curl -fsSL -o "$RUNNER_TEMP/r.zip" "https://github.com/AidanHT/qompack/releases/download/v$v/qompack-plugin-$v-$TARGET.zip"
+          git -C "$SRC" worktree add -q "$RUNNER_TEMP/tag" "v$v"
+          (cd "$RUNNER_TEMP/tag" && go run ./tools/devtool bundle --version "$v" --out "$RUNNER_TEMP/rebuilt" > "$RUNNER_TEMP/rebuild.log" 2>&1) ||
+            { tail -20 "$RUNNER_TEMP/rebuild.log"; echo "FAIL: the release tag did not rebuild"; fail=1; }
+          cat > "$RUNNER_TEMP/cmp.py" <<'EOF'
+          import hashlib, os, sys, zipfile
+          zip_path, bin_name, installed, rebuilt = sys.argv[1:5]
+          zf = zipfile.ZipFile(zip_path)
+          member = [n for n in zf.namelist() if n.endswith("bin/" + bin_name)][0]
+          want = hashlib.sha256(zf.read(member)).hexdigest()
+          got = hashlib.sha256(open(installed, "rb").read()).hexdigest()
+          src = hashlib.sha256(open(rebuilt, "rb").read()).hexdigest() if os.path.exists(rebuilt) else "absent"
+          print("sha256 installed %s, release zip %s, rebuilt from the tag %s" % (got[:16], want[:16], src[:16]))
+          sys.exit(0 if got == want == src else 1)
+          EOF
+          "$PY" "$RUNNER_TEMP/cmp.py" "$RUNNER_TEMP/r.zip" "$BIN" "$f" "$RUNNER_TEMP/rebuilt/qompack-plugin-$v-$TARGET/bin/$BIN" |
+            tee "$RUNNER_TEMP/cmp.txt" || { echo "FAIL: the installed binary differs"; fail=1; }
+          if "$f" doctor > "$RUNNER_TEMP/doctor.txt" 2>&1; then echo "doctor: exit 0"; else
+            cat "$RUNNER_TEMP/doctor.txt"; echo "FAIL: qompack doctor exited non-zero"; fail=1; fi
+          sign=""
+          if [ "$(uname -s)" = Darwin ]; then
+            quarantine=$(xattr -p com.apple.quarantine "$f" 2>/dev/null || echo none)
+            sign=$(codesign -dv "$f" 2>&1 | grep -E '^Signature=|not signed' | head -1 || true)
+            echo "macOS: quarantine attribute: $quarantine; signature: $sign"
+            sign=", quarantine $quarantine, ${sign:-no signature line}"
+          fi
+          { echo "### $TARGET on ${{ matrix.runner }} (Claude Code $(claude --version | head -1))"
+            echo "- $v, mode $(ls -l "$f" | cut -c1-10)$sign"
+            echo "- $(cat "$RUNNER_TEMP/cmp.txt")"; } >> "$GITHUB_STEP_SUMMARY"
+          exit $fail

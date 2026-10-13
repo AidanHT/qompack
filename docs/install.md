@@ -416,18 +416,21 @@ Qompack's binaries are not code-signed: no Authenticode signature on Windows, an
 Developer ID signature or notarization on macOS ([release §7](release.md#7-not-claimed)). What you
 can check instead is the digest: every release zip is listed in that release's `checksums.txt`,
 every file of a bundle in the bundle's own `checksums.txt` (§1), and the release workflow attests
-build provenance for the archives ([release §1](release.md#1-procedure), step 5). None of the
-behaviour below has been observed with a published Qompack release; it is what the two operating
+build provenance for the archives ([release §1](release.md#1-procedure), step 5). One thing below
+has been observed with a published release: on macOS, Claude Code's own download of a marketplace
+archive leaves the binary without the quarantine attribute. The rest is what the two operating
 systems document for unsigned downloads. What Claude Code shows when the operating system refuses a
-hook's binary has not been observed either.
+hook's binary has not been observed.
 
 **macOS: Gatekeeper.** macOS marks a file that a browser or another quarantine-aware app downloaded
 with the `com.apple.quarantine` extended attribute, and files extracted from such an archive carry it
 too. Gatekeeper refuses to run a quarantined executable that is not notarized, with a dialog saying
 that the file cannot be opened because Apple cannot check it for malicious software (the wording
-varies with the macOS version). A file without the attribute is not checked this way. Whether
-Claude Code's own download of a marketplace archive sets the attribute has not been observed; a zip
-you downloaded in a browser and extracted yourself does carry it. To allow the binary, first check
+varies with the macOS version). A file without the attribute is not checked this way. Claude Code's
+own download of a marketplace archive does not set it: installed from the public marketplace on
+hosted macOS runners, arm64 and Intel, with Claude Code 2.1.293, 0.3.2's `bin/qompack` carried no
+quarantine attribute and ran (`install-check.yml`, first as run `38466277419`). A zip you downloaded
+in a browser and extracted yourself does carry it. To allow such a binary, first check
 its archive against the release's `checksums.txt`, then remove the attribute from the installed
 binary (`claude plugin list --json` gives the `installPath`):
 
