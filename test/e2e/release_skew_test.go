@@ -148,7 +148,9 @@ func doBuildPreviousRelease() {
 	cmd := exec.CommandContext(context.Background(), "go", "build", "-trimpath", "-buildvcs=false",
 		"-ldflags", ldflags, "-o", out, "./cmd/qompack")
 	cmd.Dir = src
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	// GOFLAGS is cleared because the release sets none: inherited from a run under GOFLAGS=-race
+	// (nightly's race-product-child), it would make this a race build, which CGO_ENABLED=0 refuses.
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOFLAGS=")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
