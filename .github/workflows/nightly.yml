@@ -91,6 +91,7 @@ jobs:
     runs-on: windows-latest
     env:
       CGO_ENABLED: '1'
+      QOMPACK_UNDER_COLOAD: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -107,10 +108,21 @@ jobs:
       # The race-product-child job below instruments selected real child paths separately.
       # ci.yml's `test-e2e` runs the ordinary package alone. The
       # co-load declaration is the same one ci.yml's `test` job makes, for the same run shape.
-      - shell: bash
-        env:
-          QOMPACK_UNDER_COLOAD: '1'
-        run: go test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')
+      #
+      # internal/daemon runs in a step of its own, after the rest of the tree. Inside the tree run it
+      # shared the 4-vCPU runner with every other package's binary and took 869-1475 s against the
+      # 30-minute -timeout, which it hit once (nightly 38101497361). Alone, each half of it took
+      # 186-449 s under -race on windows-latest (scratch run 38465634387, -run/-skip
+      # '^Test(Delivery|Drain)'), so the package alone sits far inside the same timeout. The
+      # timeout is not raised, and no test is left out: the two steps together run the same packages
+      # the single step did.
+      - name: race, the tree except test/e2e and internal/daemon
+        shell: bash
+        run: go test -race -timeout=30m $(go list ./... | grep -v -e '/test/e2e$' -e '/internal/daemon$')
+      - name: race, internal/daemon alone
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: go test -race -timeout=30m ./internal/daemon
 
   race-product-child:
     # One executable per test process; GOFLAGS reaches Build(t)'s child go build.
