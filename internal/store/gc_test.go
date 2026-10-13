@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -1592,6 +1593,8 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 // TestGC_LiveDigestMismatchRestartsMark asserts a root created between two passes is never
 // collected by the second, even though a cursor from the first is on disk.
 func TestGC_LiveDigestMismatchRestartsMark(t *testing.T) {
+	// Not parallel: spendGCDeadlines installs a package-global hook.
+	spendGCDeadlines(t)
 	tp := newTestStore(t)
 	ctx := context.Background()
 	for i := 0; i < 400; i++ {
@@ -1822,6 +1825,28 @@ func slicesContains(list []string, want string) bool {
 // 2·gcMarkBudgetRefs tokens and crosses gcCheckEvery with margin rather than by a token or two.
 const gcMarkBudgetRefs = gcCheckEvery
 
+// spendGCDeadlines makes every GC pass the test runs from here on wait, once it has armed its
+// deadline, until the clock reads past it, so a pass given a deadline that is meant to be spent
+// before its first check (GCPolicy.Deadline of a nanosecond) meets it spent there on every host.
+//
+// Without it that rests on the clock. Go's monotonic clock on Windows reads the kernel's interrupt
+// time, which moves only at the timer tick (15.6 ms unless some process on the host asks for
+// finer), so a pass that reaches its first check inside one tick reads no time as having passed and
+// finds a nanosecond deadline unspent (ci.yml run 38468412295, windows-latest). The wait ends as
+// soon as the clock moves past the deadline, which is at most one tick.
+//
+// The hook is package-global, so a test that sets it must not run in parallel with one that runs GC.
+func spendGCDeadlines(t *testing.T) {
+	t.Helper()
+	hook := func(deadline time.Time) {
+		for !deadline.IsZero() && !time.Now().After(deadline) {
+			runtime.Gosched()
+		}
+	}
+	prev := gcDeadlineArmed.Swap(&hook)
+	t.Cleanup(func() { gcDeadlineArmed.Store(prev) })
+}
+
 // TestGC_MarkPhaseHonoursTheDeadline pins the bound the mark phase did not have until the
 // 2026-08-22 audit, and the sweep's own comment claimed it did ("both this loop and the mark phase
 // check the deadline and the ctx").
@@ -1836,8 +1861,10 @@ const gcMarkBudgetRefs = gcCheckEvery
 // checkpoint is over 2·gcMarkBudgetRefs JSON tokens, so the harvest crosses its first check no
 // matter how fast the host is — where a fixture that leaned on the in-memory index walks instead
 // would be testing the clock, since those walk indexes the store already holds and answer to ctx
-// alone (see mark).
+// alone (see mark). spendGCDeadlines does the same for the deadline: it is spent when the harvest
+// gets there, however coarse the host's clock.
 func TestGC_MarkPhaseHonoursTheDeadline(t *testing.T) {
+	// Not parallel: spendGCDeadlines installs a package-global hook.
 	tp := newTestStore(t)
 	ctx := context.Background()
 
@@ -1863,7 +1890,9 @@ func TestGC_MarkPhaseHonoursTheDeadline(t *testing.T) {
 	require.True(t, truncated, "an expired deadline must truncate the mark phase")
 
 	// And the consequence at the GC level. GCPolicy.Deadline is a duration from the pass's start,
-	// so a nanosecond is spent long before the harvest's 256th token.
+	// so a nanosecond is spent long before the harvest's 256th token, and spendGCDeadlines makes
+	// the clock agree.
+	spendGCDeadlines(t)
 	rep, err := tp.Store.GC(ctx, GCPolicy{
 		RetainDays: -1, RetainSessions: -1, Deadline: time.Nanosecond,
 	})

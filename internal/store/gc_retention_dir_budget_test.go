@@ -88,6 +88,8 @@ func TestListRetentionDir_AFullBatchStillAnswersAnExpiredDeadline(t *testing.T) 
 // deadline has nowhere to land and the pass must complete — collect the unreferenced root, keep the
 // checkpointed one — rather than stop at the mark with nothing collected.
 func TestGC_AnExpiredDeadlineDoesNotStopASmallPassAtItsCheckpointListing(t *testing.T) {
+	// Not parallel: spendGCDeadlines installs a package-global hook.
+	spendGCDeadlines(t)
 	tp := newTestStore(t)
 	ctx := context.Background()
 

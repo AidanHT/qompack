@@ -225,6 +225,7 @@ func TestGC_OverlappingCallsCountAResumedCursorOnce(t *testing.T) {
 	writeCheckpointJSON(t, tp, "0001.json", live...)
 	objectsBefore := objectCount(t, tp)
 
+	spendGCDeadlines(t)
 	trunc, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: time.Nanosecond})
 	require.NoError(t, err)
 	require.True(t, trunc.Truncated, "the expired deadline cut the sweep short")

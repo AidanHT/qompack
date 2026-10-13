@@ -1,12 +1,20 @@
 package store
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+	"time"
+)
 
 // gcAfterHarvest, when set, runs in harvestHashes after every retention source has been harvested and
 // before the delivery-segment authority is rechecked: the window in which a rotation that moves the
 // authority must make the pass halt rather than collect against the sources it read. It is nil in
 // production; only SetGCAfterHarvestHookForTest and this package's own tests (gc_serial_test.go) set it.
 var gcAfterHarvest atomic.Pointer[func()]
+
+// gcDeadlineArmed, when set, runs in gcPass once the pass has armed its deadline (the zero time when
+// the policy sets none) and before any phase consults it. It is nil in production; only this
+// package's own tests set it, through spendGCDeadlines (gc_test.go).
+var gcDeadlineArmed atomic.Pointer[func(deadline time.Time)]
 
 // SetGCAfterHarvestHookForTest makes every GC pass call f after harvesting its retention sources and
 // before rechecking the delivery-segment authority, and returns the function that removes it. It exists

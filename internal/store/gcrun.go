@@ -109,6 +109,9 @@ func (s *FSStore) gcPass(ctx context.Context, p GCPolicy) (GCReport, error) {
 	if p.Deadline > 0 {
 		deadline = started.Add(p.Deadline)
 	}
+	if hook := gcDeadlineArmed.Load(); hook != nil {
+		(*hook)(deadline)
+	}
 
 	days, sessions := s.resolveRetention(p)
 	m, err := s.markPass(ctx, days, sessions, deadline)
