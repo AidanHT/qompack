@@ -115,10 +115,15 @@ jobs:
     # security job reported as four vulnerabilities the code calls. go-version-file: go.mod is no
     # better: setup-go reads the `go 1.26` directive out of it, not `toolchain`, and resolves the
     # same 1.26.5. Only the exact version works, and only a guard keeps it honest.
+    #
+    # The matrix is every target a release ships, each on its own hardware. ubuntu-latest and
+    # windows-latest are amd64 and macos-latest is Apple silicon; the last three add linux/arm64,
+    # windows/arm64 and darwin/amd64, where the suite had never run before 0.3.3. The two arm64
+    # legs' first run (38468412295) passed.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm, windows-11-arm, macos-15-intel]
     runs-on: ${{ matrix.os }}
     env:
       # This job is the whole tree at once: about twenty package binaries sharing a two-core
@@ -168,7 +173,7 @@ jobs:
       #
       # `shell: bash` on every runner, Windows included, so the package-list substitution is one
       # spelling everywhere; the Windows runner's Git Bash is what actions/checkout already uses.
-      # ONE step for all three runners, with the flags chosen inside it, because the
+      # ONE step for every runner, with the flags chosen inside it, because the
       # expected-failure reconciliation below must be identical on every runner and a second copy
       # of it is a second thing to drift.
       #
@@ -334,11 +339,12 @@ jobs:
     # This job does NOT set QOMPACK_UNDER_COLOAD, on purpose: it is the isolation in which
     # test/e2e's wall-clock rows are judgeable, and TestV3_HotPathUnchangedWithLedgerResident
     # judges every row here exactly as bench-gate does, except the fsync-bound wall rows the
-    # non-reference-disk declaration below reports.
+    # non-reference-disk declaration below reports. Its matrix is the `test` job's: every shipped
+    # target on its own hardware.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm, windows-11-arm, macos-15-intel]
     runs-on: ${{ matrix.os }}
     # ── Non-reference disk (owner Q1, third option; D53(e)) ──────────────────────────────────────
     # A GitHub-hosted runner's disk is not a reference disk: its fsync latency carries a tail no
