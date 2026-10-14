@@ -22,6 +22,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now asks for another pass, and the first complete pass clears its record. A drain that lost a line
   still leaves the record in place. Nothing in Qompack acts on the record yet, so the effect was a
   wrong entry in that file.
+- **A newline in a drop entry's name no longer splits its line in the rehydration.** Section 7 of
+  the post-compaction rehydration ("No longer in context") lists one entry per line, and it already
+  folded newlines in each entry's detail but printed the entry's name as given. A session id or a
+  restored rule's file path containing a newline therefore rendered one entry as several lines,
+  which read as extra entries. The name is now folded onto one line the same way. Found by the
+  host-ceiling property test in develop CI run 38571286711.
 
 ### Development
 
