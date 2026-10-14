@@ -36,7 +36,10 @@ type hostEventOutput struct {
 //   - PreCompact: there is NO hookSpecificOutput variant; 2.1.280 rejects hookEventName
 //     "PreCompact" and the whole response with it. "Claude Code discards a PreCompact hook's
 //     systemMessage and continue fields." custom_instructions is PreCompact INPUT (what the user
-//     typed after /compact), never an output setter, so no field of Qompack's survives.
+//     typed after /compact), never an output setter, so no field of Qompack's survives. Not even
+//     the empty object reaches the host: 2.1.293 passes any PreCompact stdout to the summarizer as
+//     additional instructions (undocumented), so internal/cli's checkpoint command prints nothing
+//     (Cmd.SilentStdout). A hook's stdout is a valid Output, except PreCompact's, which is empty.
 //   - SessionEnd: "Claude Code discards their JSON output fields", so nothing survives.
 //
 // `continue` and `suppressOutput` are dropped for every event: continue:false stops Claude entirely,

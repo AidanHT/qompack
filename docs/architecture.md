@@ -53,7 +53,8 @@ key names are "partly undocumented host contract and are expected to change (G9.
 `internal/cli` is the dispatch layer and a composition root. Its package comment states the rule
 that governs every hook process: "a hook subcommand exits 0 no matter what happens inside it" —
 unreadable stdin, malformed JSON, an unresolvable project root, a read-only store or a panic in the
-handler are all logged and swallowed, and the host still receives valid JSON on stdout. A sidecar
+handler are all logged and swallowed, and the host still receives valid JSON on stdout, except from
+the PreCompact hook, which prints nothing. A sidecar
 "must never be the reason a session gets worse".
 
 **The MCP server.** `plugin/.mcp.json` registers one server, `qompack`, as the binary with the
@@ -583,11 +584,14 @@ or coverage value: a response reports what the read itself did (`span`, `truncat
 At `PreCompact` the checkpointer finalizes a checkpoint artifact; after the compaction, the
 rehydrator builds the payload that `SessionStart source=compact` injects.
 
-`qompack checkpoint` answers the host with the empty object and nothing else. The hooks reference
-gives PreCompact no `hookSpecificOutput` variant and says the host discards its `systemMessage` and
-`continue`, and Claude Code 2.1.280 rejected the focus instruction Qompack used to return there
-(C1.12). That instruction is retired (C1.18): the daemon's checkpoint route seals the checkpoint and
-replies with the empty object, and records no instruction in the contract history. The one
+`qompack checkpoint` prints nothing on stdout, on every path, a recovered panic included. The hooks
+reference gives PreCompact no `hookSpecificOutput` variant and says the host discards its
+`systemMessage` and `continue`, and Claude Code 2.1.280 rejected the focus instruction Qompack used
+to return there (C1.12). Claude Code 2.1.293 passes a PreCompact hook's stdout to the summarizer as
+additional instructions. This is undocumented. Qompack writes nothing there: the command's
+`SilentStdout` flag makes `runGuarded` hand it a writer that discards. The focus instruction is
+retired (C1.18): the daemon's checkpoint route seals the checkpoint and replies with the empty
+object, and records no instruction in the contract history. The one
 assertion that probed for it, `precompact.custom_instructions_accepted`, now reports `retired` and
 is attributed to an unsupported capability. `internal/checkpoint` still composes the focus text,
 but only to record its length in the `state/precompact.json` debug record; it reaches no hop.

@@ -119,8 +119,10 @@ host change could lift — as prepared proposals, none of which has been filed.
 ### No summarizer model substitution
 
 - **Limit.** Qompack cannot perform summarizer model substitution: it cannot choose, replace or
-  configure the model that writes the host's compaction summary, and it cannot hand the summarizer
-  any instruction at all. A plugin's PreCompact hook has no output channel for one.
+  configure the model that writes the host's compaction summary, and it hands the summarizer no
+  instruction. The hooks reference documents no PreCompact output for one. Claude Code 2.1.293
+  passes a PreCompact hook's stdout to the summarizer as additional instructions. This is
+  undocumented. Qompack writes nothing there.
 - **Why.** `Qompack.md` v1.5 §7.3 states the boundary: "`custom_instructions` is PreCompact input,
   not a summarizer-output setter." The hooks reference (fetched 2026-09-22) gives PreCompact only
   top-level `decision: "block"`/`reason` and no `hookSpecificOutput` variant, and "Claude Code
@@ -135,8 +137,9 @@ host change could lift — as prepared proposals, none of which has been filed.
   key that once implied otherwise, `checkpoint.incrementalSpanInstruction`, is retired-meaning and
   read for compatibility only.
 - **What Qompack does instead.** It writes its own checkpoint at PreCompact, which is Qompack's
-  artifact and does not depend on what the summarizer produces, and it answers the PreCompact hook
-  with the empty object — the only response the host accepts from it. The focus instruction is
+  artifact and does not depend on what the summarizer produces, and its PreCompact hook prints
+  nothing at all, on every path: exit 0 with no output is the hooks reference's "no decision to
+  report", and it adds nothing to the summarizer's instructions. The focus instruction is
   retired (C1.18): the daemon neither returns nor records one, and
   `precompact.custom_instructions_accepted` reports `retired`, attributed to an unsupported
   capability, instead of probing the transcript for text the host never received. The hook client
