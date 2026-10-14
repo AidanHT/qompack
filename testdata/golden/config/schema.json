@@ -34,7 +34,7 @@
         },
         "incrementalSpanInstruction": {
           "default": true,
-          "description": "retired (C1.18): no host accepts a PreCompact instruction, so none is emitted; read for compatibility only (docs/cannot-do.md)",
+          "description": "retired (C1.18): Claude Code documents no PreCompact instruction output, so none is emitted; read for compatibility only (docs/cannot-do.md)",
           "type": "boolean",
           "x-qompack-section": "§8.5"
         },
