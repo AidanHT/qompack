@@ -167,13 +167,21 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 			name: "panicking handler",
 			setup: func(t *testing.T, hook string) (Env, []Cmd) {
 				dir := t.TempDir()
-				// Rebuild the table with this hook's body replaced by one that panics, keeping
-				// Hook: true so the panic barrier is exercised on the path a real hook takes.
+				// Rebuild the table with this hook's body replaced by one that panics, keeping every
+				// other field of the real command (Hook, and PreCompact's silent stdout) so the panic
+				// barrier is exercised on the path a real hook takes.
+				registered := map[string]Cmd{}
+				for _, c := range All() {
+					registered[c.Name] = c
+				}
 				cmds := make([]Cmd, 0, len(hookNames))
 				for _, n := range hookNames {
-					c := Cmd{Name: n, Hook: true, Summary: "test", Run: func(context.Context, Env, []string, io.Writer, io.Writer) error {
+					c, ok := registered[n]
+					require.True(t, ok, "no registered command %q", n)
+					require.True(t, c.Hook, "%q is a hook command", n)
+					c.Run = func(context.Context, Env, []string, io.Writer, io.Writer) error {
 						return nil
-					}}
+					}
 					if n == hook {
 						c.Run = func(context.Context, Env, []string, io.Writer, io.Writer) error {
 							panic("injected panic in " + n)
@@ -206,6 +214,13 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 				require.Equal(t, ExitOK, code,
 					"hook %q under fault %q must exit 0; stderr=%s", hook, f.name, errw.String())
 
+				if hook == "checkpoint" {
+					// PreCompact prints nothing: Claude Code passes any PreCompact stdout to the
+					// summarizer as instructions.
+					require.Empty(t, out.String(),
+						"the PreCompact hook under fault %q must write nothing", f.name)
+					return
+				}
 				var got hookio.Output
 				require.NoError(t, json.Unmarshal(bytes.TrimSpace(out.Bytes()), &got),
 					"hook %q under fault %q must write parseable hookio.Output, got %q",

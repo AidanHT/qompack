@@ -223,6 +223,10 @@ func TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks(t *testing.T)
 						"SessionStart must answer with the one host message and nothing else")
 					continue
 				}
+				if e.Event == hookio.EventPreCompact {
+					require.Empty(t, out.String(), "PreCompact prints nothing, in a refused session too")
+					continue
+				}
 				require.Equal(t, "{}\n", out.String(), "%s must stay silent in a refused session", e.Event)
 			}
 			f.requireUntouched(t, "every hook")
@@ -256,6 +260,10 @@ func TestHomeRoot_ASessionStartedInHomeStaysRefusedWhenAPayloadNamesAProject(t *
 		require.Equal(t, ExitOK, code, "%s: stderr=%s", e.Event, errw.String())
 		if e.Event == hookio.EventSessionStart {
 			require.Contains(t, out.String(), homeRootNotice, "SessionStart still says why")
+			continue
+		}
+		if e.Event == hookio.EventPreCompact {
+			require.Empty(t, out.String(), "PreCompact prints nothing")
 			continue
 		}
 		require.Equal(t, "{}\n", out.String(), "%s stays silent", e.Event)

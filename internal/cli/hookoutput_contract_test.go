@@ -257,9 +257,9 @@ func TestHookOutput_PreCompactCarriesNoHookSpecificOutput(t *testing.T) {
 
 	require.Empty(t, hostSchemaViolations(schema, "PreCompact", stdout),
 		"`qompack checkpoint` must never emit output Claude Code rejects; stdout=%s", stdout)
-	require.Equal(t, "{}\n", string(stdout),
-		"PreCompact accepts no hookSpecificOutput and discards systemMessage, so the only conforming "+
-			"non-empty answer is the empty object")
+	require.Empty(t, string(stdout),
+		"PreCompact accepts no hookSpecificOutput and discards systemMessage, and Claude Code passes "+
+			"any PreCompact stdout to the summarizer as instructions, so the hook prints nothing")
 }
 
 // TestHookOutput_EveryEntryPointConformsToTheHostSchema drives all seven installed entry points —
@@ -272,15 +272,16 @@ func TestHookOutput_EveryEntryPointConformsToTheHostSchema(t *testing.T) {
 	// The golden: what each entry point writes when the daemon says everything it could. PostToolUse,
 	// Stop and SubagentStop are fire-and-forget (an ACK, never a reply), so the client always
 	// answers them with the empty object. SessionStart and UserPromptSubmit keep the two fields
-	// the host acts on. PreCompact and SessionEnd keep nothing: the host rejects or discards all
-	// of it.
+	// the host acts on. SessionEnd keeps nothing: the host discards all of it. PreCompact prints
+	// nothing at all: the host rejects or discards every field, and Claude Code passes any
+	// PreCompact stdout, even the empty object, to the summarizer as instructions.
 	want := map[string]string{
 		"PostToolUse": "{}\n",
 		"UserPromptSubmit": `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit",` +
 			`"additionalContext":"context for UserPromptSubmit"},"systemMessage":"qompack host-contract banner"}` + "\n",
 		"SessionStart": `{"hookSpecificOutput":{"hookEventName":"SessionStart",` +
 			`"additionalContext":"context for SessionStart"},"systemMessage":"qompack host-contract banner"}` + "\n",
-		"PreCompact":   "{}\n",
+		"PreCompact":   "",
 		"Stop":         "{}\n",
 		"SubagentStop": "{}\n",
 		"SessionEnd":   "{}\n",
