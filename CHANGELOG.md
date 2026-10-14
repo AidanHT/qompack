@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A daemon stopped by a signal no longer reports an error for a pipe it closed.** Since 0.3.2 the
+  daemon repeats its listener's close every 50 ms until one call returns, for a close signal
+  go-winio can lose on Windows. On macOS and Linux a repeat that won made the first call return
+  "use of closed network connection", and the daemon's stop returned that as its error although
+  the listener had closed. Found by the new macos-15-intel test leg under `-race` (ci.yml run
+  38478943482); Windows was not affected.
+
 ### Development
 
 - **`install-check.yml` installs the published release on all six targets.** Weekly, on demand and
@@ -20,7 +29,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   quarantine attribute.
 - Nightly's `race-windows` runs `internal/daemon` in a step of its own after the rest of the tree.
   Inside the tree run it took 869-1475 s against the 30-minute timeout and hit it once; alone, each
-  half of it took 186-449 s. The timeout is unchanged and no test is left out.
+  half of it took 186-449 s. The timeout is unchanged and no test is left out. Its first nightly
+  with the split passed both steps; the `internal/daemon` step took 12m42s.
+- `ci.yml`'s `test` and `test-e2e` jobs run on every target a release ships: ubuntu-24.04-arm,
+  windows-11-arm and macos-15-intel join ubuntu-latest, windows-latest and macos-latest. The suites
+  had never run on linux/arm64, windows/arm64 or darwin/amd64. The two arm64 legs passed from their
+  first run (38468412295). macos-15-intel's first runs found the stop error above and two rows
+  whose verdict depended on the host's timing, below.
+- Four GC rows that give a pass a 1 ns deadline now wait, inside the pass, until the clock reads
+  past it. On windows-latest one pass completed its mark under that deadline (run 38468412295):
+  Go's monotonic clock on Windows moves only at the timer tick, so a nanosecond deadline could
+  still read as unspent at the first check. No assertion changed.
+- `devtool lint`'s stubskips runs `internal/daemon` in a pass of its own. Inside the parallel tree
+  pass on windows-latest its binary was killed at the 30-minute timeout twice (runs 38274115406 and
+  38485703267), so its skips went uninspected. Alone it took 454-536 s there. The timeout is
+  unchanged; `lint-windows`' job backstop rises from 90 to 120 minutes to cover the third pass.
+- TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound hears a late daemon's answer by
+  250 ms, which the host's own scheduling can use up. Under `-race` in macos-15-intel's whole-tree
+  run it did once (run 38485703267). Per ADR 0010 the row is now judged by name in the `timing`
+  lane, alone, and in a co-loaded run reports a late answer, as long as the hook still wrote its
+  own note and spooled the start.
+- TestIntegration_DegradedPassiveStillWritesToTheRealStore timed out once in macos-15-intel's
+  whole-tree run waiting for its session's recovery record to clear (run 38478943482). Eight more
+  such runs and 20 runs of the test alone did not repeat it. When that wait fails, the test now
+  logs the record's stage, the drain's progress, the spool files and the daemon's log.
+- install.md section 9, release.md section 3 and cannot-do.md now say what `install-check.yml`'s
+  first run showed: 0.3.2 installed and ran `qompack doctor` on all six targets, with the
+  executable bit kept on Linux and macOS. No session with a model has run outside windows/amd64.
 
 ## [0.3.2] - 2026-10-12
 
