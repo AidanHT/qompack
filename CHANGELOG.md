@@ -9,6 +9,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The PreCompact hook prints nothing.** It printed `{}` on every compaction. Claude Code 2.1.293
+  passes a PreCompact hook's stdout, even one JSON object, to the summarizer as additional
+  instructions and shows it to the user as "PreCompact [...] completed successfully: {}". This is
+  undocumented. `qompack checkpoint` now writes no bytes to stdout on any path, a recovered panic
+  included, and still exits 0; Claude Code drops empty stdout from those instructions. Every other
+  hook still answers with JSON.
 - **A daemon stopped by a signal no longer reports an error for a pipe it closed.** Since 0.3.2 the
   daemon repeats its listener's close every 50 ms until one call returns, for a close signal
   go-winio can lose on Windows. On macOS and Linux a repeat that won made the first call return
