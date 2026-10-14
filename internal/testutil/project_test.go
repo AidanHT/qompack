@@ -218,8 +218,9 @@ func TestProject_AssertAppendOnly(t *testing.T) {
 // SP-05 (this repo's own next subplan after SP-01) replaces the six hook bodies with thin ipc
 // clients: SessionStart's and PreCompact's hookSpecificOutput now comes from a live daemon's
 // Response, not from a CLI-side stub, so with no daemon reachable (the case here — an in-process
-// dispatch never spawns one; see internal/cli's selfPath) every hook's response is the minimal
-// "{}" shape. test/e2e's daemon_e2e_test.go asserts the round trip against a real, running daemon.
+// dispatch never spawns one; see internal/cli's selfPath) every hook but PreCompact answers with the
+// minimal "{}" shape, and PreCompact prints nothing (RunHook returns the zero Output for it).
+// test/e2e's daemon_e2e_test.go asserts the round trip against a real, running daemon.
 func TestProject_RunHookInProcess(t *testing.T) {
 	p := NewProject(t)
 
