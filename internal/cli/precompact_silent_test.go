@@ -5,10 +5,12 @@ package cli
 import (
 	"bytes"
 	"context"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/pluginmanifest"
 )
@@ -58,10 +60,36 @@ func TestPreCompact_StdoutIsEmptyWhenTheHookPanics(t *testing.T) {
 // TestPreCompact_StdoutIsEmptyWhenTheDaemonIsDown covers the daemon-down fault site (an address
 // nothing listens on, and no spawn) and a project where no daemon runs and none can be started
 // (Env.Self is empty, which disables lazy spawn).
+//
+// Stdout is discarded on every path, so empty stdout alone cannot tell which path ran. The fault
+// site is therefore proven by its effect: with a reply daemon listening at the project's address,
+// the request reaches that daemon without the fault, and with the fault it never does and is
+// spooled instead.
 func TestPreCompact_StdoutIsEmptyWhenTheDaemonIsDown(t *testing.T) {
 	t.Run("fault site", func(t *testing.T) {
-		stdout, _ := runCheckpointUnderFault(t, replyProject(t), faultDaemonDown)
+		listening := func(t *testing.T) (string, *atomic.Int32) {
+			root := replyProject(t)
+			var got atomic.Int32
+			replyDaemon(t, root, func(req ipc.Request) *hookio.Output {
+				if req.Op == ipc.OpCheckpoint {
+					got.Add(1)
+				}
+				return nil
+			})
+			return root, &got
+		}
+
+		control, reached := listening(t)
+		stdout, _ := runCheckpointUnderFault(t, control, "")
 		require.Empty(t, stdout)
+		require.Equal(t, int32(1), reached.Load(), "control: without the fault the daemon gets the request")
+
+		root, reached := listening(t)
+		stdout, _ = runCheckpointUnderFault(t, root, faultDaemonDown)
+		require.Empty(t, stdout)
+		require.Zero(t, reached.Load(), "daemon-down must keep the request from the listening daemon")
+		req := onlySpooledRequest(t, root)
+		require.Equal(t, ipc.OpCheckpoint, req.Op, "the fault site spooled the checkpoint request")
 	})
 	t.Run("no daemon", func(t *testing.T) {
 		root := replyProject(t)
