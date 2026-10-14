@@ -200,8 +200,12 @@ const sessionHeaderRunes = 8
 
 // shortSession truncates s to sessionHeaderRunes runes. It cuts on a rune boundary rather than a
 // byte one: a session id is host-supplied, and a half-rune would reach the model as U+FFFD.
+//
+// It folds the id's line breaks with oneLine first, so the header stays one line and the cut counts
+// folded text: eight raw runes are enough to start a new payload line with a section heading
+// ("a\n## 7. ").
 func shortSession(s core.SessionID) string {
-	return truncRunes(string(s), sessionHeaderRunes, "")
+	return truncRunes(oneLine(string(s)), sessionHeaderRunes, "")
 }
 
 // renderBody assembles the payload body: the document header, then each non-empty item's section,
