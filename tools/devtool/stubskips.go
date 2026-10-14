@@ -199,10 +199,11 @@ func runStubSkips() error {
 	}
 
 	// `go list` rather than the patterns themselves, so the packages can be split into passes
-	// (isolatedPasses) and none is dropped on the way: every listed package is in exactly one. On
+	// (stubskipsPasses) and none is dropped on the way: every listed package is in exactly one. On
 	// windows-latest test/e2e's binary was killed past -timeout=30m inside the single whole-tree
 	// pass (run 36816905394, lint-windows), so none of its skips were inspected; alone it takes
-	// about 20 minutes there (that run's test-e2e job, 1188 s).
+	// about 20 minutes there (that run's test-e2e job, 1188 s). internal/daemon's followed it
+	// (stubskipsAlonePackages).
 	listOut, listErr, err := runCapture(nil, "go", append([]string{"list"}, patterns...)...)
 	if err != nil {
 		return fmt.Errorf("stubskips: go list %s: %w\n%s", strings.Join(patterns, " "), err, listErr)
@@ -224,7 +225,7 @@ func runStubSkips() error {
 	// a binary killed at the wall part-way through — are caught explicitly below, because in both
 	// of them a missing skip event carries no information and silence would read as compliance.
 	var events []testEvent
-	for i, pass := range isolatedPasses(pkgs) {
+	for i, pass := range stubskipsPasses(pkgs) {
 		args := stubskipsTestArgs(pass)
 		// Each pass is timed in the log, so a job that runs up against its timeout-minutes
 		// backstop says which pass spent the time (ci.yml, lint-windows).
@@ -270,7 +271,34 @@ func runStubSkips() error {
 	return fmt.Errorf("stubskips: %d problem(s)", len(problems))
 }
 
-// stubskipsTestArgs is the `go test -json` command line for one isolatedPasses pass, at the hang
+// stubskipsAlonePackages are the packages stubskips runs in a pass of their own beyond
+// isolatedPackages: internal/daemon, whose binary is the slowest of the shared pass on
+// windows-latest and was killed past -timeout=30m inside it twice (lint-windows in runs
+// 38274115406 and 38485703267, where that pass took 41m26s and 32m56s; it takes 19m49s to 28m54s
+// on other runs). Its rows are bound by fsync latency, and beside the rest of the tree they wait on
+// the same disk: nightly's race-windows measured the package at 869-1475 s inside the tree and
+// 186-449 s per half alone, and runs it alone since. Run alone on windows-latest the way this pass
+// runs it, it took 453.8 s and 535.5 s, and the rest of the shared pass at most 739 s (scratch run
+// 38492967133). The pass keeps the tree's hang guard
+// (passTimeout); only the co-load around the binary goes. This set is stubskips' alone:
+// devtool test and cover judge the package's rows, and moving it out of their co-loaded pass would
+// change the co-load declaration those rows run under, while stubskips judges no row.
+var stubskipsAlonePackages = map[string]bool{modulePath + "/internal/daemon": true}
+
+// stubskipsPasses splits pkgs into stubskips' `go test` passes: the rest of the tree in parallel,
+// then each of isolatedPackages and stubskipsAlonePackages alone, in input order.
+func stubskipsPasses(pkgs []string) [][]string {
+	alone := make(map[string]bool, len(isolatedPackages)+len(stubskipsAlonePackages))
+	for p := range isolatedPackages {
+		alone[p] = true
+	}
+	for p := range stubskipsAlonePackages {
+		alone[p] = true
+	}
+	return splitPasses(pkgs, alone)
+}
+
+// stubskipsTestArgs is the `go test -json` command line for one stubskipsPasses pass, at the hang
 // guard passTimeout gives its packages.
 func stubskipsTestArgs(pass []string) []string {
 	return append([]string{"test", "-json", "-timeout=" + passTimeout(pass)}, pass...)

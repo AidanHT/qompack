@@ -145,11 +145,17 @@ func passTimeout(pkgs []string) string {
 // package not in isolatedPackages together, then each isolated package alone. Every package lands
 // in exactly one pass, the input order is kept within a pass, and no pass is empty.
 func isolatedPasses(pkgs []string) [][]string {
+	return splitPasses(pkgs, isolatedPackages)
+}
+
+// splitPasses is isolatedPasses for any set of packages to run alone: every package not in alone
+// together, then each package in alone in a pass of its own, in input order.
+func splitPasses(pkgs []string, alone map[string]bool) [][]string {
 	var shared []string
-	var alone [][]string
+	var single [][]string
 	for _, p := range pkgs {
-		if isolatedPackages[p] {
-			alone = append(alone, []string{p})
+		if alone[p] {
+			single = append(single, []string{p})
 			continue
 		}
 		shared = append(shared, p)
@@ -158,7 +164,7 @@ func isolatedPasses(pkgs []string) [][]string {
 	if len(shared) > 0 {
 		passes = append(passes, shared)
 	}
-	return append(passes, alone...)
+	return append(passes, single...)
 }
 
 // taskTestRace uses CI's non-e2e race scope (ADR-0010). E2E remains in taskTest's isolated pass

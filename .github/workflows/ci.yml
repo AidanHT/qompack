@@ -72,7 +72,9 @@ jobs:
     # risk. The cost that matters is stubskips' `go test` over internal/, cmd/ and test/, and that is
     # not removable: the check IS a test run. It is two passes since run 36816905394: the tree in
     # parallel, then test/e2e alone, for the reason the `test` job leaves test/e2e to `test-e2e`
-    # (tools/devtool/test.go, isolatedPackages).
+    # (tools/devtool/test.go, isolatedPackages). Since 0.3.3 it is three: internal/daemon runs
+    # alone between them (tools/devtool/stubskips.go, stubskipsAlonePackages), after its binary was
+    # killed at 30 minutes inside the tree pass twice.
     #
     # It is a separate job rather than a Windows leg of `verify` because nothing else in verify —
     # fmt-check, go vet, go build, the two git-history greps — is platform-sensitive, and paying for
@@ -96,7 +98,13 @@ jobs:
     # before go test reported the hang; 90 keeps 10 minutes over that. No per-binary -timeout in
     # the tree moved, a hung test is still killed and reported, and this bound still catches a
     # wedge outside a binary.
-    timeout-minutes: 90
+    #
+    # 120. internal/daemon's pass of its own adds its 30-minute guard: 4.5 + 30 + 30 + 45 = 109.5,
+    # and 120 keeps 10 minutes over that. Measured, the passes are shorter than before: the tree
+    # without internal/daemon or test/e2e took at most 739 s on windows-latest and internal/daemon
+    # alone 453.8 s and 535.5 s (scratch run 38492967133), where pass 1 with it had taken 19m49s to
+    # 41m26s (runs 38468412295 and 38274115406).
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

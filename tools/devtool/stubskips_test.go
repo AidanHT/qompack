@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -213,31 +214,39 @@ func TestParseTestEvents(t *testing.T) {
 	}
 }
 
-// TestStubSkipsPasses_RunsE2EAloneAndDropsNothing pins how stubskips splits the tree into `go test`
-// passes. test/e2e runs in a pass of its own: inside the parallel whole-tree pass on windows-latest
-// its binary was killed past -timeout=30m (run 36816905394, lint-windows), so its skips were never
-// inspected, while the package alone takes about 20 minutes there (the test-e2e job, 1188 s).
-// Every listed package lands in exactly one pass, and no pass is empty.
-func TestStubSkipsPasses_RunsE2EAloneAndDropsNothing(t *testing.T) {
+// TestStubSkipsPasses_RunsE2EAndTheDaemonAloneAndDropsNothing pins how stubskips splits the tree into
+// `go test` passes. test/e2e runs in a pass of its own: inside the parallel whole-tree pass on
+// windows-latest its binary was killed past -timeout=30m (run 36816905394, lint-windows), so its
+// skips were never inspected, while the package alone takes about 20 minutes there (the test-e2e
+// job, 1188 s). internal/daemon's binary was then killed at the same wall twice (runs 38274115406
+// and 38485703267), so it runs alone too (stubskipsAlonePackages). Every listed package lands in
+// exactly one pass, and no pass is empty. devtool test's passes are not stubskips': the daemon stays
+// in their shared pass.
+func TestStubSkipsPasses_RunsE2EAndTheDaemonAloneAndDropsNothing(t *testing.T) {
 	pkgs := []string{
 		modulePath + "/internal/core",
+		modulePath + "/internal/daemon",
 		modulePath + "/test/e2e",
 		modulePath + "/internal/store",
 		modulePath + "/test/guards",
 	}
-	passes := isolatedPasses(pkgs)
+	passes := stubskipsPasses(pkgs)
 	want := [][]string{
 		{modulePath + "/internal/core", modulePath + "/internal/store", modulePath + "/test/guards"},
+		{modulePath + "/internal/daemon"},
 		{modulePath + "/test/e2e"},
 	}
 	if fmt.Sprint(passes) != fmt.Sprint(want) {
 		t.Fatalf("passes = %v, want %v", passes, want)
 	}
-
-	if got := isolatedPasses([]string{modulePath + "/internal/core"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/internal/core"}}) {
-		t.Fatalf("a tree without test/e2e is one pass; got %v", got)
+	if got := isolatedPasses(pkgs); len(got) != 2 || !slices.Contains(got[0], modulePath+"/internal/daemon") {
+		t.Fatalf("devtool test's shared pass keeps internal/daemon; got %v", got)
 	}
-	if got := isolatedPasses([]string{modulePath + "/test/e2e"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/test/e2e"}}) {
+
+	if got := stubskipsPasses([]string{modulePath + "/internal/core"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/internal/core"}}) {
+		t.Fatalf("a tree without test/e2e or internal/daemon is one pass; got %v", got)
+	}
+	if got := stubskipsPasses([]string{modulePath + "/test/e2e"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/test/e2e"}}) {
 		t.Fatalf("a tree of test/e2e alone is one pass and never an empty one; got %v", got)
 	}
 }
@@ -247,13 +256,15 @@ func TestStubSkipsPasses_RunsE2EAloneAndDropsNothing(t *testing.T) {
 // took 19m49s to 21m14s (runs 36905843834, 36955046276, 36981590450) and the binary takes 1513.7 s
 // and 1529.5 s on the quiet Windows reference host, so 30m left it about 15% headroom (audit 2's
 // #84). It gets the 45m hang guard ci.yml's test-e2e gives the same binary; the shared pass keeps
-// 30m.
+// 30m, and so does internal/daemon's pass of its own: it runs alone for the co-load, not for a
+// longer guard.
 func TestStubSkipsPasses_GiveTheIsolatedPassItsOwnHangGuard(t *testing.T) {
-	e2e := modulePath + "/test/e2e"
+	e2e, daemon := modulePath+"/test/e2e", modulePath+"/internal/daemon"
 	core, guards := modulePath+"/internal/core", modulePath+"/test/guards"
-	passes := isolatedPasses([]string{core, e2e, guards})
+	passes := stubskipsPasses([]string{core, daemon, e2e, guards})
 	want := [][]string{
 		{"test", "-json", "-timeout=30m", core, guards},
+		{"test", "-json", "-timeout=30m", daemon},
 		{"test", "-json", "-timeout=45m", e2e},
 	}
 	if len(passes) != len(want) {
@@ -264,7 +275,7 @@ func TestStubSkipsPasses_GiveTheIsolatedPassItsOwnHangGuard(t *testing.T) {
 			t.Fatalf("pass %d runs %q, want %q", i, got, want[i])
 		}
 	}
-	for pkg, timeout := range map[string]string{core: "-timeout=30m,", e2e: "-timeout=45m,"} {
+	for pkg, timeout := range map[string]string{core: "-timeout=30m,", daemon: "-timeout=30m,", e2e: "-timeout=45m,"} {
 		if got := timedOutProblem(pkg); !strings.Contains(got, timeout) {
 			t.Fatalf("a killed %s must name the %s it ran at; got %q",
 				pkg, strings.TrimSuffix(timeout, ","), got)
