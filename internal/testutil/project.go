@@ -353,7 +353,8 @@ func HookNames() []string {
 // The mode is selected by QOMPACK_E2E_BINARY (see E2EBinaryEnv): unset runs cli.Dispatch in
 // process with a real pipe for stdin, set spawns that binary. §6.2 mandates both. Either way the
 // exit code is asserted to be 0, because §2.3 permits a hook no other outcome, and stdout is
-// parsed as a hookio.Output.
+// parsed as a hookio.Output. A hook's stdout is a valid hookio.Output, except PreCompact's, which
+// is empty: for PreCompact any byte at all fails the test, and the result is the zero Output.
 func (p *Project) RunHook(t *testing.T, name string, e hookio.Event) hookio.Output {
 	t.Helper()
 
@@ -384,6 +385,13 @@ func (p *Project) RunHook(t *testing.T, name string, e hookio.Event) hookio.Outp
 			name, code, stdout, stderr)
 	}
 
+	if len(argv) == 1 && argv[0] == "checkpoint" {
+		if len(stdout) != 0 {
+			t.Fatalf("testutil: hook %s must print nothing (Claude Code passes PreCompact stdout to the "+
+				"summarizer as instructions), printed:\n%s", name, stdout)
+		}
+		return hookio.Output{}
+	}
 	var out hookio.Output
 	if err := json.Unmarshal(stdout, &out); err != nil {
 		t.Fatalf("testutil: hook %s wrote stdout that is not a hookio.Output: %v\nstdout:\n%s", name, err, stdout)

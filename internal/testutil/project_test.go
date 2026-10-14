@@ -213,7 +213,7 @@ func TestProject_AssertAppendOnly(t *testing.T) {
 
 // TestProject_RunHookInProcess asserts the default, in-process half of §6.2's two-mode
 // requirement: all six hooks run through cli.Dispatch and every one exits 0 with a parseable
-// response.
+// response, except PreCompact, which RunHook requires to print nothing.
 //
 // SP-05 (this repo's own next subplan after SP-01) replaces the six hook bodies with thin ipc
 // clients: SessionStart's and PreCompact's hookSpecificOutput now comes from a live daemon's
