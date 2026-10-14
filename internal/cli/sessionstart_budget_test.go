@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -240,12 +241,14 @@ const lateDaemonAnswer = "late-daemon-answer"
 
 // lateDaemon is a daemon on its way: it starts listening at a given instant, removes the spawn
 // claim that announced it the way Run does (listen, serve, then delete run/spawn.lock), and answers
-// every request after holding it for a given time.
+// every request after holding it for a given time. up, recv and answered are when it listened, when
+// its last request reached it and when it answered that request, for a row's report.
 type lateDaemon struct {
-	mu       sync.Mutex
-	srv      ipc.Server
-	received int
-	err      error
+	mu                 sync.Mutex
+	srv                ipc.Server
+	received           int
+	err                error
+	up, recv, answered time.Time
 }
 
 // startLateDaemon brings a lateDaemon up for root at the instant at, holding each request for hold.
@@ -265,7 +268,7 @@ func startLateDaemon(t *testing.T, root string, at time.Time, hold time.Duration
 		}
 		srv, lerr := ipc.NewServer(addr, logging.Nop(), obs.New(testClock()), 0)
 		d.mu.Lock()
-		d.srv, d.err = srv, lerr
+		d.srv, d.err, d.up = srv, lerr, time.Now()
 		d.mu.Unlock()
 		if lerr != nil {
 			return
@@ -276,12 +279,16 @@ func startLateDaemon(t *testing.T, root string, at time.Time, hold time.Duration
 			_ = srv.Serve(ctx, func(ctx context.Context, _ ipc.Request) ipc.Response {
 				d.mu.Lock()
 				d.received++
+				d.recv = time.Now()
 				d.mu.Unlock()
 				select {
 				case <-time.After(hold):
 				case <-ctx.Done():
 					return ipc.Response{}
 				}
+				d.mu.Lock()
+				d.answered = time.Now()
+				d.mu.Unlock()
 				out := hookio.SessionStartOutput(lateDaemonAnswer)
 				return ipc.Response{OK: true, Mode: contract.ModeFull, Output: &out}
 			})
@@ -299,6 +306,20 @@ func startLateDaemon(t *testing.T, root string, at time.Time, hold time.Duration
 		<-done
 	})
 	return d
+}
+
+// timeline says when d listened, received its last request and answered it, relative to began, as
+// far as it has got.
+func (d *lateDaemon) timeline(began time.Time) string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	at := func(x time.Time) string {
+		if x.IsZero() {
+			return "not yet"
+		}
+		return x.Sub(began).Round(time.Millisecond).String()
+	}
+	return fmt.Sprintf("up at %s, request at %s, answered at %s", at(d.up), at(d.recv), at(d.answered))
 }
 
 // requests reports how many requests reached d, and whether it failed to listen.
@@ -400,20 +421,42 @@ func TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit(t *
 // up at 8 s still leaves the reply more than D9's 5 s compact bound, so a daemon that takes its
 // whole bound to answer — the deferred note it sends when the rehydration is late — is heard,
 // rather than the start being spooled with the client's own note.
+//
+// Heard by 250 ms: found at 8 s, the reply waits until 13.25 s (doneBy less the dial), and the
+// daemon answers 5 s after the request reaches it. The fixture's late listen, the poll's tick, the
+// dial and the answer's way back all come out of those 250 ms, which makes whether the answer is
+// heard a wall-clock property of the host. Under -race in the whole-tree run on macos-15-intel the
+// hook's reply wait ended first and it wrote its own note (ci.yml run 38485703267). Per docs/adr/0010
+// the answer is judged where the host is the test's own — ci.yml's timing lane runs this test by
+// name, alone — and, where the invoking job has declared co-load, a late answer is REPORTED,
+// provided the hook did what it does with one: its own no-answer note, and the start spooled for
+// the daemon to replay. That the request reached the daemon once, and the hook's own bound, are
+// judged everywhere.
 func TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound(t *testing.T) {
 	t.Parallel()
 	const upAfter = 8 * time.Second
 	root := claimedProject(t)
 	var d *lateDaemon
-	out, took, _ := runLiveSessionStart(t, root, compactSource, func(began time.Time) {
-		d = startLateDaemon(t, root, began.Add(upAfter), daemon.CompactAnswerBudget())
+	var began time.Time
+	out, took, _ := runLiveSessionStart(t, root, compactSource, func(b time.Time) {
+		began = b
+		d = startLateDaemon(t, root, b.Add(upAfter), daemon.CompactAnswerBudget())
 	})
 	n, lerr := d.requests()
 	require.NoError(t, lerr, "the late daemon could not listen")
-	require.Contains(t, out, lateDaemonAnswer, "the daemon's answer at its compact bound reaches the host")
-	require.NotContains(t, out, daemon.DeferredNoAnswer, "not the client's own no-answer note")
+	if obs.UnderCoload() && !strings.Contains(out, lateDaemonAnswer) {
+		require.Contains(t, out, daemon.DeferredNoAnswer, "an answer that was not heard leaves the client's own note")
+		require.True(t, spooledStart(t, root), "an unanswered compaction is spooled for the daemon to replay")
+		t.Logf("%s: the daemon's answer at its compact bound was not heard by the hook's reply deadline "+
+			"(the late daemon was %s; the hook took %s), reported here and judged in ci.yml's timing lane",
+			obs.UnderColoadEnv, d.timeline(began), took)
+	} else {
+		require.Contains(t, out, lateDaemonAnswer, "the daemon's answer at its compact bound reaches the host (the late daemon was %s)",
+			d.timeline(began))
+		require.NotContains(t, out, daemon.DeferredNoAnswer, "not the client's own no-answer note")
+		require.False(t, spooledStart(t, root), "an answered compaction is not spooled")
+	}
 	require.Equal(t, 1, n)
-	require.False(t, spooledStart(t, root), "an answered compaction is not spooled")
 	require.Less(t, took, sessionStartHostTimeout()-hookExitReserve+budgetTestSlack,
 		"the hook still ends by its bound; it took %s", took)
 }
