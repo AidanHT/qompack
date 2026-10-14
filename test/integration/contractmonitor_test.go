@@ -566,8 +566,17 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 // terminal-hook marker naming sess, written right after SessionEnd (compared against markerBefore, so
 // an earlier terminal hook's marker is not taken for it), and the session's recovery record, set
 // before the flush was answered and cleared only once the end's drain has run.
+//
+// When the wait fails it says where the end stood (sessionEndEvidence): one macos-15-intel run of the
+// whole tree under -race met the record still set after 30 s (ci.yml run 38478943482), and neither 8
+// more such runs nor 20 of this test alone did again, so the next occurrence has to name its cause.
 func awaitSessionEnded(t *testing.T, root string, sess core.SessionID, markerBefore []byte) {
 	t.Helper()
+	defer func() {
+		if t.Failed() {
+			sessionEndEvidence(t, root, markerBefore)
+		}
+	}()
 	require.Eventually(t, func() bool {
 		b, err := os.ReadFile(paths.Long(contract.MarkerPath(root)))
 		if err != nil || string(b) == string(markerBefore) {
@@ -586,4 +595,41 @@ func awaitSessionEnded(t *testing.T, root string, sess core.SessionID, markerBef
 		_, pending := sr.Sessions[sess]
 		return !pending
 	}, storeSettleWait, storeSettleTick, "the daemon never finished ending session %s after its flush hook", sess)
+}
+
+// sessionEndEvidenceTail bounds how much of each daemon log sessionEndEvidence prints.
+const sessionEndEvidenceTail = 8 << 10
+
+// sessionEndEvidence logs what a session end that did not finish left on disk: the terminal-hook
+// marker before and now, the recovery record and the stage it names, the drain's progress
+// (state/drain.json), every spool file with its size, and the tail of each daemon log. It only reads.
+func sessionEndEvidence(t *testing.T, root string, markerBefore []byte) {
+	t.Helper()
+	l := paths.Of(root)
+	marker, err := os.ReadFile(paths.Long(contract.MarkerPath(root)))
+	t.Logf("session end evidence: marker before the flush %q; now %q (err %v)", markerBefore, marker, err)
+	sr, err := daemon.LoadSessionRecovery(root)
+	t.Logf("session end evidence: recovery record %+v (err %v)", sr, err)
+	progress, err := os.ReadFile(paths.Long(filepath.Join(l.State, "drain.json")))
+	t.Logf("session end evidence: drain progress %s (err %v)", progress, err)
+	spools, err := os.ReadDir(paths.Long(l.Spool))
+	if err != nil {
+		t.Logf("session end evidence: spool directory: %v", err)
+	}
+	for _, e := range spools {
+		if info, ierr := e.Info(); ierr == nil {
+			t.Logf("session end evidence: spool %s, %d bytes", e.Name(), info.Size())
+		}
+	}
+	logs, _ := filepath.Glob(filepath.Join(l.Logs, "*"))
+	for _, name := range logs {
+		b, rerr := os.ReadFile(paths.Long(name))
+		if rerr != nil {
+			continue
+		}
+		if len(b) > sessionEndEvidenceTail {
+			b = b[len(b)-sessionEndEvidenceTail:]
+		}
+		t.Logf("session end evidence: %s (last %d bytes):\n%s", filepath.Base(name), len(b), b)
+	}
 }
