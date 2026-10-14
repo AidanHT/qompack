@@ -29,7 +29,9 @@ func hookCmds() []Cmd {
 			Run:     runSessionStart,
 		},
 		{
-			Name: "checkpoint", Hook: true,
+			// SilentStdout: Claude Code passes any PreCompact stdout to the summarizer as additional
+			// instructions, so this hook prints nothing at all.
+			Name: "checkpoint", Hook: true, SilentStdout: true,
 			Summary: "PreCompact — write an immutable checkpoint (thin ipc client)",
 			Run:     doHook(hookSpec{op: ipc.OpCheckpoint, reply: true, deadline: checkpointReplyDeadline}),
 		},

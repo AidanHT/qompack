@@ -420,3 +420,24 @@ func TestHookOutput_OverTheHostCapIsLoud(t *testing.T) {
 		})
 	}
 }
+
+// TestSilentStdout_OnlyThePreCompactEntryPoint pins which command runGuarded silences. Only the
+// PreCompact entry point may print nothing: every other hook answers the host with JSON, and a
+// silenced non-hook command would lose its whole output.
+func TestSilentStdout_OnlyThePreCompactEntryPoint(t *testing.T) {
+	var silent []string
+	for _, c := range All() {
+		if c.SilentStdout {
+			silent = append(silent, c.Name)
+			require.True(t, c.Hook, "%q silences stdout but is not a hook", c.Name)
+		}
+	}
+	require.Equal(t, []string{"checkpoint"}, silent)
+	var events []string
+	for _, e := range pluginmanifest.HookEntryPoints() {
+		if e.Subcommand == "checkpoint" {
+			events = append(events, e.Event)
+		}
+	}
+	require.Equal(t, []string{hookio.EventPreCompact}, events, "the silenced command is the PreCompact hook")
+}

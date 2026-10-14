@@ -56,7 +56,11 @@ func TestHookCapture_RedactsBeforeEveryLegacySpoolMode(t *testing.T) {
 					Getenv: noEnv, HomeDir: t.TempDir(), Stdin: bytes.NewReader(raw), Clock: testClock(),
 				}, &out, &errw)
 				require.Equal(t, ExitOK, code)
-				require.True(t, json.Valid(bytes.TrimSpace(out.Bytes())))
+				if hook == "checkpoint" {
+					require.Empty(t, out.String(), "the PreCompact hook prints nothing")
+				} else {
+					require.True(t, json.Valid(bytes.TrimSpace(out.Bytes())))
+				}
 				req := onlySpooledRequest(t, root)
 				require.Equal(t, core.SessionID("admission-session"), req.Session)
 				require.NotNil(t, req.Event)

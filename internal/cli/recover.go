@@ -19,9 +19,17 @@ import (
 // it whether anything was written already — writing a second JSON document would be worse than
 // writing none.
 //
+// A hook's stdout is a valid hookio.Output, except PreCompact's, which is empty. A command with
+// SilentStdout gets a writer that discards in place of out, for its own writes and for both
+// fallbacks below, so nothing reaches the real stdout on any path. This is the one choke point:
+// silencing the command's own write sites would still leave the fallbacks writing {}.
+//
 // The panic is reported through logging.Loud rather than the ordinary log, because §12 classes a
 // crash in the hot path as a degradation and degradations are never silent.
 func runGuarded(ctx context.Context, cmd Cmd, env Env, args []string, out, errw io.Writer) (err error) {
+	if cmd.SilentStdout {
+		out = io.Discard
+	}
 	cw := &countingWriter{w: out}
 
 	defer func() {
@@ -49,7 +57,8 @@ func runGuarded(ctx context.Context, cmd Cmd, env Env, args []string, out, errw 
 
 	err = cmd.Run(ctx, env, args, cw, errw)
 
-	// A hook that returned an error without writing a response still owes the host valid JSON.
+	// A hook that returned an error without writing a response still owes the host valid JSON
+	// (written to the discarding writer for a SilentStdout command).
 	if cmd.Hook && cw.n == 0 {
 		_ = hookio.WriteOutput(cw, hookio.Empty())
 	}

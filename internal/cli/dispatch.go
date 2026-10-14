@@ -5,7 +5,8 @@
 // A non-zero hook exit surfaces noise to the user and, for some hooks, can block the turn. Qompack
 // is a sidecar (§7.1): it must never be the reason a session gets worse. So every failure a hook
 // can reach — unreadable stdin, malformed JSON, an unresolvable project root, a read-only store, a
-// panic in the handler — is logged and swallowed, and the host still receives valid JSON on stdout.
+// panic in the handler — is logged and swallowed, and the host still receives valid JSON on stdout,
+// except from the PreCompact hook, whose stdout is empty (Cmd.SilentStdout).
 //
 // cli is a composition root (§3.2): it may import anything, and nothing may import it.
 package cli
@@ -41,6 +42,11 @@ type Cmd struct {
 	// Hook marks a subcommand invoked by the host as a hook. Hook commands must ALWAYS exit 0
 	// (§2.3), which Dispatch enforces regardless of what Run returns or panics with.
 	Hook bool
+	// SilentStdout makes runGuarded hand Run a writer that discards, so not one byte reaches the
+	// real stdout on any path, a panic included. Only checkpoint, the PreCompact entry point, sets
+	// it: Claude Code 2.1.293 passes a PreCompact hook's stdout, even one JSON object, to the
+	// summarizer as additional instructions (undocumented), and drops empty stdout.
+	SilentStdout bool
 	// Run executes the subcommand. Its error is reported only for non-hook commands.
 	Run func(ctx context.Context, env Env, args []string, out, errw io.Writer) error
 }
