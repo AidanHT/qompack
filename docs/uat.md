@@ -197,7 +197,9 @@ build does not support is disabled, and can be seen to be disabled.
   `not-yet-implemented`; against an installed host their values are what this scenario exists to
   find out, and are **to be confirmed at execution** — except
   `precompact.custom_instructions_accepted`, which reads `retired` wherever its producer is
-  declared: no host accepts a PreCompact instruction, so Qompack emits none (C1.18), and an `ok`
+  declared: Claude Code documents no PreCompact instruction output, so Qompack emits none (C1.18;
+  2.1.293 passes a PreCompact hook's stdout to the summarizer undocumented, and Qompack writes
+  nothing there), and an `ok`
   there is no evidence of anything.
 
 **Evidence to record**
