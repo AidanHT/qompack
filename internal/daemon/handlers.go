@@ -1650,7 +1650,10 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 			return ipc.Response{OK: false, Err: "daemon: session end cut short: " + ctx.Err().Error()}
 		}
 		// The drained-flush path does not run the replay, so it is not the step that finishes the
-		// flush; the marker stays until a route that does run it clears it.
+		// flush: the drain replaying it is. The marker stays until a full pass that comes out complete
+		// observes the end finished — that drain's own, when it does — or a route that runs the
+		// replay clears it.
+		d.awaitCompleteDrain(ev.SessionID)
 		return ipc.Response{OK: true}
 	}
 
@@ -1663,11 +1666,36 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
 	}
 	// Only a complete replay finishes the flush. A drain that left gaps keeps the marker, so restart
-	// finds a session that needs recovery instead of one that looks finalized.
-	if gaps := d.DrainGaps(); gaps.Observed && gaps.Complete {
+	// finds a session that needs recovery instead of one that looks finalized. A drain whose only gaps
+	// are bytes a later pass replays — a hook's line still being written, a file whose sync failed —
+	// lost nothing, so the end asks for that pass and the first full pass to come out complete clears
+	// the marker (retireEndsAwaitingDrain). Without it, nothing looked again, and an end that finished
+	// stayed marked as needing recovery for good.
+	gaps := d.DrainGaps()
+	switch {
+	case gaps.Observed && gaps.Complete:
 		d.clearRecoveryNeeded(ev.SessionID)
+	case gaps.Observed && onlyReplayableGaps(gaps):
+		d.awaitCompleteDrain(ev.SessionID)
+		d.ing.resumeDrain()
 	}
 	return ipc.Response{OK: true, Data: data}
+}
+
+// onlyReplayableGaps reports whether every gap in gaps is bytes a later pass replays as they are:
+// pending (unread when the pass ended) or unsynced (the sync before consuming failed, and the next pass
+// syncs again). Every other kind is a line skipped, refused or consumed without its frontier record,
+// which no later pass revisits.
+func onlyReplayableGaps(gaps DrainGapState) bool {
+	if len(gaps.Gaps) == 0 {
+		return false
+	}
+	for _, g := range gaps.Gaps {
+		if g.Kind != DrainGapPending && g.Kind != DrainGapUnsynced {
+			return false
+		}
+	}
+	return true
 }
 
 // handleStatus assembles the StatusSnapshot payload. Nothing here mutates daemon state; every
@@ -2208,6 +2236,10 @@ func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowl
 		sr = SessionRecovery{Sessions: map[core.SessionID]RecoveryEntry{}}
 	}
 	sr.Sessions[sess] = RecoveryEntry{Stage: stage, TS: core.NowMilli(d.clk), Unacknowledged: unacknowledged}
+	if d.recoveryGen == nil {
+		d.recoveryGen = map[core.SessionID]uint64{}
+	}
+	d.recoveryGen[sess]++
 	if err := d.writeSessionRecovery(sr); err != nil {
 		d.log.Warn("daemon: could not record SessionEnd recovery state", "err", err)
 	}
@@ -2218,6 +2250,8 @@ func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowl
 func (d *daemon) clearRecoveryNeeded(sess core.SessionID) {
 	d.recoveryMu.Lock()
 	defer d.recoveryMu.Unlock()
+	delete(d.endsAwaitingDrain, sess)
+	delete(d.recoveryGen, sess)
 	sr, err := LoadSessionRecovery(d.root)
 	if err != nil {
 		return
@@ -2226,6 +2260,54 @@ func (d *daemon) clearRecoveryNeeded(sess core.SessionID) {
 		return
 	}
 	delete(sr.Sessions, sess)
+	if err := d.writeSessionRecovery(sr); err != nil {
+		d.log.Warn("daemon: could not clear SessionEnd recovery state", "err", err)
+	}
+}
+
+// awaitCompleteDrain records that sess's end has done every step but see a complete drain: its own
+// drain lost nothing but left bytes a later pass replays, or it was replayed inside a drain's pass.
+// The marker it last wrote is cleared by the first full pass to come out complete after this
+// (retireEndsAwaitingDrain), unless a later end of the session has marked it since.
+func (d *daemon) awaitCompleteDrain(sess core.SessionID) {
+	d.recoveryMu.Lock()
+	defer d.recoveryMu.Unlock()
+	if d.endsAwaitingDrain == nil {
+		d.endsAwaitingDrain = map[core.SessionID]uint64{}
+	}
+	d.endsAwaitingDrain[sess] = d.recoveryGen[sess]
+}
+
+// retireEndsAwaitingDrain clears the marker of every session end waiting on a complete drain
+// (awaitCompleteDrain). Daemon.Drain calls it after a full pass that came out complete. Every such
+// end recorded its wait after its own drain had returned or inside a pass, so a complete pass
+// published after that saw every line those ends left. A marker a later end of the same session wrote
+// since is that end's, and stays. When the recovery state cannot be read, the ends keep waiting.
+func (d *daemon) retireEndsAwaitingDrain() {
+	d.recoveryMu.Lock()
+	defer d.recoveryMu.Unlock()
+	if len(d.endsAwaitingDrain) == 0 {
+		return
+	}
+	sr, err := LoadSessionRecovery(d.root)
+	if err != nil {
+		return
+	}
+	changed := false
+	for sess, gen := range d.endsAwaitingDrain {
+		delete(d.endsAwaitingDrain, sess)
+		if d.recoveryGen[sess] != gen {
+			continue
+		}
+		delete(d.recoveryGen, sess)
+		if _, ok := sr.Sessions[sess]; ok {
+			delete(sr.Sessions, sess)
+			changed = true
+		}
+	}
+	if !changed {
+		return
+	}
 	if err := d.writeSessionRecovery(sr); err != nil {
 		d.log.Warn("daemon: could not clear SessionEnd recovery state", "err", err)
 	}

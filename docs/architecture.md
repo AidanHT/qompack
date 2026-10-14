@@ -32,7 +32,10 @@ daemon's acknowledgement, which comes as soon as the flush is durable — its li
 write-ahead log and leased, as an observed event's acknowledgement promises — with the session
 recorded as needing recovery. The daemon then ends the session on its own: after every earlier
 delivery of the session, it runs the observer's end of session, writes the terminal-hook marker,
-saves the sketches and clears the recovery record. A daemon that stops first leaves the flush in its
+saves the sketches, drains, and clears the recovery record once a drain has replayed everything it
+found; when its own drain met only bytes a later pass replays, such as another hook's line still
+being written, it asks for that pass, and the first complete one clears the record. A drain that lost
+a line leaves the record in place. A daemon that stops first leaves the flush in its
 log for the next drain to replay, and a flush a drain replays while the daemon serves is ended the
 same way, on its own rather than inside the drain.
 

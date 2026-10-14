@@ -330,6 +330,12 @@ type daemon struct {
 	// clearRecoveryNeeded): the session ends run concurrently, so an unserialized rewrite lost the
 	// entry another end had just written (C1.15).
 	recoveryMu sync.Mutex
+	// recoveryGen counts, per session, the markers markRecoveryNeeded has written, and endsAwaitingDrain
+	// holds the sessions whose end has done everything but see a complete drain, each with the count its
+	// last marker was written at (awaitCompleteDrain, retireEndsAwaitingDrain). Both are guarded by
+	// recoveryMu and live only as long as this process; nil until first used.
+	recoveryGen       map[core.SessionID]uint64
+	endsAwaitingDrain map[core.SessionID]uint64
 
 	// spool is the client-spool watcher's configuration and kick (C1.13, spool_watch.go): every served
 	// request kicks it (noteServed; a PreCompact after its seal). New creates it; nil on a daemon value
@@ -1041,7 +1047,13 @@ func (d *daemon) Drain(ctx context.Context) (int, error) {
 	}
 	d.capture.enter()
 	defer d.capture.leave()
-	return dr.Drain(ctx)
+	n, err := dr.Drain(ctx)
+	// A pass that returns without an error has published its gap state, and a complete one observes
+	// every session end waiting on such a pass finish (retireEndsAwaitingDrain).
+	if gaps := dr.GapState(); err == nil && gaps.Observed && gaps.Complete {
+		d.retireEndsAwaitingDrain()
+	}
+	return n, err
 }
 
 // runIngested is the ingest worker pool's dispatch callback: it resolves the event, routes to the

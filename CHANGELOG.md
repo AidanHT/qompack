@@ -15,6 +15,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   "use of closed network connection", and the daemon's stop returned that as its error although
   the listener had closed. Found by the new macos-15-intel test leg under `-race` (ci.yml run
   38478943482); Windows was not affected.
+- **A finished session end is no longer left recorded as needing recovery.** The daemon cleared a
+  session's record in `state/session-recovery.json` only when the end's own last drain came out
+  complete, and nothing looked again. An end whose drain met only bytes a later pass replays, such
+  as another hook's line still being written, stayed recorded as interrupted for good. Such an end
+  now asks for another pass, and the first complete pass clears its record. A drain that lost a line
+  still leaves the record in place. Nothing in Qompack acts on the record yet, so the effect was a
+  wrong entry in that file.
 
 ### Development
 
@@ -61,7 +68,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - TestIntegration_DegradedPassiveStillWritesToTheRealStore timed out once in macos-15-intel's
   whole-tree run waiting for its session's recovery record to clear (run 38478943482). Eight more
   such runs and 20 runs of the test alone did not repeat it. When that wait fails, the test now
-  logs the record's stage, the drain's progress, the spool files and the daemon's log.
+  logs the record's stage, the drain's progress, the spool files and the daemon's log. A cause that
+  fits, the record left behind by a drain that met a line still being written, is fixed above.
 - install.md section 9, release.md section 3 and cannot-do.md now say what `install-check.yml`'s
   first run showed: 0.3.2 installed and ran `qompack doctor` on all six targets, with the
   executable bit kept on Linux and macOS. No session with a model has run outside windows/amd64.
