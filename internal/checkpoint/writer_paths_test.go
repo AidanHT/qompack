@@ -9,7 +9,6 @@ package checkpoint_test
 import (
 	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
@@ -134,7 +133,7 @@ func TestAdvanceIsANoOpForAnEmptyBatch(t *testing.T) {
 	// back. A full Marshal plus WriteAtomic — write, Sync, rename, fsync the directory — on every
 	// tick of every live session, plus the finished sessions the daemon folds in from the store's
 	// recent-session index, is the cost of writing a draft that has not changed.
-	require.NoError(t, os.Remove(paths.Long(f.draftPath())))
+	f.removeDraft()
 
 	front, err := f.w.Advance(f.ctx(), d, nil)
 	require.NoError(t, err)
@@ -149,7 +148,7 @@ func TestAdvanceIsANoOpForAnEmptyBatch(t *testing.T) {
 func TestBeginDoesNotRewriteAnUnchangedLiveDraft(t *testing.T) {
 	f := newFx(t)
 	first := f.begin()
-	require.NoError(t, os.Remove(paths.Long(f.draftPath())))
+	f.removeDraft()
 
 	again, err := f.w.Begin(f.ctx(), f.sess, 0, f.src)
 	require.NoError(t, err)

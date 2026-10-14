@@ -267,6 +267,42 @@ func (f *fx) draftPath() string {
 	return filepath.Join(paths.Of(f.p.Root).State, "draft-"+string(f.sess)+".json")
 }
 
+// removeDraft removes the session's draft file, as a daemon restart that lost it would. A seal opens
+// its successor draft before it returns (afterSeal), so a draft missing here means that open failed,
+// and the writer said why only in the project's log, which the test's cleanup deletes. The failure
+// therefore carries what state/ holds and every checkpoint line of the log: one windows-11-arm run of
+// TestCarriedDecisionEndsWhenItsPinIsRemoved found no draft to remove (ci.yml run 38499706299), and
+// said nothing more.
+func (f *fx) removeDraft() {
+	f.t.Helper()
+	err := os.Remove(paths.Long(f.draftPath()))
+	if err == nil {
+		return
+	}
+	l := paths.Of(f.p.Root)
+	var state []string
+	if entries, rerr := os.ReadDir(paths.Long(l.State)); rerr == nil {
+		for _, e := range entries {
+			state = append(state, e.Name())
+		}
+	}
+	var logged []string
+	logs, _ := filepath.Glob(filepath.Join(l.Logs, "*"))
+	for _, name := range logs {
+		b, rerr := os.ReadFile(paths.Long(name))
+		if rerr != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			if strings.Contains(line, "checkpoint") {
+				logged = append(logged, line)
+			}
+		}
+	}
+	require.NoError(f.t, err, "the seal's successor draft should be there to remove; state/ holds %q, and the log's "+
+		"checkpoint lines are:\n%s", state, strings.Join(logged, "\n"))
+}
+
 // persisted reads the draft file back and returns both the wrapper and the embedded checkpoint —
 // the observable state "persist after every mutating call" promises.
 func (f *fx) persisted() (draftWire, checkpoint.Checkpoint) {

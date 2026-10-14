@@ -12,7 +12,6 @@ package checkpoint_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,7 +21,6 @@ import (
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
-	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pins"
 )
 
@@ -110,7 +108,7 @@ func TestRestartedWriterCarriesTheSessionsEarlierDecision(t *testing.T) {
 	f := newFx(t)
 	first := sealFirstWithDecision(t, f)
 	want := rejected(first, carryApproach)[0]
-	require.NoError(t, os.Remove(paths.Long(f.draftPath())))
+	f.removeDraft()
 
 	w, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, obs.New(f.p.Clock), f.p.Clock)
 	require.NoError(t, err)
@@ -131,7 +129,7 @@ func TestRestartedWriterCarriesTheSessionsEarlierDecision(t *testing.T) {
 func TestCarriedDecisionEndsWhenItsPinIsRemoved(t *testing.T) {
 	f := newFx(t)
 	sealFirstWithDecision(t, f)
-	require.NoError(t, os.Remove(paths.Long(f.draftPath())))
+	f.removeDraft()
 	f.pins.invs = nil // unpinned
 
 	w, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, obs.New(f.p.Clock), f.p.Clock)
@@ -157,7 +155,7 @@ func TestColdDraftCarriesDecisionsPastAnotherSessionsSeal(t *testing.T) {
 	const other = core.SessionID("sess_carry_other")
 	between := f.sealed(t, f.precompactAs(other).Ref.Seq)
 	require.Equal(t, other, between.Session, "fixture sanity: the project's newest seal is another session's")
-	require.NoError(t, os.Remove(paths.Long(f.draftPath())))
+	f.removeDraft()
 
 	w, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, obs.New(f.p.Clock), f.p.Clock)
 	require.NoError(t, err)
