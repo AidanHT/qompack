@@ -795,7 +795,8 @@ func x10v5FullModeArm(t *testing.T) {
 
 	// ── The checkpoint: the warning lands on no durable surface ──────────────────────────────────
 	// Criterion change (C1.18): the route's reply used to carry a focus instruction this row held
-	// free of the warning. The instruction is retired — no host accepts one — so the reply is the
+	// free of the warning. The instruction is retired — Claude Code documents no channel for one — so
+	// the reply is the
 	// empty object, and the sealed checkpoint is the durable surface the warning must stay off.
 	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x10v5Session))
 	require.Equal(t, []string{"0001.json"}, cpCheckpointArtifacts(t, p.Root), "exactly one artifact must be sealed")

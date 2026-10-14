@@ -255,7 +255,8 @@ func x4v5SeedSession(t *testing.T, r *v4Rig, sess core.SessionID) {
 // 6a will match against, and recording the LOCAL frontier the advancer committed.
 //
 // Criterion change (C1.18): the row also used to read a span paragraph naming that frontier from
-// the route's reply. The paragraph was a PreCompact customInstructions, which no host accepts, so
+// the route's reply. The paragraph was a PreCompact customInstructions, which Claude Code documents
+// no channel for, so
 // its producer is retired: the reply is the empty object, and the frontier is read from the seal's
 // own record (state/precompact.json).
 func x4v5Seal(t *testing.T, r *v4Rig, sess core.SessionID) checkpoint.Checkpoint {

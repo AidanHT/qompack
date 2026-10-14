@@ -226,7 +226,8 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 		// Criterion change (C1.18): this block also used to read the rendered focus instruction —
 		// from the contract history, where the route recorded its first 256 runes, and from the
 		// daemon's IPC reply to this same frozen PreCompact — and hold both to §5.14 (built from the
-		// SourceSet, so no payload secret in it). The instruction is retired: no host accepts one,
+		// SourceSet, so no payload secret in it). The instruction is retired: Claude Code documents no
+		// channel for one,
 		// so the daemon neither returns nor records it. The block now pins that retirement on both
 		// surfaces the instruction used to reach — nothing recorded, and the empty object on the IPC
 		// hop — which also leaves a payload secret nowhere new to land. The logs check after this

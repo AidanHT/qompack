@@ -690,7 +690,8 @@ func TestBindCheckpointSealsOnTheFirstPreCompact(t *testing.T) {
 	require.NoError(t, err, "the FIRST PreCompact of a daemon's life must seal")
 	// Criterion change (C1.18): this row used to read a non-nil hookSpecificOutput carrying
 	// customInstructions as its seal signal, because the seam returned the focus instruction only
-	// after a successful seal. That instruction is retired — no host accepts one — so the seam
+	// after a successful seal. That instruction is retired — Claude Code documents no channel for one
+	// — so the seam
 	// answers the empty object, and the seal is proven from the artifact itself below: present,
 	// parseable, and this session's first checkpoint.
 	require.Equal(t, hookio.Empty(), out, "the seam renders no instruction for any hop to carry (C1.18)")

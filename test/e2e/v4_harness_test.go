@@ -208,8 +208,8 @@ func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) hookio.Output {
 //
 // It exists because that hop is where the rows used to read Qompack.md §8.5's O1 focus
 // instruction: the hook client reduces every PreCompact reply to what the host accepts, which is
-// nothing (C1.12). C1.18 retired the instruction itself — no host accepts one — so the daemon no
-// longer returns or records it, and a row calls this to prove exactly that
+// nothing (C1.12). C1.18 retired the instruction itself — Claude Code documents no channel for one
+// — so the daemon no longer returns or records it, and a row calls this to prove exactly that
 // (cpRequireNoInstructionReply) one hop before the host. The seal is read from the artifact, and
 // the host-facing answer from the real binary via PreCompact.
 func (r *v4Rig) PreCompactReply(t *testing.T, sess core.SessionID) hookio.Output {

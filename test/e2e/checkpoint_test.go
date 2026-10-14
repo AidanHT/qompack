@@ -613,7 +613,8 @@ func TestE2E_CheckpointHookWritesImmutableArtifact(t *testing.T) {
 	// Criterion change (C1.18): this block used to read the O1 focus paragraphs from a second
 	// compaction's IPC reply and pin their content (the span paragraph naming the artifact and the
 	// frontier, the snippet sentinel, forward slashes, a first line long enough to probe). The
-	// instruction is retired — no host accepts one — so the daemon no longer returns or records it,
+	// instruction is retired — Claude Code documents no channel for one — so the daemon no longer
+	// returns or records it,
 	// and the block now pins exactly that: a second compaction of the same session seals 0002.json
 	// over the same frontier, answers the empty object, and leaves no instruction in the contract
 	// history. The text itself is still composed by internal/checkpoint for its debug record and is

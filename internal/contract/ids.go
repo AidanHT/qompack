@@ -23,8 +23,8 @@ const (
 	// the timeout warns, hitting the timeout fails.
 	CPreCompactTiming ID = "precompact.has_time_to_write"
 	// CPreCompactCustomInstr is RETIRED (C1.18): it used to search the transcript for the
-	// PreCompact focus instruction's first line and warn when absent, but no host accepts a
-	// PreCompact instruction and Qompack no longer emits one. It reports OK/SevInfo "retired"
+	// PreCompact focus instruction's first line and warn when absent, but Claude Code documents no
+	// PreCompact instruction output and Qompack no longer emits one. It reports OK/SevInfo "retired"
 	// and is attributed to an unsupported capability. The ID stays: it is persisted data.
 	CPreCompactCustomInstr ID = "precompact.custom_instructions_accepted"
 	// CHookPayloadShape: required fields present and typed as hookio.Event expects.

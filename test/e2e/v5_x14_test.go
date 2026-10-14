@@ -321,8 +321,8 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 
 		// ── PreCompact: marker and timing sample recorded by the real route, and a real seal ──────
 		// Criterion change (C1.18): this used to prove the full-mode route ran by the instruction it
-		// recorded into the contract history. That instruction is retired — no host accepts one —
-		// so nothing is recorded, and the seal is proven by the artifact instead.
+		// recorded into the contract history. That instruction is retired — Claude Code documents no
+		// channel for one — so nothing is recorded, and the seal is proven by the artifact instead.
 		r.SeedTurns(t, x14v5SessionA, "v5x14", x14v5SeedTurns)
 		r.PreCompact(t, x14v5SessionA)
 		require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root), "a full-mode PreCompact route seals a checkpoint")

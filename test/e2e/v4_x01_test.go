@@ -94,7 +94,8 @@ func TestV4_PreCompactToCheckpointToRehydrateRoundTrip(t *testing.T) {
 
 	// ── PreCompact: the real writer seals the artifact ───────────────────────────────────────────
 	// Criterion change (C1.18): the seam's reply used to carry the focus instruction, and this row
-	// read the snippet sentinel from it. The instruction is retired — no host accepts one — so the
+	// read the snippet sentinel from it. The instruction is retired — Claude Code documents no channel
+	// for one — so the
 	// reply is the empty object, and the seal is proven by the artifact and its manifest below.
 	cpRequireNoInstructionReply(t, r.PreCompactReply(t, x1v4Session))
 
