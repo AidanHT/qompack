@@ -56,8 +56,9 @@ var hookSubcommands = []struct {
 // vacuously — the worst failure mode a verification gate can have.
 //
 // The real binary, all six hook subcommands, a real temp project, representative payloads, every
-// exit code 0, every stdout parses as a hookio.Output — SP-05 makes this property MORE true, not
-// obsolete, so it is still fully assertable. What is gone is wave-0's own artifact: the
+// exit code 0, every stdout parses as a hookio.Output except PreCompact's, which is empty (Claude
+// Code passes any PreCompact stdout to the summarizer as instructions) — SP-05 makes this property
+// MORE true, not obsolete, so it is still fully assertable. What is gone is wave-0's own artifact: the
 // hooks-*.jsonl observation log SP-05 replaces with the real transport (hookLogLines), and the
 // unconditional SessionStart/PreCompact hookSpecificOutput switch, which — now that a live daemon
 // answers session-start with a real §12.1 sentinel and PreCompact answers only once an SP-10
@@ -85,6 +86,10 @@ func TestE2E_AllSixHooksExitZero(t *testing.T) {
 				"§2.3: a hook subcommand must exit 0 no matter what happens inside it\nstdout:\n%s\nstderr:\n%s",
 				stdout, stderr)
 
+			if hook.event == "PreCompact" {
+				require.Empty(t, string(stdout), "PreCompact prints nothing")
+				return
+			}
 			var out hookio.Output
 			require.NoError(t, json.Unmarshal(stdout, &out),
 				"a hook's stdout must always be a valid hookio.Output, got:\n%s", stdout)

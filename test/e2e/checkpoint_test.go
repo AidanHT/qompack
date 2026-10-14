@@ -8,7 +8,6 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -454,19 +453,17 @@ func cpRequireNoInstructionReply(t *testing.T, out hookio.Output) {
 const cpCheckpointReplyDeadline = 15 * time.Second
 
 // cpRunCheckpointHook runs `qompack checkpoint` as a real process against a real daemon and
-// asserts the two invariants §2.3 gives the host on EVERY path — exit 0, and a stdout that is one
-// valid hookio.Output — returning the decoded response for the row's own mode-specific
-// assertions.
+// asserts the two invariants the host is owed on EVERY path — exit 0 (§2.3), and an EMPTY stdout,
+// because Claude Code passes any PreCompact stdout to the summarizer as instructions — returning
+// the zero hookio.Output for the row's own mode-specific assertions.
 func cpRunCheckpointHook(t *testing.T, bin string, p *testutil.Project, sess core.SessionID) hookio.Output {
 	t.Helper()
-	stdout, stderr, code := Run(t, bin, []string{"checkpoint"}, cpPreCompactPayload(t, p.Root, sess), e2eEnv(p))
+	argv := []string{"checkpoint"}
+	stdout, stderr, code := Run(t, bin, argv, cpPreCompactPayload(t, p.Root, sess), e2eEnv(p))
 	require.Equal(t, 0, code,
 		"§2.3: `qompack checkpoint` must exit 0 whatever happens inside it\nstdout:\n%s\nstderr:\n%s",
 		stdout, stderr)
-	var out hookio.Output
-	require.NoError(t, json.Unmarshal(bytes.TrimSpace(stdout), &out),
-		"`qompack checkpoint` stdout must be one hookio.Output:\n%s", stdout)
-	return out
+	return requireHookStdout(t, argv, stdout)
 }
 
 // cpPreCompactTimeoutMs is the PreCompact timeout the plugin manifest declares, in milliseconds —
