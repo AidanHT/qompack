@@ -4,9 +4,10 @@ How a release is cut, what each gate proves, what the release actually claims to
 it deliberately does not claim. Configuration keys are named but never described here —
 `docs/config-reference.md` is generated from the schema and owns every default.
 
-**Release status: 0.3.2, a release on 0.3.1.** Its product code is 0.3.1's (the tag `v0.3.1`,
-`c7e45af9`) plus the fixes owed after 0.3.1 (decision D86: known issue 21 and the `PreCompact`
-settle warning's elapsed time and reason) and the 0.3.2 rehydration, negative-knowledge and
+**Release status: 0.3.2, published on 2026-10-12** (decision D95), a release on 0.3.1. Its
+product code is 0.3.1's (the tag `v0.3.1`, `c7e45af9`) plus the fixes owed after 0.3.1 (decision
+D86: known issue 21 and the `PreCompact` settle warning's elapsed time and reason) and the 0.3.2
+rehydration, negative-knowledge and
 description changes: small tool results shown verbatim under their pointers through `expand`'s
 store read, path checks and live redaction, tool pointers labelled with their
 `expand(tool_use_id="…")` call, the block framed as the session's record under the

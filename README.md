@@ -19,7 +19,7 @@ evict anything from the native context, and performs no network I/O of any kind.
 
 ## Status: released
 
-**0.3.2** is a release on 0.3.1. Its rehydration block shows small tool results (at most 512 bytes
+**0.3.2**, published on 2026-10-12 (decision D95), is a release on 0.3.1. Its rehydration block shows small tool results (at most 512 bytes
 each, 4 KiB per block) verbatim under their pointers, labels each tool pointer with the
 `expand(tool_use_id="…")` call that fetches it, and reads as the session's own record, changes
 aimed at what 0.3.0's live evaluation showed: the model never followed a pointer, a small value
