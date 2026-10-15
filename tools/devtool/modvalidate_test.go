@@ -295,3 +295,32 @@ func TestRunModValidate_RecordsRelativeToTheRepoRootItIsGiven(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(fixture), string(got))
 }
+
+// TestRunModValidate_UnionsTheRegisterScanWithTheCallsLine is ruling R12: 2.1.300's calls line
+// omits property reads (the allowed-calls module reads $.plugin.root and the line does not list
+// it), so the scan of hooks/register.ts is always added to the line's set. An off-list read the
+// line cannot show still fails the task; an allowlisted one does not.
+func TestRunModValidate_UnionsTheRegisterScanWithTheCallsLine(t *testing.T) {
+	fixture := readModValidateFixture(t, "claude-2.1.300-allowed-calls.json")
+	require.NotContains(t, string(fixture), "$.plugin.root", "the recorded line omits the property read")
+	writeRegister := func(src string) func(dir string) {
+		return func(dir string) {
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "hooks", "register.ts"), []byte(src), 0o600))
+		}
+	}
+
+	f := &fakeModClaude{t: t}
+	f.answer = validateAnswer(t, fixture, 0, writeRegister(
+		"export function register(on) { on('session.start', async ($, e, next) => { const c = $.session.cwd; return next(e) }) }\n"))
+	err := runModValidate(f.claude(), testModuleRoot(t), "windows", "", &bytes.Buffer{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "$.session.cwd")
+
+	f = &fakeModClaude{t: t}
+	f.answer = validateAnswer(t, fixture, 0, writeRegister(
+		"export function register(on) { on('session.start', async ($, e, next) => { const r = $.plugin.root; return next(e) }) }\n"))
+	var out bytes.Buffer
+	require.NoError(t, runModValidate(f.claude(), testModuleRoot(t), "windows", "", &out))
+	require.Contains(t, out.String(), "$.plugin.root")
+	require.Contains(t, out.String(), "$.process.run", "the calls line's entries are kept")
+}
