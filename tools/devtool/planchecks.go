@@ -907,8 +907,9 @@ func runPlanMarkers() error {
 	}
 	fmt.Printf("docmarkers: %d plan document(s) scanned\n", len(files))
 	// The mod's TypeScript sources get their own explicit rule (findModSourceMarkers): they ship in
-	// every bundle, so an unfilled placeholder in one of their comments is as much a defect as one
-	// in a specification document. Unlike the plan documents they are always in the checkout.
+	// every bundle built with --mods, so an unfilled placeholder in one of their comments is as much
+	// a defect as one in a specification document. Unlike the plan documents they are always in the
+	// checkout.
 	modFound, modScanned, err := modSourceMarkers()
 	if err != nil {
 		return err
