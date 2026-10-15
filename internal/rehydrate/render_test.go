@@ -189,19 +189,19 @@ func TestDocumentHeader_ShortSessionIsNotPadded(t *testing.T) {
 // folded text and the header stays one line.
 func TestDocumentHeader_SessionIDIsFoldedOntoOneLine(t *testing.T) {
 	const prefix = "# Qompack's record of this session before compaction — checkpoint 0007, session "
-	for id, want := range map[string]string{
-		"a\n## 7. ":     "a ## 7.",
-		"a\r\nb":        "a b",
-		"x\ry":          "x y",
-		"abc\ndefghijk": "abc defg",
+	for _, tc := range []struct{ id, want string }{
+		{id: "a\n## 7. ", want: "a ## 7."},
+		{id: "a\r\nb", want: "a b"},
+		{id: "x\ry", want: "x y"},
+		{id: "abc\ndefghijk", want: "abc defg"},
 	} {
 		var r Request
-		r.Session = core.SessionID(id)
+		r.Session = core.SessionID(tc.id)
 		r.Ref.Seq = core.CheckpointSeq(7)
 		got := documentHeader(r)
-		require.NotContains(t, got, "\n", "session %q", id)
-		require.NotContains(t, got, "\r", "session %q", id)
-		require.Equal(t, prefix+want, got, "session %q", id)
+		require.NotContains(t, got, "\n", "session %q", tc.id)
+		require.NotContains(t, got, "\r", "session %q", tc.id)
+		require.Equal(t, prefix+tc.want, got, "session %q", tc.id)
 	}
 }
 
