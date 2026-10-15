@@ -77,6 +77,22 @@ func Schema() SchemaDef {
 				"The bytes a fact id may hold, as a regular-expression character-class body; each encodes as itself in JSON.",
 			},
 			{
+				"TriggerManual", "TRIGGER_MANUAL", TriggerManual,
+				"A compaction the person asked for; its brief closes the open segment first.",
+			},
+			{
+				"TriggerAuto", "TRIGGER_AUTO", TriggerAuto,
+				"A compaction the host started on its own; its brief closes the open segment first.",
+			},
+			{
+				"TriggerPlugin", "TRIGGER_PLUGIN", TriggerPlugin,
+				"A compaction a plugin started; its brief closes the open segment first.",
+			},
+			{
+				"TriggerPrecompute", "TRIGGER_PRECOMPUTE", TriggerPrecompute,
+				"A summary computed ahead of a compaction; its brief, like any other trigger's, leaves the open segment open.",
+			},
+			{
 				"TimeoutMs", "TIMEOUT_MS", TimeoutMs,
 				"How long the mod waits for one `qompack mod <verb>` child, in milliseconds (provisional).",
 			},

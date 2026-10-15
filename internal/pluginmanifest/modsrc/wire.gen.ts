@@ -41,6 +41,18 @@ export const TRIGGER_CHARS = 'A-Za-z0-9_-'
 /** The bytes a fact id may hold, as a regular-expression character-class body; each encodes as itself in JSON. */
 export const FACT_ID_CHARS = 'A-Za-z0-9._:/-'
 
+/** A compaction the person asked for; its brief closes the open segment first. */
+export const TRIGGER_MANUAL = 'manual'
+
+/** A compaction the host started on its own; its brief closes the open segment first. */
+export const TRIGGER_AUTO = 'auto'
+
+/** A compaction a plugin started; its brief closes the open segment first. */
+export const TRIGGER_PLUGIN = 'plugin'
+
+/** A summary computed ahead of a compaction; its brief, like any other trigger's, leaves the open segment open. */
+export const TRIGGER_PRECOMPUTE = 'precompute'
+
 /** How long the mod waits for one `qompack mod <verb>` child, in milliseconds (provisional). */
 export const TIMEOUT_MS = 2000
 

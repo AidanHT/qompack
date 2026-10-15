@@ -63,6 +63,34 @@ const (
 	FactIDChars = "A-Za-z0-9._:/-"
 )
 
+// The compaction triggers the host names (its session.compact event's trigger). A brief for
+// manual, auto or plugin closes the session's open segment before it reads the store
+// (ClosesSegment); a brief for precompute, or for any other well-formed trigger, leaves the segment
+// open, has no segment side effect, and is still served. Malformed triggers are refused
+// (TriggerChars, MaxTriggerBytes).
+const (
+	// TriggerManual is a compaction the person asked for.
+	TriggerManual = "manual"
+	// TriggerAuto is a compaction the host started on its own.
+	TriggerAuto = "auto"
+	// TriggerPlugin is a compaction a plugin started.
+	TriggerPlugin = "plugin"
+	// TriggerPrecompute is a summary the host computes ahead of a compaction and keeps for the
+	// compaction that comes; the conversation goes on, so the open segment stays open.
+	TriggerPrecompute = "precompute"
+)
+
+// ClosesSegment reports whether a brief for this trigger closes the session's open segment before
+// it reads: true for TriggerManual, TriggerAuto and TriggerPlugin, exactly as spelled, and false
+// for everything else.
+func ClosesSegment(trigger string) bool {
+	switch trigger {
+	case TriggerManual, TriggerAuto, TriggerPlugin:
+		return true
+	}
+	return false
+}
+
 // Timing. The mod passes TimeoutMs to the host's process API for every verb; the daemon answers a
 // verb within TimeoutMs - DaemonDeadlineSlackMs, so the CLI can still report a timeout before the
 // mod gives up on the child. Both are provisional until measured on a warm daemon with a
@@ -213,10 +241,12 @@ type BriefRequest struct {
 	V         int    `json:"v"`
 	SessionID string `json:"session_id"`
 	CWD       string `json:"cwd"`
-	// Trigger is what is compacting, as the host names it (manual, auto, and so on). It is
-	// logged, not interpreted: any plain identifier (TriggerChars, at most MaxTriggerBytes) is
-	// served and recorded, so a trigger the host adds later is too. Only a malformed one is
-	// refused.
+	// Trigger is what is compacting, as the host names it. TriggerManual, TriggerAuto and
+	// TriggerPlugin make the brief close the session's open segment before it reads
+	// (ClosesSegment); TriggerPrecompute and any other well-formed trigger leave the segment open,
+	// with no segment side effect, and are still served and recorded, so a trigger the host adds
+	// later is too. Any plain identifier is well formed (TriggerChars, at most MaxTriggerBytes);
+	// only a malformed one is refused.
 	Trigger string `json:"trigger"`
 	// UserInstructionsPresent says whether the person gave their own compaction instructions.
 	// Only the fact is sent, never the text.
