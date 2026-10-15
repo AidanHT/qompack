@@ -233,6 +233,7 @@ type BriefResponse struct {
 	Status
 	// Instructions is the text the mod adds to the compaction's instructions.
 	Instructions string `json:"instructions"`
-	// FactIDs names the stored facts the instructions were built from, for the eval to trace.
+	// FactIDs names the stored facts the instructions were built from. They are returned to the
+	// mod with the instructions; no Stage A path records them anywhere else, and a later stage may.
 	FactIDs []string `json:"fact_ids"`
 }
