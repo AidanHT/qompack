@@ -293,19 +293,22 @@ func checkPreCompactTiming(ctx context.Context, e Env) Result {
 }
 
 // retiredCustomInstrDetail is why precompact.custom_instructions_accepted observes nothing.
-const retiredCustomInstrDetail = "retired (C1.18): no host accepts a PreCompact instruction and Qompack " +
-	"no longer emits one; custom_instructions is PreCompact input, not a summarizer setter (see docs/cannot-do.md)"
+const retiredCustomInstrDetail = "retired (C1.18): Qompack emits no PreCompact instruction and its PreCompact " +
+	"hook prints nothing (Claude Code 2.1.293 passes that hook's stdout to the summarizer, undocumented); " +
+	"custom_instructions is PreCompact input, not a summarizer setter (see docs/cannot-do.md)"
 
 // checkPreCompactCustomInstr is CPreCompactCustomInstr's observation since C1.18: none, by design.
 //
 // The row used to search the transcript tail for the first line of the focus instruction the
-// daemon last emitted (History.PrecompactInstr) and warn when it was absent. No host accepts that
-// instruction — Claude Code has no PreCompact hookSpecificOutput variant, 2.1.280 rejected the whole
-// response over one (C1.12), and custom_instructions is PreCompact INPUT (Qompack.md §7.3, §8.5
-// "Retire O1's output setter") — so the probe could only warn about a mechanism that does not
-// exist, or pass on a false positive: 2.1.280 replayed the rejected output, instruction included,
-// into the post-compaction context. The producer is retired, so this row reports that and nothing
-// else. It is OK because it can never fail and SevInfo because it is never a warning, and its
+// daemon last emitted (History.PrecompactInstr) and warn when it was absent. No documented channel
+// carries that instruction — Claude Code has no PreCompact hookSpecificOutput variant, 2.1.280
+// rejected the whole response over one (C1.12), and custom_instructions is PreCompact INPUT
+// (Qompack.md §7.3, §8.5 "Retire O1's output setter"). Claude Code 2.1.293 does pass a PreCompact
+// hook's raw stdout to the summarizer, undocumented, and Qompack's hook prints nothing there. So the
+// probe could only warn about a mechanism Qompack does not use, or pass on a false positive: 2.1.280
+// replayed the rejected output, instruction included, into the post-compaction context. The
+// producer is retired, so this row reports that and nothing else. It is OK because it can never
+// fail and SevInfo because it is never a warning, and its
 // Observed spelling is one noObservationSpellings lists: an `ok` here means "no assertion was made",
 // never "the host accepted it". Its evidence is attributed to compaction_request, which the
 // register calls unsupported (observation.go), so ClassifyResult reports `unsupported` either way.

@@ -73,8 +73,10 @@ slash commands. It runs on your machine only.
 **What 0.3.0 is not.**
 
 - **It does not compact anything.** Compaction is the host's. Qompack cannot request, veto, shape or
-  time a compaction, and it sends the host's summarizer no instructions: its `PreCompact` answer is
-  the empty object ([docs/cannot-do.md](docs/cannot-do.md)).
+  time a compaction, and it gives the host's summarizer no instructions of its own. Its `PreCompact`
+  hook printed the empty object, which Claude Code 2.1.293 passes to the summarizer as additional
+  instructions (undocumented); the fix under Unreleased in [CHANGELOG.md](CHANGELOG.md) makes the
+  hook print nothing ([docs/cannot-do.md](docs/cannot-do.md)).
 - **It is not cache-aware in any way that reaches the host.** It cannot see, keep warm or change
   the host's prompt cache. Its internal scheduler does estimate a cache state (warm, expiring or
   cold) from the time since the last API request and the configured TTL, and uses that estimate

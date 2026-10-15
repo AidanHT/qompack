@@ -112,9 +112,9 @@ func (r *compactLoadRig) hookE(args []string, payload map[string]any) (hookio.Ou
 	if code != ExitOK {
 		return hookio.Output{}, took, fmt.Errorf("%v exited %d: %s", args, code, errw.String())
 	}
-	var got hookio.Output
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		return hookio.Output{}, took, fmt.Errorf("%v stdout %q: %w", args, out.String(), err)
+	got, err := decodeHookStdout(args[0], out.Bytes())
+	if err != nil {
+		return hookio.Output{}, took, fmt.Errorf("%v: %w", args, err)
 	}
 	return got, took, nil
 }

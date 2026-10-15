@@ -41,7 +41,8 @@ const SentinelPhrase = "qompack checkpoint"
 // They are transcribed character for character on purpose: a paraphrase is focus text §8.5 did
 // not authorize. Until C1.18 the daemon returned this text to the hook client as PreCompact
 // customInstructions, and contract.CPreCompactCustomInstr searched transcripts for its first line.
-// Both are retired — no host accepts a PreCompact instruction — and the text now reaches no hop
+// Both are retired — Claude Code documents no PreCompact instruction output — and the text now
+// reaches no hop
 // (see FocusInstructions). focus_test.go still pins all three against their quoted text.
 const (
 	// standingTemplate is paragraph 1: the standing focus instruction, always rendered and always
@@ -84,9 +85,10 @@ const maxFocusBytes = 4000
 //
 // THE TEXT REACHES NO HOP (C1.18). FileWriter.PreCompact still renders it and returns it as
 // PreCompactResult.Instructions, but the daemon's checkpoint seam discards that result and answers
-// the empty object: no host accepts a PreCompact instruction (Claude Code has no PreCompact
+// the empty object: Claude Code documents no PreCompact instruction output (it has no PreCompact
 // hookSpecificOutput variant, 2.1.280 rejected the whole response over one — C1.12 — and
-// custom_instructions is PreCompact INPUT, Qompack.md §7.3). What survives is the
+// custom_instructions is PreCompact INPUT, Qompack.md §7.3; 2.1.293 passes a PreCompact hook's raw
+// stdout to the summarizer undocumented, and the hook prints nothing). What survives is the
 // state/precompact.json debug record, whose instructions_bytes and span_instruction fields
 // describe this text. No contract assertion reads either: precompact.custom_instructions_accepted
 // reports "retired" without probing anything.

@@ -685,8 +685,24 @@ func observeToolPayload(t *testing.T, root string) []byte {
 	return b
 }
 
+// requireHookStdout asserts what one hook subcommand of THIS build wrote to stdout and returns it
+// decoded. A hook's stdout is a valid hookio.Output, except PreCompact's, which is empty: Claude
+// Code passes any PreCompact stdout to the summarizer as instructions. So for checkpoint any byte
+// fails and the result is the zero Output; every other hook must write one hookio.Output.
+func requireHookStdout(t *testing.T, argv []string, stdout []byte) hookio.Output {
+	t.Helper()
+	if len(argv) > 0 && argv[0] == "checkpoint" {
+		require.Empty(t, string(stdout), "%v (PreCompact) must print nothing", argv)
+		return hookio.Output{}
+	}
+	var out hookio.Output
+	require.NoError(t, json.Unmarshal(bytes.TrimSpace(stdout), &out), "%v stdout:\n%s", argv, stdout)
+	return out
+}
+
 // requireParsesAsOutput asserts stdout is a single valid hookio.Output — the ubiquitous "every hook
-// exits 0 with valid JSON" property this whole file leans on.
+// exits 0 with valid JSON" property this whole file leans on. PreCompact's stdout is empty instead
+// (requireHookStdout).
 func requireParsesAsOutput(t *testing.T, stdout []byte) {
 	t.Helper()
 	var out hookio.Output

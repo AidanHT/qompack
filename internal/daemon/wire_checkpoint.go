@@ -31,7 +31,8 @@ import (
 //
 // The seam seals and answers the empty object. It used to return the checkpointer's focus
 // instruction (Qompack.md §8.5, O1) as a PreCompact customInstructions for the route to record,
-// but no host accepts one: Claude Code has no PreCompact hookSpecificOutput variant, 2.1.280
+// but Claude Code documents no channel for one: it has no PreCompact hookSpecificOutput variant,
+// 2.1.280
 // rejected the whole response over it (C1.12), and custom_instructions is PreCompact INPUT, not a
 // summarizer-output setter (§7.3, §8.5 "Retire O1's output setter"). That producer is retired
 // (C1.18); the checkpoint is Qompack's own artifact and does not need the summarizer's help.

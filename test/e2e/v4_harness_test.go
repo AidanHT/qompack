@@ -33,7 +33,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -166,15 +165,13 @@ func (r *v4Rig) RunIdle(t *testing.T) []string {
 	return ran
 }
 
-// Hook runs one hook subcommand through the real binary against this rig's daemon.
+// Hook runs one hook subcommand through the real binary against this rig's daemon. Its stdout is
+// one hookio.Output, or empty for PreCompact (requireHookStdout).
 func (r *v4Rig) Hook(t *testing.T, argv []string, payload []byte) hookio.Output {
 	t.Helper()
 	stdout, stderr, code := Run(t, r.Bin, argv, payload, e2eEnv(r.P))
 	require.Equal(t, 0, code, "%v must exit 0\nstdout:\n%s\nstderr:\n%s", argv, stdout, stderr)
-	var out hookio.Output
-	require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(string(stdout))), &out),
-		"%v stdout must be one hookio.Output:\n%s", argv, stdout)
-	return out
+	return requireHookStdout(t, argv, stdout)
 }
 
 // CompactStart runs SessionStart(source=compact) and returns the additionalContext the host would
@@ -193,10 +190,11 @@ func (r *v4Rig) CompactStart(t *testing.T, sess core.SessionID) string {
 }
 
 // PreCompact runs `qompack checkpoint` as a real process and holds what it wrote to the host's
-// PreCompact contract: the empty response. Claude Code has no PreCompact hookSpecificOutput variant
-// and rejects the whole response over one (C1.12), and it discards a PreCompact systemMessage, so a
-// conforming checkpoint hook says nothing on stdout whether or not it sealed. A row that needs to
-// know the seal happened reads the artifact (cpCheckpointArtifacts), not stdout.
+// PreCompact contract: empty stdout. Claude Code has no PreCompact hookSpecificOutput variant and
+// rejects the whole response over one (C1.12), it discards a PreCompact systemMessage, and 2.1.293
+// passes any PreCompact stdout to the summarizer as instructions, so a conforming checkpoint hook
+// prints nothing whether or not it sealed. A row that needs to know the seal happened reads the
+// artifact (cpCheckpointArtifacts), not stdout.
 func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) hookio.Output {
 	t.Helper()
 	out := r.Hook(t, []string{"checkpoint"}, cpPreCompactPayload(t, r.P.Root, sess))
@@ -210,8 +208,8 @@ func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) hookio.Output {
 //
 // It exists because that hop is where the rows used to read Qompack.md §8.5's O1 focus
 // instruction: the hook client reduces every PreCompact reply to what the host accepts, which is
-// nothing (C1.12). C1.18 retired the instruction itself — no host accepts one — so the daemon no
-// longer returns or records it, and a row calls this to prove exactly that
+// nothing (C1.12). C1.18 retired the instruction itself — Claude Code documents no channel for one
+// — so the daemon no longer returns or records it, and a row calls this to prove exactly that
 // (cpRequireNoInstructionReply) one hop before the host. The seal is read from the artifact, and
 // the host-facing answer from the real binary via PreCompact.
 func (r *v4Rig) PreCompactReply(t *testing.T, sess core.SessionID) hookio.Output {

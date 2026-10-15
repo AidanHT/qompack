@@ -95,6 +95,12 @@ func TestGuard_WriteSetConfinedToQompack(t *testing.T) {
 		}, &out, &errw)
 		require.Equal(t, 0, code, "hook %v must exit 0: %s", sub, errw.String())
 
+		if sub[0] == "checkpoint" {
+			// PreCompact prints nothing: Claude Code passes any PreCompact stdout to the summarizer
+			// as instructions.
+			require.Empty(t, out.String(), "hook %v must print nothing", sub)
+			continue
+		}
 		var parsed hookio.Output
 		require.NoError(t, json.Unmarshal(bytes.TrimSpace(out.Bytes()), &parsed),
 			"hook %v must emit valid hookio.Output", sub)

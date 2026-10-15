@@ -47,8 +47,8 @@ func precompactPayload(t *testing.T, root string, sess core.SessionID) []byte {
 	return b
 }
 
-// runCheckpointHook drives the shipped `qompack checkpoint` client in process and returns the one
-// hookio.Output §2.3 promises on every path.
+// runCheckpointHook drives the shipped `qompack checkpoint` client in process, requires it to print
+// nothing (PreCompact's stdout is empty on every path) and returns the zero hookio.Output.
 func runCheckpointHook(t *testing.T, root string, sess core.SessionID) hookio.Output {
 	t.Helper()
 	var out, errw bytes.Buffer
@@ -63,9 +63,8 @@ func runCheckpointHook(t *testing.T, root string, sess core.SessionID) hookio.Ou
 		&out, &errw)
 	require.Equal(t, ExitOK, code, "a hook must always exit 0\nstdout:\n%s\nstderr:\n%s", out.String(), errw.String())
 
-	var got hookio.Output
-	require.NoError(t, json.Unmarshal(out.Bytes(), &got),
-		"`qompack checkpoint` must emit exactly one hookio.Output:\n%s", out.String())
+	got, err := decodeHookStdout("checkpoint", out.Bytes())
+	require.NoError(t, err, "`qompack checkpoint` must print nothing")
 	return got
 }
 
@@ -100,12 +99,13 @@ func TestDaemonFirstPreCompactSealsCheckpoint(t *testing.T) {
 
 	out := runCheckpointHook(t, root, sess)
 
-	// The host's half of the contract is the EMPTY response. This row used to require
+	// The host's half of the contract is EMPTY stdout. This row used to require
 	// customInstructions on stdout, as its signal that the seal happened; Claude Code 2.1.280
 	// rejects exactly that shape ("hookSpecificOutput.hookEventName: expected one of …", C1.12),
-	// because no PreCompact hookSpecificOutput variant exists. So the seal is proven below from the
-	// artifact itself — which is what the defect this row was written for actually lacked — and
-	// stdout is held to the documented contract instead.
+	// because no PreCompact hookSpecificOutput variant exists, and 2.1.293 passes any PreCompact
+	// stdout to the summarizer as instructions. So the seal is proven below from the artifact
+	// itself — which is what the defect this row was written for actually lacked — and
+	// runCheckpointHook holds stdout to zero bytes.
 	require.Nil(t, out.HookSpecificOutput,
 		"PreCompact accepts no hookSpecificOutput; the host rejects the whole response over one")
 	require.Empty(t, out.SystemMessage, "the host discards a PreCompact systemMessage")

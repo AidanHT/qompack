@@ -939,12 +939,12 @@ const (
 )
 
 // installRunHook drives one hook subcommand through the launcher and asserts §2.3's two invariants:
-// exit 0, and a stdout that is one valid hookio.Output.
+// exit 0, and a stdout that is one valid hookio.Output (empty for PreCompact, requireHookStdout).
 func installRunHook(t *testing.T, bin string, argv []string, payload []byte, env map[string]string) {
 	t.Helper()
 	stdout, stderr, code := Run(t, bin, argv, payload, env)
 	require.Equal(t, 0, code, "%v must exit 0\nstdout:\n%s\nstderr:\n%s", argv, stdout, stderr)
-	requireParsesAsOutput(t, stdout)
+	requireHookStdout(t, argv, stdout)
 }
 
 // installSessionStartPayload is the SessionStart payload a host writes at startup.

@@ -32,7 +32,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `checkpoint.budgetTokens` | integer | `12000` | [1000,100000] | §8.5 | target token budget for a single checkpoint artifact |
 | `checkpoint.frontier.advanceOnSegmentClose` | boolean | `true` | — | §8.5 | advance the checkpoint frontier incrementally whenever a segment closes |
 | `checkpoint.frontier.maxResidualTokens` | integer | `20000` | (0,∞) | §8.5 | maximum tokens between the frontier and the compaction point before a full pass is forced |
-| `checkpoint.incrementalSpanInstruction` | boolean | `true` | — | §8.5 | retired (C1.18): no host accepts a PreCompact instruction, so none is emitted; read for compatibility only (docs/cannot-do.md) |
+| `checkpoint.incrementalSpanInstruction` | boolean | `true` | — | §8.5 | retired (C1.18): Claude Code documents no PreCompact instruction output, so none is emitted; read for compatibility only (docs/cannot-do.md) |
 | `checkpoint.tiers.first` | array | `["pointers","narrative"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields truncated first under budget pressure |
 | `checkpoint.tiers.late` | array | `["decisions","open_questions","current_work"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields truncated only after the first tier is exhausted |
 | `checkpoint.tiers.never` | array | `["invariants","user_intent","eliminated"]` | one of `invariants`, `user_intent`, `eliminated`, `decisions`, `open_questions`, `current_work`, `pointers`, `narrative` | §6.9 | checkpoint fields that are never truncated |

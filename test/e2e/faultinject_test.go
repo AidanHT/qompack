@@ -81,9 +81,14 @@ func TestHooksExitZeroUnderFaults(t *testing.T) {
 					"hook %q under fault %q must exit 0 (§2.3)\nstdout:\n%s\nstderr:\n%s",
 					hook.event, site, stdout, stderr)
 
-				var out hookio.Output
-				require.NoError(t, json.Unmarshal(bytes.TrimSpace(stdout), &out),
-					"hook %q under fault %q must write valid JSON, got:\n%s", hook.event, site, stdout)
+				if hook.event == "PreCompact" {
+					// PreCompact prints nothing on every path, a recovered panic included.
+					require.Empty(t, string(stdout), "PreCompact under fault %q must print nothing", site)
+				} else {
+					var out hookio.Output
+					require.NoError(t, json.Unmarshal(bytes.TrimSpace(stdout), &out),
+						"hook %q under fault %q must write valid JSON, got:\n%s", hook.event, site, stdout)
+				}
 
 				// session-start's own preSend seam (internal/cli/sessionstart.go) WAITS for a
 				// daemon to become reachable before this call ever returns, and that daemon's one

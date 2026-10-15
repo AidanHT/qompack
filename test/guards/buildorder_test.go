@@ -91,7 +91,8 @@ const expectedMaxResidualTokens = 20000 //nomagic:allow guard asserts the shippe
 //
 // O1 was meant to be the cheapest large win in the design — narrowing the summarizer to the span
 // after the checkpoint frontier — and it could only be a win if it was on. Since C1.18 Qompack emits
-// no PreCompact instruction at all (no host accepts one), so checkpoint.incrementalSpanInstruction
+// no PreCompact instruction at all (Claude Code documents no channel for one), so
+// checkpoint.incrementalSpanInstruction
 // is a retired-meaning key and its default changes nothing Claude Code receives. The guard stays:
 // the key is still read for compatibility, and a default flipped without review is still a change
 // nobody decided on. The frontier defaults below it are Qompack's own and fully live.

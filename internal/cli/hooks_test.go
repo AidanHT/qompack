@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,10 +24,27 @@ import (
 // live here exercised the old no-op observation logger (hooks-*.jsonl) that body no longer writes.
 // These replace them.
 
+// decodeHookStdout decodes what the hook command named cmdName wrote to stdout. A hook's stdout is
+// a valid hookio.Output, except PreCompact's, which is empty: for checkpoint, the PreCompact entry
+// point, any byte at all is an error and the result is the zero Output.
+func decodeHookStdout(cmdName string, stdout []byte) (hookio.Output, error) {
+	if cmdName == "checkpoint" {
+		if len(stdout) != 0 {
+			return hookio.Output{}, fmt.Errorf("checkpoint (PreCompact) must print nothing, printed %q", stdout)
+		}
+		return hookio.Output{}, nil
+	}
+	var got hookio.Output
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		return hookio.Output{}, fmt.Errorf("%s stdout %q: %w", cmdName, stdout, err)
+	}
+	return got, nil
+}
+
 // TestHooks_AllSixExitZeroWithValidJSON runs every hook against a real project with no daemon
 // reachable — the ordinary in-process-test condition (none of these Env values sets Self, so lazy
 // spawn is disabled entirely; see cli.Env.Self's own doc comment) — and checks every one exits 0
-// and answers with parseable JSON.
+// and answers with parseable JSON, except checkpoint (PreCompact), which prints nothing.
 func TestHooks_AllSixExitZeroWithValidJSON(t *testing.T) {
 	dir := t.TempDir()
 	home := t.TempDir()
@@ -55,6 +73,10 @@ func TestHooks_AllSixExitZeroWithValidJSON(t *testing.T) {
 			}, &out, &errw)
 			require.Equal(t, ExitOK, code, "hook %q: stderr=%s", hook, errw.String())
 
+			if hook == "checkpoint" {
+				require.Empty(t, out.String(), "the PreCompact hook prints nothing")
+				return
+			}
 			var got hookio.Output
 			require.NoError(t, json.Unmarshal(bytes.TrimSpace(out.Bytes()), &got),
 				"hook %q must write parseable hookio.Output, got %q", hook, out.String())

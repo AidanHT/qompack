@@ -479,8 +479,9 @@ func TestPreCompactTiming_NoSamplesIsOK(t *testing.T) {
 // TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns is precompact.custom_instructions_accepted
 // after C1.18. The row used to take the first line of the instruction the daemon last emitted
 // (History.PrecompactInstr) and search the transcript tail for it, warning when it was absent. But
-// no host accepts a PreCompact instruction — Claude Code has no PreCompact hookSpecificOutput
-// variant and 2.1.280 rejected the whole response over one (C1.12) — and custom_instructions is
+// Claude Code documents no PreCompact instruction output — it has no PreCompact hookSpecificOutput
+// variant and 2.1.280 rejected the whole response over one (C1.12); 2.1.293 passes the hook's raw
+// stdout to the summarizer undocumented, and the hook prints nothing — and custom_instructions is
 // PreCompact INPUT, never a summarizer-output setter (Qompack.md §7.3). So the probe could only ever
 // warn about a mechanism that does not exist, or, worse, pass: 2.1.280 replayed its rejection text,
 // instruction included, into the post-compaction context, where the probe would have "found" it.

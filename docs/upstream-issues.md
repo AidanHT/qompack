@@ -90,8 +90,8 @@ prepared for them here:
 
 ## 2. A PreCompact output channel for summarizer focus, and time to write
 
-- **Host limitation.** A PreCompact hook cannot contribute anything to the summary. The hooks
-  reference (fetched 2026-09-22) documents PreCompact decision control as top-level
+- **Host limitation.** A PreCompact hook has no documented way to contribute to the summary. The
+  hooks reference (fetched 2026-09-22) documents PreCompact decision control as top-level
   `decision: "block"`/`reason` only, with no `hookSpecificOutput` variant, and "Claude Code discards
   a PreCompact hook's `systemMessage` and `continue` fields"; `custom_instructions` is PreCompact
   *input* — what the user typed after `/compact`, `null` for auto-compaction. Separately, how much
@@ -100,8 +100,9 @@ prepared for them here:
   `hookSpecificOutput.customInstructions`: "Hook JSON output validation failed —
   hookSpecificOutput.hookEventName: expected one of "PreToolUse" | "UserPromptSubmit" | …", and it
   appended the whole rejection, instruction text included, to the post-compaction transcript
-  (maintainer-held evidence). Qompack now
-  answers PreCompact with the empty object and has retired the instruction (C1.18).
+  (maintainer-held evidence). Qompack has retired the instruction (C1.18), and its PreCompact hook
+  now prints nothing. Claude Code 2.1.293 passes a PreCompact hook's stdout to the summarizer as
+  additional instructions. This is undocumented. Qompack writes nothing there.
   `precompact.has_time_to_write` ("measured PreCompact wall time vs. the manifest timeout") was
   observed in the candidate 4 live lane as `p99=119ms timeout=20000ms` after a session that
   compacted (`plans/sdd/V6-closeout/live/rerun-c4/UAT-02/cli/05-status-json.stdout.txt`): a

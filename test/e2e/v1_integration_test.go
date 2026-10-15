@@ -57,6 +57,9 @@ type v1Call struct {
 	// compared byte for byte, and it is empty for the two calls whose response is not a
 	// constant: see answersThroughHookOutput.
 	wantStdout string
+	// printsNothing marks the call whose stdout must be empty: PreCompact, because Claude Code
+	// passes any PreCompact stdout to the summarizer as instructions.
+	printsNothing bool
 	// answersThroughHookOutput marks a call whose response is a hookSpecificOutput naming its
 	// own event rather than the minimal "{}", and whose bytes therefore vary run to run. Those
 	// calls are asserted by FIELD instead: the event name always, plus whatever else the
@@ -82,16 +85,17 @@ var v1Lifecycle = []v1Call{
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", derive: asBashToolUse, logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop"}, fixture: "stop", logHook: "Stop", wantStdout: "{}\n"},
 	{
-		// "{}" IS THE HOST CONTRACT HERE, AND IT IS NOT, BY ITSELF, EVIDENCE OF A SEAL. Claude Code
-		// has no PreCompact hookSpecificOutput variant and rejects the whole response over one
-		// (C1.12: 2.1.280 answered this row's former focus-instruction output with "Hook JSON
-		// output validation failed"), and it discards a PreCompact systemMessage, so the empty
-		// object is the only conforming answer, sealed or not.
+		// EMPTY STDOUT IS THE HOST CONTRACT HERE, AND IT IS NOT, BY ITSELF, EVIDENCE OF A SEAL.
+		// Claude Code has no PreCompact hookSpecificOutput variant and rejects the whole response
+		// over one (C1.12: 2.1.280 answered this row's former focus-instruction output with "Hook
+		// JSON output validation failed"), it discards a PreCompact systemMessage, and 2.1.293
+		// passes any PreCompact stdout, even "{}", to the summarizer as instructions. So the hook
+		// prints nothing, sealed or not.
 		//
 		// That is why the first-PreCompact defect this row once guarded — no checkpoint on a
-		// daemon's first compaction, answered with that same "{}" — is caught by the artifact
+		// daemon's first compaction, answered with the same stdout — is caught by the artifact
 		// instead: see the PreCompact block in the loop below.
-		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", wantStdout: "{}\n",
+		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", printsNothing: true,
 	},
 	{argv: []string{"flush"}, fixture: "session_end", logHook: "SessionEnd", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop", "--subagent"}, fixture: "subagent_stop", logHook: "Stop", wantStdout: "{}\n"},
@@ -180,12 +184,13 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 	// means the exact response bytes are no longer a CLI-side constant: SessionStart's
 	// additionalContext now carries a live §12.1 sentinel token the daemon mints unconditionally
 	// (handleSessionStart mints and emits it whenever the mode may act, with no wave-3 seam
-	// required). PreCompact answers the host with the empty object (C1.12), and since C1.18 the
-	// daemon renders no focus instruction for it at all; what the PreCompact DID is read from what
-	// it left behind (the block at the end of this loop). What stays true, and what this loop still
-	// proves end to end across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is
-	// that every call in the lifecycle exits 0 with exactly one well-formed hookio.Output, and that
-	// the call that answers with a hookSpecificOutput names its own event in it.
+	// required). PreCompact answers the host with nothing at all (C1.12; Claude Code passes any
+	// PreCompact stdout to the summarizer as instructions), and since C1.18 the daemon renders no
+	// focus instruction for it at all; what the PreCompact DID is read from what it left behind (the
+	// block at the end of this loop). What stays true, and what this loop still proves end to end
+	// across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is that every call in
+	// the lifecycle exits 0 with exactly one well-formed hookio.Output (PreCompact: empty stdout),
+	// and that the call that answers with a hookSpecificOutput names its own event in it.
 	for i, call := range v1Lifecycle {
 		payload := v1Payload(t, call)
 
@@ -194,14 +199,23 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 		require.Equal(t, 0, code,
 			"call %d (%v): §2.3 permits a hook no outcome but exit 0\nstdout:\n%s\nstderr:\n%s",
 			i+1, call.argv, stdout, stderr)
-		requireLoneOutput(t, stdout)
+		if call.printsNothing {
+			require.Empty(t, string(stdout), "call %d (%v): exact response shape: nothing", i+1, call.argv)
+		} else {
+			requireLoneOutput(t, stdout)
+		}
 
 		var out hookio.Output
-		require.NoError(t, json.Unmarshal(stdout, &out), "call %d (%v): stdout:\n%s", i+1, call.argv, stdout)
-		if call.answersThroughHookOutput {
+		if !call.printsNothing {
+			require.NoError(t, json.Unmarshal(stdout, &out), "call %d (%v): stdout:\n%s", i+1, call.argv, stdout)
+		}
+		switch {
+		case call.printsNothing:
+			// Asserted above.
+		case call.answersThroughHookOutput:
 			require.NotNil(t, out.HookSpecificOutput, "call %d (%v) answers through hookSpecificOutput", i+1, call.argv)
 			require.Equal(t, call.logHook, out.HookSpecificOutput.HookEventName)
-		} else {
+		default:
 			require.Equal(t, call.wantStdout, string(stdout), "call %d (%v): exact response shape", i+1, call.argv)
 		}
 
@@ -212,7 +226,8 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 		// Criterion change (C1.18): this block also used to read the rendered focus instruction —
 		// from the contract history, where the route recorded its first 256 runes, and from the
 		// daemon's IPC reply to this same frozen PreCompact — and hold both to §5.14 (built from the
-		// SourceSet, so no payload secret in it). The instruction is retired: no host accepts one,
+		// SourceSet, so no payload secret in it). The instruction is retired: Claude Code documents no
+		// channel for one,
 		// so the daemon neither returns nor records it. The block now pins that retirement on both
 		// surfaces the instruction used to reach — nothing recorded, and the empty object on the IPC
 		// hop — which also leaves a payload secret nowhere new to land. The logs check after this
@@ -220,7 +235,7 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 		if call.logHook == "PreCompact" {
 			require.NotEmpty(t, cpCheckpointArtifacts(t, p.Root),
 				"call %d (%v): the PreCompact must seal a checkpoint; none here is the first-PreCompact "+
-					"defect, whose host-visible answer was the same \"{}\"", i+1, call.argv)
+					"defect, whose host-visible answer was the same stdout", i+1, call.argv)
 			require.Empty(t, contract.LoadHistory(contract.HistoryPath(p.Root)).PrecompactInstr,
 				"call %d (%v): no route records a retired instruction into the contract history", i+1, call.argv)
 
@@ -560,7 +575,11 @@ func TestV1_PluginManifestCommandsExecuteAgainstRealBinary(t *testing.T) {
 					elapsed := time.Since(start)
 
 					require.Equal(t, 0, code, "stderr:\n%s", stderr)
-					requireLoneOutput(t, stdout)
+					if event == "PreCompact" {
+						require.Empty(t, string(stdout), "PreCompact prints nothing")
+					} else {
+						requireLoneOutput(t, stdout)
+					}
 
 					// Recorded as headroom, not gated tightly: this is B-D (hook_wall), which §2.4
 					// says is reported and never gated because process creation is the host's cost.

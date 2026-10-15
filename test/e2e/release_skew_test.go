@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -444,15 +445,60 @@ func skewSessionStart(t *testing.T, bin, root string, sess core.SessionID, env m
 	require.Equal(t, hookio.EventSessionStart, out.HookSpecificOutput.HookEventName)
 }
 
-// skewCheckpoint runs the PreCompact hook for sess through bin and asserts it sealed a NEW
-// checkpoint. Its host-visible answer is the empty object sealed or not (C1.12), so the artifact is
-// the only evidence of what the serving daemon did with it (TestV1_HookLifecycleThroughRealBinary's
-// PreCompact block).
-func skewCheckpoint(t *testing.T, bin, root string, sess core.SessionID, env map[string]string) {
+// skewFirstSilentPreCompact is the first release whose PreCompact hook prints nothing. Every
+// release before it printed the empty object, which Claude Code 2.1.293 passes to the summarizer
+// as instructions.
+const skewFirstSilentPreCompact = "0.3.3"
+
+// skewPreCompactStdout is the exact stdout the PreCompact hook of the release stamped version
+// writes: "{}\n" before skewFirstSilentPreCompact, nothing from it on. It is for a released binary
+// only: this build's own hook prints nothing whatever core.Version says, because the version is
+// bumped only in the commit a release tags.
+func skewPreCompactStdout(t *testing.T, version string) string {
+	t.Helper()
+	if skewVersionLess(t, version, skewFirstSilentPreCompact) {
+		return "{}\n"
+	}
+	return ""
+}
+
+// skewVersionLess compares two MAJOR.MINOR.PATCH release versions numerically.
+func skewVersionLess(t *testing.T, a, b string) bool {
+	t.Helper()
+	parse := func(v string) [3]int {
+		parts := strings.Split(v, ".")
+		require.Len(t, parts, 3, "release version %q is not MAJOR.MINOR.PATCH", v)
+		var n [3]int
+		for i, part := range parts {
+			x, err := strconv.Atoi(part)
+			require.NoError(t, err, "release version %q", v)
+			n[i] = x
+		}
+		return n
+	}
+	pa, pb := parse(a), parse(b)
+	for i := range pa {
+		if pa[i] != pb[i] {
+			return pa[i] < pb[i]
+		}
+	}
+	return false
+}
+
+// skewCheckpoint runs the PreCompact hook for sess through bin, holds its stdout to wantStdout byte
+// for byte (the expectation follows the binary under test: skewPreCompactStdout for a released
+// binary, empty for this build), and asserts it sealed a NEW checkpoint. Its host-visible answer is
+// the same sealed or not (C1.12), so the artifact is the only evidence of what the serving daemon
+// did with it (TestV1_HookLifecycleThroughRealBinary's PreCompact block).
+func skewCheckpoint(t *testing.T, bin, wantStdout, root string, sess core.SessionID, env map[string]string) {
 	t.Helper()
 	before := cpCheckpointArtifacts(t, root)
-	out := skewHook(t, bin, []string{"checkpoint"}, cpPreCompactPayload(t, root, sess), env)
-	cpRequireHostConformingPreCompact(t, out)
+	argv := []string{"checkpoint"}
+	stdout, stderr, code := Run(t, bin, argv, cpPreCompactPayload(t, root, sess), env)
+	require.Equal(t, 0, code, "%s %v: §2.3 permits a hook no outcome but exit 0\nstdout:\n%s\nstderr:\n%s",
+		bin, argv, stdout, stderr)
+	require.Empty(t, string(stderr), "%s %v wrote to stderr", bin, argv)
+	require.Equal(t, wantStdout, string(stdout), "%s %v: exact PreCompact stdout", bin, argv)
 	after := cpCheckpointArtifacts(t, root)
 	require.Greater(t, len(after), len(before),
 		"%s checkpoint for %s sealed no new checkpoint (before %v, after %v)", bin, sess, before, after)
@@ -709,7 +755,7 @@ func TestE2E_ReleaseSkewBothWays(t *testing.T) {
 		skewSessionStart(t, newBin, p.Root, s2, env)
 		record(newBin, aNewPrompt)
 		record(newBin, aNewTool)
-		skewCheckpoint(t, newBin, p.Root, s2, env)
+		skewCheckpoint(t, newBin, "", p.Root, s2, env)
 		skewHook(t, newBin, []string{"observe", "stop"}, obsStopPayload(t, p.Root, s2), env)
 		skewFlush(t, newBin, p.Root, s2, env)
 
@@ -733,7 +779,7 @@ func TestE2E_ReleaseSkewBothWays(t *testing.T) {
 
 		record(prev.Bin, bOldPrompt)
 		record(prev.Bin, bOldTool)
-		skewCheckpoint(t, prev.Bin, p.Root, s1, env)
+		skewCheckpoint(t, prev.Bin, skewPreCompactStdout(t, prev.Version), p.Root, s1, env)
 		skewFlush(t, prev.Bin, p.Root, s1, env)
 
 		skewAwaitIndexed(t, p.Root, []string{bOldTool.toolID}, map[core.SessionID]int{s1: 2})

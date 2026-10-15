@@ -16,7 +16,8 @@ import (
 )
 
 // TestCheckpointRoute_SealsWithoutRenderingOrRecordingAnInstruction is C1.18's regression test.
-// No host accepts a PreCompact instruction: Claude Code has no PreCompact hookSpecificOutput variant
+// Claude Code documents no PreCompact instruction output: it has no PreCompact hookSpecificOutput
+// variant
 // and 2.1.280 rejected the whole response over one (C1.12), and custom_instructions is PreCompact
 // INPUT, never a summarizer-output setter (Qompack.md §7.3, §8.5 "Retire O1's output setter"). The
 // daemon nonetheless kept producing one — the checkpoint seam returned it on the IPC reply and the

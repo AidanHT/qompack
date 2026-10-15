@@ -85,7 +85,9 @@ broken'". `first-session`, `no-precompact-pending`, `no-transcript-path` and `un
 alongside `no-samples`, `not-yet-observed` and others you may meet — including `initialize-pending`
 and `transcript-pending` (below), and `retired`, which is
 what `precompact.custom_instructions_accepted` reports wherever a daemon has declared its producer:
-the PreCompact instruction it once probed for is retired, because no host accepts one (C1.18,
+the PreCompact instruction it once probed for is retired, because Claude Code documents no channel
+for one; 2.1.293 passes a PreCompact hook's stdout to the summarizer undocumented, and Qompack
+writes nothing there (C1.18,
 [docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution)). **In every one of those cases
 `ok` means "no assertion was made", not "the host contract holds."** Only a row whose `OBSERVED`
 column describes a real observation is evidence.
@@ -411,7 +413,7 @@ mode is: L0 and L1 keep running — "observe, chunk, store, sketches, DAG, verba
 elimination records — the store stays correct and the session's data is not lost" — and everything
 that *acts* is off: no `additionalContext` injection, no scheduler-initiated checkpoints, no drop
 report. (The PreCompact focus instruction, `customInstructions`, is not on that list any more
-because no mode emits it: no host accepts one, so it is retired — C1.18,
+because no mode emits it: Claude Code documents no channel for one, so it is retired — C1.18,
 [docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution).) `qompack status` prints the
 mode as `degraded-passive`.
 

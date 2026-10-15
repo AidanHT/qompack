@@ -139,9 +139,9 @@ type SessionHistory struct {
 	PrecompactTimeoutMs int64   `json:"precompact_timeout_ms"`
 	// PrecompactInstr is RETIRED (C1.18). A daemon before C1.18 recorded the focus instruction it
 	// last emitted here, truncated to maxPrecompactInstrChars, for
-	// precompact.custom_instructions_accepted to probe for. No host accepts a PreCompact
-	// instruction, so nothing writes this field any more and nothing reads it; it stays so that a
-	// history an older daemon wrote still loads and round-trips.
+	// precompact.custom_instructions_accepted to probe for. Claude Code documents no PreCompact
+	// instruction output, so nothing writes this field any more and nothing reads it; it stays so
+	// that a history an older daemon wrote still loads and round-trips.
 	PrecompactInstr string `json:"precompact_instr"`
 	// AwaitingCompactStart is set when a PreCompact has been observed for the current session id
 	// and cleared by session_start.source_compact on the FOLLOWING SessionStart, whichever way
