@@ -197,3 +197,29 @@ func TestRunModTest_RefusesARunThatMissedTestFiles(t *testing.T) {
 		})
 	}
 }
+
+// TestRunModTest_RequiresZeroFailuresInTheSummary keeps the verdict off the exit code alone: the
+// summary must report a "0 fail" count, and any skipped or todo test fails the task, because a test
+// that did not run proves nothing.
+func TestRunModTest_RequiresZeroFailuresInTheSummary(t *testing.T) {
+	ran := "Ran 20 tests across " + strconv.Itoa(len(modTestFiles(t))) + " files. [0.3s]\n"
+	for name, stdout := range map[string]string{
+		"a failure":       " 19 pass\n 1 fail\n" + ran,
+		"no fail count":   " 20 pass\n" + ran,
+		"a skipped test":  " 18 pass\n 2 skip\n 0 fail\n" + ran,
+		"a todo test":     " 19 pass\n 1 todo\n 0 fail\n" + ran,
+		"two fail counts": " 20 pass\n 0 fail\n 3 fail\n" + ran,
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := &fakeModClaude{t: t, answer: func([]string) claudeRun { return claudeRun{Stdout: []byte(stdout)} }}
+			err := runModTest(f.claude(), testModuleRoot(t), "windows", &bytes.Buffer{})
+			require.Error(t, err)
+		})
+	}
+
+	f := &fakeModClaude{t: t, answer: func([]string) claudeRun {
+		return claudeRun{Stdout: []byte(" 20 pass\n 0 skip\n 0 fail\n" + ran)}
+	}}
+	require.NoError(t, runModTest(f.claude(), testModuleRoot(t), "windows", &bytes.Buffer{}),
+		"zero skips are not a failure")
+}
