@@ -41,8 +41,12 @@ func (e *VersionError) Unwrap() error { return ErrUnsupportedVersion }
 // FailureFor is the error object a side answers for a request it could not accept: ok false,
 // ReasonError, and the error's text as the detail. The detail names the problem, never content
 // from the request.
+//
+// The detail is valid UTF-8: each run of bytes that is not becomes one U+FFFD before the detail is
+// cut to MaxDetailBytes. encoding/json would otherwise write every invalid byte as a three-byte
+// U+FFFD, so the text the mod decodes, and measures, would be longer than the one checked here.
 func FailureFor(err error) Status {
-	return Failure(ReasonError, truncateDetail(err.Error()))
+	return Failure(ReasonError, truncateDetail(strings.ToValidUTF8(err.Error(), "�")))
 }
 
 // truncateDetail cuts a detail to MaxDetailBytes without splitting a UTF-8 sequence.
