@@ -36,6 +36,7 @@ func All() []Cmd {
 	cmds = append(cmds, backupCmds()...)
 	cmds = append(cmds, fsckCmds()...)
 	cmds = append(cmds, doctorCmds()...)
+	cmds = append(cmds, modCmds()...)
 	for _, ni := range notImplemented {
 		cmds = append(cmds, Cmd{Name: ni.name, Summary: ni.summary, Run: notImplementedRun(ni.name)})
 	}
