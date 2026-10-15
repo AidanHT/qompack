@@ -338,3 +338,29 @@ func TestModRecords_StateDirIsThePathsLayouts(t *testing.T) {
 	l := paths.Of(t.TempDir())
 	require.Equal(t, filepath.Join(l.Dot, modwire.StateDir), l.State)
 }
+
+// TestModHello_TheSwitchIsReadBeforeTheModeProbe: runtime.mod.enabled is off by default, so it is
+// checked before the mode, whose state.bin read can probe the daemon that wrote it (up to the
+// connect floor). With the switch off a hello is refused for the switch and never probes; with it
+// on, the mode is read as before.
+func TestModHello_TheSwitchIsReadBeforeTheModeProbe(t *testing.T) {
+	p := newModProject(t, true)
+	require.NoError(t, paths.EnsureLayout(paths.Of(p.root)))
+	staleModeOffState(t, p.root)
+	probes := 0
+	prev := stateDaemonAlive
+	stateDaemonAlive = func(string) bool { probes++; return true }
+	t.Cleanup(func() { stateDaemonAlive = prev })
+
+	code, stdout, stderr := runMod(t, p.env(helloRequest(t, p.root, "2.1.300"), nil), "hello")
+	require.Equal(t, ExitOK, code, stderr)
+	r := decodeHelloOut(t, stdout)
+	require.Equal(t, modwire.Failure(modwire.ReasonRefused, modRefusedOff), r.Status)
+	require.Zero(t, probes, "a hello refused for the switch must not probe the daemon")
+
+	code, stdout, stderr = runMod(t, p.env(helloRequest(t, p.root, "2.1.300"), nil),
+		append([]string{"hello"}, enableMod...)...)
+	require.Equal(t, ExitOK, code, stderr)
+	require.Equal(t, modwire.Failure(modwire.ReasonRefused, modRefusedModeOff), decodeHelloOut(t, stdout).Status)
+	require.Equal(t, 1, probes, "with the switch on, a mode-off state.bin is probed as before")
+}
