@@ -122,6 +122,7 @@ func TestRenderModWire_FieldShapes(t *testing.T) {
 		"  reason?: Reason\n"+
 		"  detail?: string\n"+
 		"  enabled: boolean\n"+
+		"  steering: boolean\n"+
 		"}\n")
 }
 
