@@ -170,6 +170,13 @@ func taskBundle(args []string) error {
 	if err := rejectEvidenceDirectoryPath(*evidence); err != nil {
 		return errors.Join(errUsage, err)
 	}
+	// --host-validate runs claude with this process's environment, so against the user's own
+	// ~/.claude. A mods plugin must never reach that; mod-validate validates it in isolation.
+	if *mods && *hostValidate {
+		return errors.Join(errUsage, errors.New("bundle: --mods cannot be combined with --host-validate, "+
+			"which runs claude against your own ~/.claude; use `devtool mod-validate` to validate the "+
+			"mods plugin in isolation"))
+	}
 
 	tgts, err := resolveBundleTargets(targets)
 	if err != nil {
