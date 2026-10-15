@@ -1,7 +1,7 @@
 package modwire
 
 import (
-	"encoding/json"
+	"bytes"
 	"fmt"
 
 	"github.com/qompack/qompack/internal/core"
@@ -39,9 +39,10 @@ func HelloFileName(session string) (string, error) {
 // BriefRecord is one line of a session's brief-outcome log. The CLI appends one for every brief
 // call, served or not, except a refused one (ReasonRefused: a home root, no store, runtime mode
 // off, or the switch off), for which nothing is written and no store is created. Its field set is
-// closed and carries no content: what was asked, what it came to, how much and how
-// long.
+// closed and carries no content: what was asked, what it came to, how much and how long. Like a
+// message it carries "v": Version, and a line whose v is absent or another version is refused.
 type BriefRecord struct {
+	V int `json:"v"`
 	// TS is when the call finished.
 	TS core.UnixMilli `json:"ts"`
 	// Trigger is the request's trigger.
@@ -55,6 +56,9 @@ type BriefRecord struct {
 }
 
 func (r BriefRecord) validate() error {
+	if r.V != Version {
+		return &VersionError{Got: r.V}
+	}
 	known := false
 	for _, o := range Outcomes() {
 		if r.Outcome == o {
@@ -84,11 +88,12 @@ func (r BriefRecord) Line() ([]byte, error) {
 	return Encode(r)
 }
 
-// ParseBriefRecord reads one line of the log (without its newline). Unknown fields are ignored.
+// ParseBriefRecord reads one line of the log (without its newline). It refuses an absent or other
+// "v" before anything else, as a message decode does; unknown fields are ignored.
 func ParseBriefRecord(line []byte) (BriefRecord, error) {
 	var r BriefRecord
-	if err := json.Unmarshal(line, &r); err != nil {
-		return BriefRecord{}, fmt.Errorf("%w: %w", ErrMalformed, err)
+	if err := decode(bytes.NewReader(line), &r); err != nil {
+		return BriefRecord{}, err
 	}
 	if err := r.validate(); err != nil {
 		return BriefRecord{}, err
@@ -99,8 +104,9 @@ func ParseBriefRecord(line []byte) (BriefRecord, error) {
 // HelloFile is a session's hello file: the proof a mod session started and reached the binary,
 // and the host version it reported. The hello verb writes it for every served hello, including
 // one answered enabled false because the host is too old, and never for a refused one. Checks
-// that need to know whether the mod loaded read it.
+// that need to know whether the mod loaded read it. It carries "v": Version like a message.
 type HelloFile struct {
+	V         int    `json:"v"`
 	SessionID string `json:"session_id"`
 	// HostVersion is the host's full version string, as the hello request carried it.
 	HostVersion string `json:"host_version"`
@@ -109,6 +115,9 @@ type HelloFile struct {
 }
 
 func (h HelloFile) validate() error {
+	if h.V != Version {
+		return &VersionError{Got: h.V}
+	}
 	if !ValidSessionID(h.SessionID) {
 		return fmt.Errorf("%w: session id %q cannot name a file", ErrInvalid, h.SessionID)
 	}
@@ -126,11 +135,12 @@ func (h HelloFile) Encode() ([]byte, error) {
 	return Encode(h)
 }
 
-// ParseHelloFile reads a hello file. Unknown fields are ignored.
+// ParseHelloFile reads a hello file. It refuses an absent or other "v" before anything else, as a
+// message decode does; unknown fields are ignored.
 func ParseHelloFile(data []byte) (HelloFile, error) {
 	var h HelloFile
-	if err := json.Unmarshal(data, &h); err != nil {
-		return HelloFile{}, fmt.Errorf("%w: %w", ErrMalformed, err)
+	if err := decode(bytes.NewReader(data), &h); err != nil {
+		return HelloFile{}, err
 	}
 	if err := h.validate(); err != nil {
 		return HelloFile{}, err

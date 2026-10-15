@@ -72,7 +72,7 @@ func TestTriggers_AcceptAnyWellFormedName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "autoCompact_2-x", req.Trigger)
 
-	line, err := modwire.BriefRecord{TS: 1, Trigger: "autoCompact", Outcome: modwire.OutcomeServed, Chars: 3}.Line()
+	line, err := modwire.BriefRecord{V: modwire.Version, TS: 1, Trigger: "autoCompact", Outcome: modwire.OutcomeServed, Chars: 3}.Line()
 	require.NoError(t, err)
 	require.Contains(t, string(line), `"trigger":"autoCompact"`)
 

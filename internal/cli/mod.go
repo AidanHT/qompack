@@ -172,7 +172,7 @@ func modHello(_ context.Context, env Env, stdin io.Reader) any {
 		clk = core.SystemClock()
 	}
 	if err := writeHelloFile(root, modwire.HelloFile{
-		SessionID: req.SessionID, HostVersion: req.HostVersion, TS: core.NowMilli(clk),
+		V: modwire.Version, SessionID: req.SessionID, HostVersion: req.HostVersion, TS: core.NowMilli(clk),
 	}); err != nil {
 		return unserved(modFailure(fmt.Errorf("hello file: %w", err), root, homeDir(env)))
 	}
