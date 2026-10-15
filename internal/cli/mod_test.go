@@ -133,7 +133,7 @@ func TestModHello_ServedWritesTheHelloFile(t *testing.T) {
 	h, err := modwire.ParseHelloFile(b)
 	require.NoError(t, err)
 	require.Equal(t, modwire.HelloFile{
-		SessionID: "sess-1", HostVersion: "2.1.300", TS: core.UnixMilli(modTestNow.UnixMilli()),
+		V: modwire.Version, SessionID: "sess-1", HostVersion: "2.1.300", TS: core.UnixMilli(modTestNow.UnixMilli()),
 	}, h)
 }
 

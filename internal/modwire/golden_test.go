@@ -60,6 +60,7 @@ var (
 		MaxChars:                modwire.BriefMaxChars,
 	}
 	goldenBriefRecord = modwire.BriefRecord{
+		V:       modwire.Version,
 		TS:      1_760_400_000_000,
 		Trigger: "auto",
 		Outcome: modwire.OutcomeServed,
@@ -67,6 +68,7 @@ var (
 		MS:      143,
 	}
 	goldenHelloFile = modwire.HelloFile{
+		V:           modwire.Version,
 		SessionID:   "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b",
 		HostVersion: "2.1.300",
 		TS:          1_760_400_000_000,
@@ -143,8 +145,8 @@ func TestGolden_RequestsDecodeToTheirValues(t *testing.T) {
 	require.Equal(t, goldenHelloFile, gotHF)
 }
 
-// TestGolden_EveryMessageIsOneLine pins the framing: each message is one JSON object on one line,
-// ending in a single newline, and carries "v":1 first.
+// TestGolden_EveryMessageIsOneLine pins the framing: each message and record is one JSON object on
+// one line, ending in a single newline, and carries "v":1 first.
 func TestGolden_EveryMessageIsOneLine(t *testing.T) {
 	if updateGolden() {
 		return
@@ -152,7 +154,7 @@ func TestGolden_EveryMessageIsOneLine(t *testing.T) {
 	for _, name := range []string{
 		"hello_request.json", "hello_response_enabled.json", "hello_response_refused.json", "hello_response_below_min.json",
 		"brief_request.json", "brief_response_served.json", "brief_response_cold.json",
-		"error_unsupported_version.json",
+		"error_unsupported_version.json", "brief_record.jsonl", "hello_file.json",
 	} {
 		b, err := os.ReadFile(filepath.Join("testdata", name))
 		require.NoError(t, err)
