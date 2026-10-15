@@ -174,3 +174,25 @@ func TestGenModWire_RunsInTheDocsJob(t *testing.T) {
 	}
 	require.Contains(t, docs, "- run: go run ./tools/devtool gen-mod-wire --check\n")
 }
+
+// TestModTests_DecodeTheGoResponseGoldens anchors the mod's decoder tests to the Go side's bytes.
+// Every response golden internal/modwire writes must appear, verbatim, as a string the mod's
+// tests decode, so a contract change that regenerates a golden also breaks the TypeScript test
+// that has not caught up with it.
+func TestModTests_DecodeTheGoResponseGoldens(t *testing.T) {
+	repo := testModuleRoot(t)
+	tsTest, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash(modSourceDir), "tests", "format.test.ts"))
+	require.NoError(t, err)
+	goldens, err := filepath.Glob(filepath.Join(repo, "internal", "modwire", "testdata", "*_response_*.json"))
+	require.NoError(t, err)
+	unsupported := filepath.Join(repo, "internal", "modwire", "testdata", "error_unsupported_version.json")
+	goldens = append(goldens, unsupported)
+	require.GreaterOrEqual(t, len(goldens), 5, "the response goldens are missing; the check would be vacuous")
+	for _, g := range goldens {
+		b, readErr := os.ReadFile(g)
+		require.NoError(t, readErr)
+		line := strings.TrimRight(string(normalizeNewlines(b)), "\n")
+		require.Contains(t, string(tsTest), "'"+line+"'",
+			"modsrc/tests/format.test.ts must decode %s verbatim", filepath.Base(g))
+	}
+}
