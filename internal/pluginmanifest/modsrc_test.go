@@ -80,9 +80,35 @@ func TestModSources_OnlyRegisterTouchesTheHostAPI(t *testing.T) {
 // whose braces span several lines, and of a bare side-effect import.
 var importSpec = regexp.MustCompile(`(?m)^\s*(?:(?:import|export)\b[^'"]*?\bfrom|import)\s+['"]([^'"]+)['"]`)
 
+// importViolations returns each import in the source named name that the rules below forbid:
+// anything but a relative import of a shipped mod source or the bare `claude-code` module, and
+// `claude-code` itself in any file but register.ts. The host's types are the only way a pure source
+// could name the host object, so keeping that import in register.ts keeps a helper elsewhere from
+// declaring a host parameter under another name.
+func importViolations(name, src string, shipped map[string][]byte) []string {
+	var bad []string
+	for _, m := range importSpec.FindAllStringSubmatch(src, -1) {
+		spec := m[1]
+		if spec == "claude-code" {
+			if name != "register.ts" {
+				bad = append(bad, name+" imports claude-code; only register.ts may")
+			}
+			continue
+		}
+		if !strings.HasPrefix(spec, "./") {
+			bad = append(bad, name+" imports "+spec)
+			continue
+		}
+		if _, ok := shipped[strings.TrimPrefix(spec, "./")]; !ok {
+			bad = append(bad, name+" imports "+spec+", which is not a shipped mod source")
+		}
+	}
+	return bad
+}
+
 // TestModSources_ImportOnlyEachOtherAndTheHostTypes holds the validator's import rule: relative
 // imports of the mod's own files and the bare `claude-code` module, nothing else, and no dynamic
-// import().
+// import(). Only register.ts, the one source that touches the host, may import `claude-code`.
 func TestModSources_ImportOnlyEachOtherAndTheHostTypes(t *testing.T) {
 	for in, want := range map[string]string{
 		"import {\n  A,\n  B,\n} from './wire.gen.ts'\n": "./wire.gen.ts",
@@ -98,18 +124,20 @@ func TestModSources_ImportOnlyEachOtherAndTheHostTypes(t *testing.T) {
 
 	src, err := pluginmanifest.ModSources(pluginmanifest.CommittedGOOS)
 	require.NoError(t, err)
+
+	hostTypes := "import type { EngineInterface } from 'claude-code'\n"
+	require.Empty(t, importViolations("register.ts", hostTypes, src))
+	for _, name := range []string{"format.ts", "compact.ts", "wire.gen.ts", "target.gen.ts"} {
+		require.NotEmpty(t, importViolations(name, hostTypes, src),
+			"%s must not be able to import the host's types, or the check is vacuous", name)
+	}
+	require.NotEmpty(t, importViolations("format.ts", "import { x } from './missing.ts'\n", src))
+	require.NotEmpty(t, importViolations("format.ts", "import { x } from 'node:fs'\n", src))
+
 	for name, b := range src {
 		require.NotContains(t, string(b), "import(", "%s: a module holding import() does not load", name)
 		require.NotContains(t, string(b), "require(", "%s: hooks modules are ES modules", name)
-		for _, m := range importSpec.FindAllStringSubmatch(string(b), -1) {
-			spec := m[1]
-			if spec == "claude-code" {
-				continue
-			}
-			require.True(t, strings.HasPrefix(spec, "./"), "%s imports %q", name, spec)
-			_, shipped := src[strings.TrimPrefix(spec, "./")]
-			require.True(t, shipped, "%s imports %q, which is not a shipped mod source", name, spec)
-		}
+		require.Empty(t, importViolations(name, string(b), src))
 	}
 }
 
@@ -204,6 +232,104 @@ func hostAliasUses(src string) []string {
 		bad = append(bad, strings.TrimSpace(code[lineStart:at+lineEnd]))
 	}
 	return bad
+}
+
+// topLevelFunction matches a function declared at the start of a line, the form register.ts gives
+// every top-level function. The name follows in the submatch.
+var topLevelFunction = regexp.MustCompile(`(?m)^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(`)
+
+// hostArgumentCallees returns each call in src that is passed `$` as an argument but is not a
+// function declared at the top level of src: an imported helper, a member call, a nested function.
+// The host's validator documents that `$` may be passed only to a top-level function of the same
+// file, and a helper elsewhere could take it under another name, out of reach of every scan. A `$`
+// in a parameter list (an arrow function's, or a function declaration's) is not a call.
+func hostArgumentCallees(src string) []string {
+	code := codeOnly(src)
+	declared := map[string]bool{}
+	for _, m := range topLevelFunction.FindAllStringSubmatch(code, -1) {
+		declared[m[1]] = true
+	}
+	var bad []string
+	for _, loc := range bareDollar.FindAllStringIndex(code, -1) {
+		at := strings.IndexByte(code[loc[0]:loc[1]], '$') + loc[0]
+		prev := strings.TrimRight(code[:at], " \t\r\n")
+		next := strings.TrimLeft(code[at+1:], " \t\r\n")
+		if !strings.HasSuffix(prev, "(") && !strings.HasSuffix(prev, ",") ||
+			next == "" || !strings.ContainsRune(",):", rune(next[0])) {
+			continue // not an argument or parameter: hostAliasUses judges it
+		}
+		open, depth := -1, 0
+		for i := at - 1; i >= 0 && open < 0; i-- {
+			switch code[i] {
+			case ')', ']', '}':
+				depth++
+			case '[', '{':
+				depth--
+			case '(':
+				if depth == 0 {
+					open = i
+				} else {
+					depth--
+				}
+			}
+		}
+		if open < 0 {
+			continue // not inside parentheses: hostAliasUses judges it
+		}
+		closeAt, depth := -1, 0
+		for i := open; i < len(code) && closeAt < 0; i++ {
+			switch code[i] {
+			case '(':
+				depth++
+			case ')':
+				depth--
+				if depth == 0 {
+					closeAt = i
+				}
+			}
+		}
+		if closeAt >= 0 && strings.HasPrefix(strings.TrimLeft(code[closeAt+1:], " \t\r\n"), "=>") {
+			continue // an arrow function's parameters
+		}
+		before := strings.TrimRight(code[:open], " \t\r\n")
+		name := before[len(strings.TrimRight(before, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$")):]
+		rest := strings.TrimRight(before[:len(before)-len(name)], " \t\r\n")
+		if name != "" && strings.HasSuffix(rest, "function") {
+			continue // a function declaration's parameters
+		}
+		if name == "" || strings.HasSuffix(rest, ".") || strings.HasSuffix(rest, "?.") || !declared[name] {
+			bad = append(bad, strings.TrimSpace(before[strings.LastIndex(before, "\n")+1:])+"($")
+		}
+	}
+	return bad
+}
+
+// TestModSources_RegisterPassesTheHostOnlyToItsOwnFunctions holds the validator's rule for `$` as
+// an argument: only a function declared at the top level of register.ts may receive it.
+func TestModSources_RegisterPassesTheHostOnlyToItsOwnFunctions(t *testing.T) {
+	for _, bad := range []string{
+		"import { run } from './format.ts'\nawait run($)",
+		"import { run } from './format.ts'\nawait run(e, $)",
+		"await helpers.run($)",
+		"await helpers?.run($)",
+		"function outer() {\n  function inner($: E) {}\n  inner($)\n}",
+		"await (pick())($)",
+	} {
+		require.NotEmpty(t, hostArgumentCallees(bad), "the check must catch %q, or it is vacuous", bad)
+	}
+	for _, good := range []string{
+		"on('session.start', async ($, e, next) => next(e))",
+		"export async function hello($: EngineInterface): Promise<void> {}\nawait hello($)",
+		"function debugLog($: EngineInterface, text: string): void {}\ndebugLog($, line(res))",
+		"async function announce($: E) {}\nconst r = await announce($)",
+	} {
+		require.Empty(t, hostArgumentCallees(good), "%q is a permitted use", good)
+	}
+
+	src, err := pluginmanifest.ModSources(pluginmanifest.CommittedGOOS)
+	require.NoError(t, err)
+	require.Empty(t, hostArgumentCallees(string(src["register.ts"])),
+		"register.ts may pass `$` only to a function it declares at the top level")
 }
 
 // TestModSources_RegisterNeverAliasesTheHost bans every use of `$` in register.ts that would hide
