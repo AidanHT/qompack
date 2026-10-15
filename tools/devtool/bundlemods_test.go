@@ -73,3 +73,18 @@ func TestTaskBundle_AcceptsMods(t *testing.T) {
 	require.ErrorIs(t, err, errUsage)
 	require.Contains(t, err.Error(), "not one of the six release targets")
 }
+
+// TestTaskBundle_RefusesModsWithHostValidate keeps a mods plugin away from the user's own
+// configuration: --host-validate runs claude with the inherited environment, so ~/.claude, and
+// mod-validate is the isolated check for a mods plugin. The refusal comes before anything is built.
+func TestTaskBundle_RefusesModsWithHostValidate(t *testing.T) {
+	err := taskBundle([]string{"--mods", "--host-validate", "--target", "windows/amd64"})
+	require.Error(t, err)
+	require.ErrorIs(t, err, errUsage)
+	require.Contains(t, err.Error(), "mod-validate")
+
+	// Without --mods, --host-validate is untouched: the same bad target fails on the target.
+	err = taskBundle([]string{"--host-validate", "--target", "plan9/amd64"})
+	require.ErrorIs(t, err, errUsage)
+	require.Contains(t, err.Error(), "not one of the six release targets")
+}
