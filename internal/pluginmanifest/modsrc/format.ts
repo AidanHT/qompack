@@ -57,12 +57,36 @@ export function unservedBrief(reason: Reason, detail?: string): BriefResponse {
 }
 
 /**
+ * Describes a failure for an unserved response's detail: the stage that failed, then the error's
+ * message cut to 200 characters. It never throws.
+ */
+export function failureDetail(stage: string, err: unknown): string {
+  let text: string
+  try {
+    text = err instanceof Error ? err.message : String(err)
+  } catch {
+    text = 'unreadable error'
+  }
+  return stage + ': ' + text.slice(0, 200)
+}
+
+/**
  * Describes why the host's process API rejected (the binary could not start, or outlived the
  * mod's timeout), for an unserved response's detail. It never throws.
  */
 export function runFailureDetail(err: unknown): string {
-  const text = err instanceof Error ? err.message : String(err)
-  return 'process: ' + text.slice(0, 200)
+  return failureDetail('process', err)
+}
+
+/** The hello request a session sends once it starts. */
+export function helloRequest(sessionId: string, cwd: string, hostVersion: string): HelloRequest {
+  return { v: WIRE_VERSION, session_id: sessionId, cwd, host_version: hostVersion }
+}
+
+/** One diagnostic line saying what a hello came to, for the host's debug log. */
+export function helloLogLine(r: HelloResponse): string {
+  if (r.ok) return 'qompack mod hello: served, ' + (r.enabled ? 'enabled' : 'not enabled for this host')
+  return 'qompack mod hello: ' + r.reason + (r.detail !== undefined && r.detail !== '' ? ' (' + r.detail + ')' : '')
 }
 
 const encoder = new TextEncoder()
