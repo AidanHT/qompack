@@ -86,6 +86,30 @@ func TestTriggers_AcceptAnyWellFormedName(t *testing.T) {
 	}
 }
 
+// TestTriggers_OnlyTheNamedOnesCloseTheSegment pins the trigger semantics: manual, auto and plugin
+// close the session's open segment before the brief reads it; precompute, and any other
+// well-formed trigger, leave the segment open and are still served.
+func TestTriggers_OnlyTheNamedOnesCloseTheSegment(t *testing.T) {
+	require.Equal(t, "manual", modwire.TriggerManual)
+	require.Equal(t, "auto", modwire.TriggerAuto)
+	require.Equal(t, "plugin", modwire.TriggerPlugin)
+	require.Equal(t, "precompute", modwire.TriggerPrecompute)
+
+	for _, closing := range []string{modwire.TriggerManual, modwire.TriggerAuto, modwire.TriggerPlugin} {
+		require.True(t, modwire.ClosesSegment(closing), closing)
+	}
+	for _, open := range []string{modwire.TriggerPrecompute, "autoCompact", "Manual", "AUTO", "plugin2", "", "a b"} {
+		require.False(t, modwire.ClosesSegment(open), "%q", open)
+	}
+	for _, named := range []string{
+		modwire.TriggerManual, modwire.TriggerAuto, modwire.TriggerPlugin, modwire.TriggerPrecompute,
+	} {
+		in := `{"v":1,"session_id":"s","cwd":"/p","host_version":"2.1.300","trigger":"` + named + `"}`
+		_, err := modwire.DecodeBriefRequest(strings.NewReader(in))
+		require.NoError(t, err, "every named trigger is well formed: %s", named)
+	}
+}
+
 // TestSessionIDChars_MatchValidSessionID ties the published alphabet to the validator.
 func TestSessionIDChars_MatchValidSessionID(t *testing.T) {
 	allowed := map[byte]bool{}
