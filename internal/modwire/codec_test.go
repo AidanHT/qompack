@@ -207,3 +207,15 @@ func TestVocabulary(t *testing.T) {
 	require.Equal(t, modwire.OutcomeServed, modwire.OutcomeFor(modwire.Served()))
 	require.Equal(t, modwire.OutcomeError, modwire.OutcomeFor(modwire.Status{V: 1, Reason: "unknown"}))
 }
+
+// TestDecode_KeyMatchingIsEncodingJSONs pins what doc.go states: keys match field names without
+// regard to case, and a repeated key resolves to its last value.
+func TestDecode_KeyMatchingIsEncodingJSONs(t *testing.T) {
+	in := `{"v":1,"Session_ID":"s-1","CWD":"/p","trigger":"auto","trigger":"manual","MAX_CHARS":7}`
+	got, err := modwire.DecodeBriefRequest(strings.NewReader(in))
+	require.NoError(t, err)
+	require.Equal(t, "s-1", got.SessionID)
+	require.Equal(t, "/p", got.CWD)
+	require.Equal(t, "manual", got.Trigger)
+	require.Equal(t, 7, got.MaxChars)
+}

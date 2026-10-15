@@ -15,6 +15,9 @@
 //
 //   - Every message carries "v": Version.
 //   - A reader ignores fields it does not know, so a later writer may add one.
+//   - Keys are matched as encoding/json matches them: case-insensitively, with a repeated key
+//     resolving to its last value, so a case-variant spelling of a known key ("Session_ID",
+//     "V") binds as that field rather than being ignored.
 //   - A message whose "v" is absent or is not Version is refused with an error object
 //     (FailureFor of a *VersionError), never guessed at.
 //   - A handled failure is a Status with ok false and one of the Reason values; the CLI exits 0
