@@ -151,7 +151,12 @@ func TestScanModuleCalls(t *testing.T) {
 
 	reg, err := os.ReadFile(filepath.Join(testModuleRoot(t), "internal", "pluginmanifest", "modsrc", "register.ts"))
 	require.NoError(t, err)
-	require.Empty(t, scanModuleCalls(string(reg)), "register.ts makes no host call yet")
+	// register.ts's whole host surface, pinned: a new call needs this edit and a place on
+	// modStageAAllowlist, both reviewed.
+	require.Equal(t, []string{
+		"$.plugin.root", "$.process.run", "$.session.id", "$.session.root", "$.session.version", "$.ui.log",
+	}, scanModuleCalls(string(reg)), "register.ts's host calls")
+	require.Empty(t, unlistedModCalls(scanModuleCalls(string(reg))), "every one of them is allowlisted")
 }
 
 // validateAnswer answers `claude plugin validate` with a fixture, with <out> put back to the real

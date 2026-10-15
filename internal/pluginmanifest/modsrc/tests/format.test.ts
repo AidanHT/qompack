@@ -10,8 +10,12 @@ import {
   decodeBrief,
   decodeHello,
   encodeRequest,
+  failureDetail,
+  helloLogLine,
+  helloRequest,
   runFailureDetail,
   unservedBrief,
+  unservedHello,
   verbArgv,
 } from '../hooks/format.ts'
 import { BRIEF_MAX_CHARS, MAX_FACT_IDS, MAX_MESSAGE_BYTES } from '../hooks/wire.gen.ts'
@@ -155,5 +159,28 @@ describe('runFailureDetail', () => {
     expect(runFailureDetail(new Error('spawn ENOENT'))).toBe('process: spawn ENOENT')
     expect(runFailureDetail('timeout')).toBe('process: timeout')
     expect(runFailureDetail(new Error('z'.repeat(500))).length).toBe('process: '.length + 200)
+  })
+})
+
+describe('failureDetail', () => {
+  test('names the stage and bounds the text', async () => {
+    expect(failureDetail('session', new Error('no root'))).toBe('session: no root')
+    expect(failureDetail('session', new Error('z'.repeat(500))).length).toBe('session: '.length + 200)
+    expect(runFailureDetail('x')).toBe(failureDetail('process', 'x'))
+  })
+})
+
+describe('helloRequest', () => {
+  test('carries the session values the hello needs and nothing else', async () => {
+    expect(helloRequest('s-1', '/p', '2.1.300')).toEqual({ v: 1, session_id: 's-1', cwd: '/p', host_version: '2.1.300' })
+  })
+})
+
+describe('helloLogLine', () => {
+  test('says what the hello came to', async () => {
+    expect(helloLogLine(decodeHello(0, helloEnabled))).toBe('qompack mod hello: served, enabled')
+    expect(helloLogLine(decodeHello(0, helloBelowMin))).toBe('qompack mod hello: served, not enabled for this host')
+    expect(helloLogLine(decodeHello(0, helloRefused))).toBe('qompack mod hello: refused')
+    expect(helloLogLine(unservedHello('cold', 'starting'))).toBe('qompack mod hello: cold (starting)')
   })
 })

@@ -112,3 +112,87 @@ func TestModSources_ImportOnlyEachOtherAndTheHostTypes(t *testing.T) {
 		}
 	}
 }
+
+// bareDollar matches `$` as a token of its own: not part of a longer identifier, and not the `${`
+// of a template literal's interpolation.
+var bareDollar = regexp.MustCompile(`(?:^|[^\w$])\$(?:[^\w${]|$)`)
+
+// dollarMember is a member access on `$` with a name after the dot (`$.session.id()`), one of the
+// two places register.ts may write `$`. The other is a parameter or argument position
+// (`($, e, next)`, `hello($)`, `function hello($: Host)`), which hostAliasUses checks by the
+// characters on either side.
+var dollarMember = regexp.MustCompile(`^\$\s*\.\s*[A-Za-z_]`)
+
+// lineComment and blockComment are stripped before the scan: comment text is not code. The scan
+// of register.ts for host calls (devtool mod-validate) still counts comment text, so register.ts
+// keeps `$.` out of its comments anyway.
+var (
+	lineComment  = regexp.MustCompile(`(?m)//.*$`)
+	blockComment = regexp.MustCompile(`(?s)/\*.*?\*/`)
+)
+
+// hostAliasUses returns each use of `$` in src that is neither a member access nor a parameter or
+// argument: an alias (`const h = $`), a destructuring (`const { fs } = $`), a bracket access
+// (`$['fs']`), a spread, a return. The host's validator reads `$` calls by their written-out form,
+// and the call scan mod-validate runs is a regular expression, so a call made through any of these
+// is invisible to both.
+func hostAliasUses(src string) []string {
+	code := lineComment.ReplaceAllString(blockComment.ReplaceAllString(src, ""), "")
+	var bad []string
+	for _, loc := range bareDollar.FindAllStringIndex(code, -1) {
+		at := strings.IndexByte(code[loc[0]:loc[1]], '$') + loc[0]
+		before := strings.TrimRight(code[:at], " \t\r\n")
+		after := strings.TrimLeft(code[at+1:], " \t\r\n")
+		param := strings.HasSuffix(before, "(") || strings.HasSuffix(before, ",")
+		param = param && after != "" && strings.ContainsRune(",):", rune(after[0]))
+		if dollarMember.MatchString(code[at:]) || param {
+			continue
+		}
+		lineStart := strings.LastIndex(code[:at], "\n") + 1
+		lineEnd := strings.IndexByte(code[at:], '\n')
+		if lineEnd < 0 {
+			lineEnd = len(code) - at
+		}
+		bad = append(bad, strings.TrimSpace(code[lineStart:at+lineEnd]))
+	}
+	return bad
+}
+
+// TestModSources_RegisterNeverAliasesTheHost bans every use of `$` in register.ts that would hide
+// a host call from the validator and from mod-validate's scan.
+func TestModSources_RegisterNeverAliasesTheHost(t *testing.T) {
+	for _, bad := range []string{
+		"const h = $",
+		"const h = $;",
+		"const { fs } = $",
+		"const { process: p } = $",
+		"$['fs'].read(p)",
+		"$ ['fs']",
+		"$?.['fs']",
+		"return $",
+		"const all = [$]",
+		"use(...$)",
+		"x = cond ? $ : other",
+	} {
+		require.NotEmpty(t, hostAliasUses(bad), "the check must catch %q, or it is vacuous", bad)
+	}
+	for _, good := range []string{
+		"on('session.start', async ($, e, next) => next(e))",
+		"await hello($)",
+		"await log(e, $)",
+		"export async function hello($: EngineInterface): Promise<void> {}",
+		"const id = await $.session.id()",
+		"const bin = $ . plugin . root",
+		"const s = `${value}`",
+		"// a comment about the host's $ and `$`",
+		"/* $ in a block comment */",
+		"const fee$ = 1; const $x = 2",
+	} {
+		require.Empty(t, hostAliasUses(good), "%q is a permitted use", good)
+	}
+
+	src, err := pluginmanifest.ModSources(pluginmanifest.CommittedGOOS)
+	require.NoError(t, err)
+	require.Empty(t, hostAliasUses(string(src["register.ts"])),
+		"register.ts must write every host call out in full and pass `$` only as a parameter or argument")
+}
