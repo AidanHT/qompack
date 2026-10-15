@@ -172,17 +172,33 @@ func TestModHello_RefusedWritesNothing(t *testing.T) {
 		name      string
 		withStore bool
 		homeRoot  bool
-		args      []string
+		// stateOffAlive leaves a state.bin that says runtime.mode off, written by a daemon that is
+		// still alive, so it speaks for the project as it does for the hooks.
+		stateOffAlive bool
+		args          []string
 	}{
 		{name: "switch off by default", withStore: true, args: []string{"hello"}},
 		{name: "switch off explicitly", withStore: true, args: []string{"hello", "--set", "runtime.mod.enabled=false"}},
 		{name: "no store", withStore: false, args: append([]string{"hello"}, enableMod...)},
 		{name: "home root", withStore: true, homeRoot: true, args: append([]string{"hello"}, enableMod...)},
+		{
+			name: "mode off in the configuration", withStore: true,
+			args: append([]string{"hello", "--set", "runtime.mode=off"}, enableMod...),
+		},
+		{
+			name: "mode off in a live daemon's state.bin", withStore: true, stateOffAlive: true,
+			args: append([]string{"hello"}, enableMod...),
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newModProject(t, tc.withStore)
 			if tc.homeRoot {
 				p.home = p.root
+			}
+			if tc.stateOffAlive {
+				require.NoError(t, paths.EnsureLayout(paths.Of(p.root)))
+				staleModeOffState(t, p.root)
+				useStateDaemonAlive(t, true)
 			}
 			before := treeOf(t, p.root, p.home)
 
@@ -196,6 +212,22 @@ func TestModHello_RefusedWritesNothing(t *testing.T) {
 			require.Equal(t, before, treeOf(t, p.root, p.home), "a refused hello creates and changes nothing")
 		})
 	}
+}
+
+// TestModHello_ADeadDaemonsModeOffDoesNotRefuse: a state.bin that says runtime.mode off speaks for
+// the project only while the daemon that wrote it is alive, as for the hooks (stateModeOffHolds) and
+// the command clients (modeFor). Left behind by a daemon that died, it defers to the configuration.
+func TestModHello_ADeadDaemonsModeOffDoesNotRefuse(t *testing.T) {
+	p := newModProject(t, true)
+	require.NoError(t, paths.EnsureLayout(paths.Of(p.root)))
+	staleModeOffState(t, p.root)
+	useStateDaemonAlive(t, false)
+
+	code, stdout, stderr := runMod(t, p.env(helloRequest(t, p.root, "2.1.300"), nil),
+		append([]string{"hello"}, enableMod...)...)
+	require.Equal(t, ExitOK, code, stderr)
+	require.Equal(t, modwire.HelloResponse{Status: modwire.Served(), Enabled: true}, decodeHelloOut(t, stdout))
+	require.FileExists(t, p.helloFilePath())
 }
 
 // TestModHello_ResolvesTheRootLikeTheHooks: the mod sends the session root, which for a session
