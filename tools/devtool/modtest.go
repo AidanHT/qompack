@@ -170,6 +170,29 @@ func printClaudeVersion(c modClaude, env []string, bin, task string, w io.Writer
 // modTestSummary is the last line `claude plugin test` prints, e.g. "Ran 20 tests across 2 files.".
 var modTestSummary = regexp.MustCompile(`(?m)^Ran (\d+) tests? across (\d+) files?\.`)
 
+// modTestCount is one count line of the summary above it, e.g. " 0 fail" or " 2 skip".
+var modTestCount = regexp.MustCompile(`(?m)^\s*(\d+) (fail|skip|todo)\s*$`)
+
+// checkModTestCounts requires exactly one fail count, equal to 0, and no skipped or todo test: a
+// test that did not run proves nothing, so it fails the task as surely as a failing one.
+func checkModTestCounts(stdout []byte) error {
+	fails := 0
+	for _, m := range modTestCount.FindAllSubmatch(stdout, -1) {
+		n, _ := strconv.Atoi(string(m[1]))
+		kind := string(m[2])
+		if kind == "fail" {
+			fails++
+		}
+		if n != 0 {
+			return fmt.Errorf("`claude plugin test` reported %d %s", n, kind)
+		}
+	}
+	if fails != 1 {
+		return fmt.Errorf("`claude plugin test` printed %d \"N fail\" count(s), want exactly one", fails)
+	}
+	return nil
+}
+
 func taskModTest(args []string) error {
 	fs := flag.NewFlagSet("mod-test", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
@@ -182,8 +205,9 @@ func taskModTest(args []string) error {
 }
 
 // runModTest materialises goos's mods plugin, copies the mod's tests into its tests/ directory and
-// runs `claude plugin test` on it. It fails when claude is absent, when the run fails, and when the
-// run does not report every copied test file.
+// runs `claude plugin test` on it. It fails when claude is absent, when the run fails, when its
+// summary reports a failure, a skipped or a todo test (or no fail count at all), and when the run
+// does not report every copied test file.
 func runModTest(c modClaude, repoRoot, goos string, w io.Writer) (err error) {
 	const task = "mod-test"
 	bin, err := lookUpModClaude(c, task)
@@ -213,6 +237,9 @@ func runModTest(c modClaude, repoRoot, goos string, w io.Writer) (err error) {
 		return fmt.Errorf("`claude plugin test` failed (exit %d)", run.ExitCode)
 	}
 
+	if err := checkModTestCounts(run.Stdout); err != nil {
+		return err
+	}
 	m := modTestSummary.FindSubmatch(run.Stdout)
 	if m == nil {
 		return fmt.Errorf("`claude plugin test` exited 0 without its \"Ran N tests across M files\" "+
