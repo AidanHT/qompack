@@ -57,3 +57,4 @@ commands	SP-14	75	Run
 analyzer	SP-15	85	Select
 grammar	SP-15	75	Append
 state	SP-20	75	Add
+modwire	SP-01	75	-
