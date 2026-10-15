@@ -135,12 +135,15 @@ type SendFailure string
 
 // The steps a Send can fail at.
 const (
-	// SendNotListening: the dial found nothing listening at the address (no pipe or socket, or a
-	// refused connection) and failed without waiting out the connect deadline. On a unix socket a
-	// listener whose accept queue is full is refused at once too, so it reads as this.
+	// SendNotListening: the dial was refused without a timeout: no pipe or socket at the address,
+	// or a refused connection. On macOS that includes a unix socket whose accept queue is full,
+	// which connect(2) refuses with ECONNREFUSED.
 	SendNotListening SendFailure = "not-listening"
-	// SendNotAccepted: something holds the address but did not accept within the connect deadline,
-	// as a named pipe whose every instance is claimed does.
+	// SendNotAccepted: the dial failed with an error that says it timed out. Something holds the
+	// address but did not accept: a named pipe whose every instance is claimed (go-winio retries
+	// ERROR_PIPE_BUSY until the connect deadline), or, on Linux, a unix socket whose accept queue
+	// is full: the non-blocking connect returns EAGAIN at once, and syscall.Errno reports EAGAIN
+	// as a timeout.
 	SendNotAccepted SendFailure = "not-accepted"
 	// SendUnanswered: the daemon accepted the connection, then missed the write, ACK or reply
 	// deadline.
@@ -378,9 +381,10 @@ func (c *client) fail(f SendFailure, req Request) (Response, error) {
 	return c.spoolAndReturn(req)
 }
 
-// classifyConnectFailure names a failed dial. A dial that ran out of time found something holding
-// the address that did not accept (a busy named pipe); any other refusal means nothing listens
-// there. A caller whose context was already done failed for its own reason, not the daemon's.
+// classifyConnectFailure names a failed dial. A dial whose error says it timed out found something
+// holding the address that did not accept (a busy named pipe, or EAGAIN from a full accept queue on
+// Linux); any other refusal means nothing listens there. A caller whose context was already done
+// failed for its own reason, not the daemon's.
 func classifyConnectFailure(ctx context.Context, err error) SendFailure {
 	switch {
 	case ctx.Err() != nil:
