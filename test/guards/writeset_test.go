@@ -42,20 +42,22 @@ var modSubcommands = [][]string{
 	{"mod", "hello", "--set", "runtime.mod.enabled=true"},
 }
 
-// modRequest is the stdin a mod verb gets in the guard: the request the mod would send for this
-// project.
+// modRequests builds, per verb, the request the mod would send for the guard's project.
+var modRequests = map[string]func(root string) map[string]any{
+	"hello": func(root string) map[string]any {
+		return map[string]any{"v": 1, "session_id": "s-writeset", "cwd": root, "host_version": "2.1.300"}
+	},
+}
+
+// modRequest is the stdin a mod verb gets in the guard. A verb in modSubcommands with no entry in
+// modRequests fails the guard rather than running on an empty stdin.
 func modRequest(t *testing.T, sub []string, root string) []byte {
 	t.Helper()
-	switch sub[1] {
-	case "hello":
-		b, err := json.Marshal(map[string]any{
-			"v": 1, "session_id": "s-writeset", "cwd": root, "host_version": "2.1.300",
-		})
-		require.NoError(t, err)
-		return b
-	}
-	t.Fatalf("no guard request for mod verb %q", sub[1])
-	return nil
+	build, ok := modRequests[sub[1]]
+	require.True(t, ok, "no guard request for mod verb %q", sub[1])
+	b, err := json.Marshal(build(root))
+	require.NoError(t, err)
+	return b
 }
 
 // guardClock is a frozen clock so the guard's own runs are deterministic.
