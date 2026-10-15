@@ -285,6 +285,8 @@ var unconstrainedLeaves = map[string]bool{
 	// The injection kill switch: a bool with no invalid state (Qompack.md v1.5 Appendix C).
 	"runtime.migration.reinjection.sessionStartCompact": true,
 	"runtime.tokens.imageMaxTokens":                     true,
+	// The mod's switch: a bool with no invalid state (ADR 0015, decision 5).
+	"runtime.mod.enabled": true,
 }
 
 func TestValidate_RuleTableIsComplete(t *testing.T) {

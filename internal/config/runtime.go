@@ -25,6 +25,15 @@ type RuntimeCfg struct {
 	Budgets   BudgetsCfg    `json:"budgets"`
 	Selection RSelectionCfg `json:"selection"`
 	Tokens    RTokensCfg    `json:"tokens"`
+	Mod       ModCfg        `json:"mod"`
+}
+
+// ModCfg controls Qompack's Claude Code mod, the in-process hooks module that reaches the binary
+// through `qompack mod <verb>` (docs/adr/0015-claude-code-mods-integration.md). The switch stays off
+// until an evaluation supports turning it on; while it is off every verb answers refused and writes
+// nothing.
+type ModCfg struct {
+	Enabled bool `json:"enabled" doc:"let the Claude Code mod reach Qompack; while false every qompack mod verb answers refused and writes nothing" sec:"ADR 0015"`
 }
 
 // DaemonCfg controls the resident per-project daemon's lifecycle (00-ARCHITECTURE §2.4).

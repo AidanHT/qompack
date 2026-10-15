@@ -100,6 +100,7 @@ var reloadKeyEffects = []reloadKeyEffect{
 	{"runtime.selection.submodularEnabled", effectLive, "rehydrate service (RehydrateOptions.CfgFn)"},
 	{"runtime.selection.loopWarningsEnabled", effectInert, "no reader in this build"},
 	{"runtime.tokens", effectRestart, "the token estimators, built with their constants at start"},
+	{"runtime.mod.enabled", effectOutside, "each `qompack mod` verb, which loads the configuration when it runs"},
 }
 
 // What a reload reports, spelled once here for the reload and for the generated configuration
