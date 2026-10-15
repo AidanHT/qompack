@@ -15,8 +15,12 @@ import (
 // The fixtures under testdata/modvalidate are real `claude plugin validate <dir> --strict --json`
 // outputs from claude 2.1.300 on Windows, with the plugin directory replaced by <out> (the redaction
 // `mod-validate --record` applies):
-//   - claude-2.1.300-qompack.json: the materialised Qompack --mods plugin, recorded by
+//   - claude-2.1.300-qompack.json: the materialised Qompack --mods plugin while register.ts still
+//     registered nothing ("calls: nothing on $"), recorded by
 //     `go run ./tools/devtool mod-validate --record tools/devtool/testdata/modvalidate/claude-2.1.300-qompack.json`;
+//   - claude-2.1.300-qompack-hello.json: the same plugin once register.ts said hello from
+//     session.start, recorded the same way. Its calls line omits the $.plugin.root property read,
+//     which the register.ts scan supplies;
 //   - claude-2.1.300-allowed-calls.json: a scratch plugin whose hooks module is
 //     allowed-calls.register.ts.txt (allowlisted calls, two through a helper, one gating hook);
 //   - claude-2.1.300-unlisted-calls.json: a scratch plugin whose module is
@@ -61,6 +65,11 @@ func TestValidateReport_CallsFromTheRecordedNotes(t *testing.T) {
 		gating   []validateGatingHook
 	}{
 		{fixture: "claude-2.1.300-qompack.json", calls: []string{}, unlisted: nil},
+		{
+			fixture:  "claude-2.1.300-qompack-hello.json",
+			calls:    []string{"$.process.run", "$.session.id", "$.session.root", "$.session.version", "$.ui.log"},
+			unlisted: nil,
+		},
 		{
 			fixture:  "claude-2.1.300-allowed-calls.json",
 			calls:    []string{"$.process.run", "$.session.id", "$.session.root", "$.session.version", "$.ui.log"},

@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "strict": true,
+  "target": "<out>\\.claude-plugin\\plugin.json",
+  "manifest": {
+    "file": "<out>\\.claude-plugin\\plugin.json",
+    "type": "plugin",
+    "errors": [],
+    "warnings": [],
+    "notes": [],
+    "gatingHooks": []
+  },
+  "contents": [
+    {
+      "file": "<out>\\hooks\\hooks.json",
+      "type": "hooks",
+      "errors": [],
+      "warnings": [],
+      "notes": [
+        "./register.ts hooks: session.start",
+        "./register.ts calls: $.process.run (via announce), $.session.id (via announce), $.session.root (via announce), $.session.version (via announce), $.ui.log (via debugLog)"
+      ],
+      "gatingHooks": []
+    }
+  ],
+  "advice": []
+}
