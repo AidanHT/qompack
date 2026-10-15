@@ -401,16 +401,27 @@ func findPlanMarkers(file, content string) []planMarker {
 		if inFence {
 			continue
 		}
-		for _, m := range markerToken.FindAllStringSubmatch(line, -1) {
-			head, tail := m[1], m[2]
-			if markerNotation[head] {
-				continue
-			}
-			if !strings.Contains(head, "-") && strings.TrimSpace(tail) == "" {
-				continue
-			}
-			out = append(out, planMarker{file: file, line: lineNo, token: m[0]})
+		for _, tok := range unfilledMarkers(line) {
+			out = append(out, planMarker{file: file, line: lineNo, token: tok})
 		}
+	}
+	return out
+}
+
+// unfilledMarkers returns every unfilled placeholder in one piece of text, in order. It is the
+// single placeholder rule: findPlanMarkers applies it to Markdown prose and findModSourceMarkers
+// to mod-source comments, so the two scans cannot drift apart.
+func unfilledMarkers(text string) []string {
+	var out []string
+	for _, m := range markerToken.FindAllStringSubmatch(text, -1) {
+		head, tail := m[1], m[2]
+		if markerNotation[head] {
+			continue
+		}
+		if !strings.Contains(head, "-") && strings.TrimSpace(tail) == "" {
+			continue
+		}
+		out = append(out, m[0])
 	}
 	return out
 }

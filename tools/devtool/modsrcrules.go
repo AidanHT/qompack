@@ -165,15 +165,8 @@ func findModSourceMarkers(file, content string) []planMarker {
 				comment = line[i:]
 			}
 		}
-		for _, m := range markerToken.FindAllStringSubmatch(comment, -1) {
-			head, tail := m[1], m[2]
-			if markerNotation[head] {
-				continue
-			}
-			if !strings.Contains(head, "-") && strings.TrimSpace(tail) == "" {
-				continue
-			}
-			out = append(out, planMarker{file: file, line: lineNo, token: m[0]})
+		for _, tok := range unfilledMarkers(comment) {
+			out = append(out, planMarker{file: file, line: lineNo, token: tok})
 		}
 	}
 	return out
