@@ -81,8 +81,10 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
 
 ### 3. The wire contract (`internal/modwire`)
 
-- Every request and response carries `"v": 1`. A reader ignores fields it does not know. A message
-  whose `v` is absent or different is refused with an error object, never guessed at.
+- Every request and response carries `"v": 1`. A reader ignores fields it does not know. Keys
+  match as `encoding/json` matches them: case-insensitively, a repeated key resolving to its last
+  value. A message whose `v` is absent or different is refused with an error object, never guessed
+  at.
 - Stage A has two verbs. `hello` carries `{v, session_id, cwd, host_version}` and answers
   `{v, ok, reason?, detail?, enabled}`. `brief` carries
   `{v, session_id, cwd, trigger, user_instructions_present, max_chars}` and answers
@@ -92,26 +94,37 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
 - An unserved verb answers `ok: false` with exactly one reason: `cold` (no daemon listening; the
   CLI starts the detached daemon and returns at once without waiting for it), `busy` (a daemon
   exists but did not accept in time), `timeout` (it accepted but missed its deadline), `refused`
-  (a home-directory root, or the project or the mod switched off; nothing is read, written or
-  spawned for it) or `error` (anything else, including a malformed or unsupported request).
+  (a home-directory root, a project with no `.qompack` store, or `runtime.mod.enabled` false;
+  nothing is read, written or spawned for it, so no daemon, store, hello file or brief record) or
+  `error` (anything else, including a malformed or unsupported request). `refused` is the only
+  encoding of "switched off"; a host that is merely too old is answered differently (decision 5).
 - The CLI exits 0 with `{ok: false, reason}` for every failure it handles. The mod reads a non-zero
   exit, unparsable stdout, or an answer that breaks the contract as `reason: "error"`.
 - **Limits are named constants**: `BriefMaxChars` (4,000) is both the default and the ceiling for a
   brief's instructions; `MaxMessageBytes` (64 KiB) bounds every message in both directions, so
   neither side depends on how the host truncates a long stdout, for which no source states a
-  limit; session ids, host versions, triggers and fact ids have byte bounds. A test proves that a
-  response at every bound at once still fits one message.
+  limit; session ids, host versions, triggers, fact ids and the free-text `detail` have byte
+  bounds. Fact ids are restricted to the ASCII alphabet `[A-Za-z0-9._:/-]`, every byte of which
+  encodes as itself in JSON (with `encoding/json`'s HTML escaping on, which is why `<`, `>` and `&`
+  are excluded), so their wire size is their length and the Go side and the mod agree on every id.
+  The stored facts' own ids fit unchanged: decision ids (`dec_…`), pinned-invariant ids (`inv_…`),
+  negative-knowledge record ids (`elim_…`), content hashes (`sha256:…`) and host tool-use ids. A
+  test builds a response at every bound at once from the costliest allowed bytes and proves it
+  still fits one message.
 - **Characters are UTF-16 code units**, what the mod's `String.prototype.length` reports, so the Go
   side (`modwire.CharCount`) and the mod agree on whether a text fits.
 - Session ids name per-session files, so they are restricted to `[A-Za-z0-9._-]`, at most 128
-  bytes, and never `.` or `..`.
+  bytes, and never `.` or `..`. A trigger is any plain identifier, `[A-Za-z0-9_-]` up to 32 bytes,
+  so a trigger the host adds later is served and recorded; only a malformed one is refused. The
+  three alphabets are published as constants, and both sides build their checks from them.
 - `internal/modwire` also defines the two records the Go side writes for a mod session, so the
   writer and every reader share one type. The **brief-outcome record** is one JSONL line per brief
   call in `.qompack/state/mod-brief-<session>.jsonl`, with the closed field set
   `{ts, trigger, outcome, chars, ms}`, where `outcome` is `served` or the reason, and no content.
-  A refused root and a project without a store get no record, and no store is created for them.
-  The **hello file** `.qompack/state/mod-hello-<session>.json` holds
-  `{session_id, host_version, ts}`, the proof a mod session reached the binary.
+  A refused call gets no record, and no store is created for it. The **hello file**
+  `.qompack/state/mod-hello-<session>.json` holds `{session_id, host_version, ts}`, the proof a mod
+  session reached the binary; it is written for every served hello, including one answered
+  `enabled: false`, and never for a refused one.
 - The TypeScript half of the contract, `internal/pluginmanifest/modsrc/wire.gen.ts`, is generated
   from `modwire.Schema()` by `go run ./tools/devtool gen-mod-wire`; its `--check` mode runs in the
   CI `docs` job, and a test holds `Schema()` to every exported declaration of the package.
@@ -128,9 +141,15 @@ The classic hooks keep running exactly as they do without a mod.
 
 The mod's features are enabled only on a host at least `modwire.MinHostVersion`, **provisionally
 2.1.300**, the release installed when the contract was built; a live check of the pinned build
-confirms or raises it. `hello` reports `$.session.version()` so the Go side records which host a
-session ran on. A configuration switch keeps the features off by default until an evaluation
-supports turning them on. Mods can also be off for reasons Qompack cannot see (the host's
+confirms or raises it. The Go side is the only gate: `hello` reports `$.session.version()`, and the
+CLI answers with `modwire.MeetsMinHostVersion`. A version must begin `MAJOR.MINOR.PATCH`; a
+`+build` suffix does not order, a prerelease of a release (`2.1.300-dev…`) counts as below that
+release, and anything unreadable does not meet the minimum. A host below the minimum, or with an
+unreadable version, gets a *served* hello with `enabled: false`, and the hello file is still
+written so the host version is on record for diagnosis. The mod calls `brief` only after a hello
+answered `enabled: true`; the `MIN_HOST_VERSION` constant in its generated TypeScript is
+informational. The configuration switch `runtime.mod.enabled` keeps the features off by default
+until an evaluation supports turning them on; while it is off, every verb answers `refused`. Mods can also be off for reasons Qompack cannot see (the host's
 `disableAllHooks`, safe mode, bare mode, managed policy, or a remote rollout switch); in each case
 the classic path runs as today.
 
