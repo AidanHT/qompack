@@ -86,9 +86,11 @@ const (
 // The root is resolved exactly as the hooks resolve it (resolveProjectRoot: QOMPACK_PROJECT_ROOT,
 // else the nearest .git above cwd, else cwd), from the session root the mod sends. A request is
 // refused (refusal non-empty) for a home-directory root, before anything is read from it (D18,
-// isHomeRoot); for a project with no .qompack store, which is never created for it; when the
-// project's runtime mode is off; and when runtime.mod.enabled is false. A configuration that does
-// not load is an error, not a refusal. Nothing is written on any of these paths.
+// isHomeRoot); for a project with no .qompack store, which is never created for it; when
+// runtime.mod.enabled is false; and when the project's runtime mode is off. The switch is checked
+// before the mode because it is off by default and the mode's state.bin read can probe a daemon. A
+// configuration that does not load is an error, not a refusal. Nothing is written on any of these
+// paths.
 //
 // The mode is the one the hooks and the command clients work under (modeFor): off when the
 // configuration says off, and off when state.bin says off while the daemon that wrote it is alive.
@@ -109,11 +111,12 @@ func modServedProject(env Env, cwd string) (root string, cfg config.Config, refu
 	if err != nil {
 		return root, config.Config{}, "", fmt.Errorf("configuration: %w", err)
 	}
-	if modeFor(root, ipc.ReadState(root, cfg).Mode, cfg) == contract.ModeOff {
-		return root, cfg, modRefusedModeOff, nil
-	}
+	// The switch first: it is off by default, and reading the mode can probe a daemon.
 	if !cfg.Runtime.Mod.Enabled {
 		return root, cfg, modRefusedOff, nil
+	}
+	if modeFor(root, ipc.ReadState(root, cfg).Mode, cfg) == contract.ModeOff {
+		return root, cfg, modRefusedModeOff, nil
 	}
 	return root, cfg, "", nil
 }
