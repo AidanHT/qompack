@@ -166,15 +166,15 @@ func taskModValidate(args []string) error {
 	if err := rejectEvidenceDirectoryPath(*record); err != nil {
 		return errors.Join(errUsage, err)
 	}
-	return runModValidate(osModClaude(), runtime.GOOS, *record, os.Stdout)
+	return runModValidate(osModClaude(), root, runtime.GOOS, *record, os.Stdout)
 }
 
-// runModValidate materialises goos's mods plugin, runs `claude plugin validate --strict --json` on
+// runModValidate materialises goos's mods plugin (a relative recordPath is under repoRoot), runs `claude plugin validate --strict --json` on
 // it and asserts the Stage A allowlist. It fails closed: without claude, without exit 0 and
 // success:true, on a calls line it cannot read, and on any call outside the allowlist. When the
 // output lists no calls it scans the materialised hooks/register.ts instead. The gating hooks are
 // reported, not judged.
-func runModValidate(c modClaude, goos, recordPath string, w io.Writer) (err error) {
+func runModValidate(c modClaude, repoRoot, goos, recordPath string, w io.Writer) (err error) {
 	const task = "mod-validate"
 	bin, err := lookUpModClaude(c, task)
 	if err != nil {
@@ -192,12 +192,16 @@ func runModValidate(c modClaude, goos, recordPath string, w io.Writer) (err erro
 	if run.Err != nil {
 		return fmt.Errorf("`claude plugin validate` gave no verdict: %w", run.Err)
 	}
-	redact := hostPathRedactor(root, ws.plugin, userHomeDir())
+	redact := hostPathRedactor(repoRoot, ws.plugin, userHomeDir())
 	if s := strings.TrimSpace(redact(string(run.Stderr))); s != "" {
 		_, _ = fmt.Fprintf(w, "%s: claude stderr: %s\n", task, s)
 	}
 	if recordPath != "" {
-		if err := writeModFile(rootRelative(recordPath), []byte(redact(string(run.Stdout)))); err != nil {
+		dst := recordPath
+		if !filepath.IsAbs(dst) {
+			dst = filepath.Join(repoRoot, filepath.FromSlash(dst))
+		}
+		if err := writeModFile(dst, []byte(redact(string(run.Stdout)))); err != nil {
 			return fmt.Errorf("recording the validator output: %w", err)
 		}
 		_, _ = fmt.Fprintf(w, "%s: validator output recorded to %s\n", task, recordPath)
