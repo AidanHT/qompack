@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "strict": true,
+  "target": "<out>\\.claude-plugin\\plugin.json",
+  "manifest": {
+    "file": "<out>\\.claude-plugin\\plugin.json",
+    "type": "plugin",
+    "errors": [],
+    "warnings": [],
+    "notes": [],
+    "gatingHooks": []
+  },
+  "contents": [
+    {
+      "file": "<out>\\hooks\\hooks.json",
+      "type": "hooks",
+      "errors": [],
+      "warnings": [],
+      "notes": [
+        "./register.ts hooks: session.start, tool.call",
+        "./register.ts gating hook with .catch: tool.call",
+        "./register.ts calls: $.fs.read, $.session.id, $.ui.toast"
+      ],
+      "gatingHooks": [
+        {
+          "module": "./register.ts",
+          "pattern": "tool.call",
+          "hook": "tool.call",
+          "hasCatch": true
+        }
+      ]
+    }
+  ],
+  "advice": []
+}

@@ -1,0 +1,20 @@
+import type { Register } from 'claude-code'
+
+async function hello($: any): Promise<void> {
+  const root = await $.session.root()
+  const out = await $.process.run([$.plugin.root + '/bin/qompack', 'mod', 'hello'], { cwd: root, stdin: '{}', timeoutMs: 2000 })
+  if (out.exitCode !== 0) $.ui.log({ text: 'hello failed' })
+}
+
+export const register: Register = (on) => {
+  on('session.start', async ($, e, next) => {
+    const id = await $.session.id()
+    const v = await $.session.version()
+    await hello($)
+    return next(e)
+  })
+  on('session.compact', async ($, e, next) => {
+    await $.ui.log({ text: 'compact' })
+    return next(e)
+  })
+}
