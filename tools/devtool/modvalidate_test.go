@@ -324,3 +324,21 @@ func TestRunModValidate_UnionsTheRegisterScanWithTheCallsLine(t *testing.T) {
 	require.Contains(t, out.String(), "$.plugin.root")
 	require.Contains(t, out.String(), "$.process.run", "the calls line's entries are kept")
 }
+
+// TestRunModValidate_RequiresAStrictReport fails closed on a report that does not say it ran in
+// strict mode: without "strict": true a warning could have passed as success.
+func TestRunModValidate_RequiresAStrictReport(t *testing.T) {
+	qompack := readModValidateFixture(t, "claude-2.1.300-qompack.json")
+	for name, fixture := range map[string][]byte{
+		"strict false":  bytes.Replace(qompack, []byte(`"strict": true`), []byte(`"strict": false`), 1),
+		"no strict key": bytes.Replace(qompack, []byte(`"strict": true,`), nil, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.NotEqual(t, string(qompack), string(fixture))
+			f := &fakeModClaude{t: t}
+			f.answer = validateAnswer(t, fixture, 0, nil)
+			err := runModValidate(f.claude(), testModuleRoot(t), "windows", "", &bytes.Buffer{})
+			require.ErrorContains(t, err, "strict")
+		})
+	}
+}
