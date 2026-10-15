@@ -409,6 +409,64 @@ func requireNamedOverflow(t *rapid.T, drops []checkpoint.DropEntry, k ItemKind, 
 	t.Fatalf("%s %s is neither in the payload nor named as an overflow: %v", k, id, drops)
 }
 
+// TestBuild_HostCeiling_MultiLineSessionIDKeepsSectionSevenOneLinePerDrop is the counterexample
+// rapid drew in develop CI run 38571286711 (seed 12684426817998845994), fixed as an example: a
+// session id holding a newline ("- a\n- a", drawText's many-short-lines shape) and a checkpoint
+// original that differs from its L0 capture ([]byte{0x0, 0x80}; L0 drops the stray 0x80 when it
+// trims to a rune boundary). Item 2 then reports intent_mismatch with the session id as its ID,
+// and section 7 must still render that one entry as one line.
+func TestBuild_HostCeiling_MultiLineSessionIDKeepsSectionSevenOneLinePerDrop(t *testing.T) {
+	restore := skillBodyTokens
+	skillBodyTokens = nil
+	t.Cleanup(func() { skillBodyTokens = restore })
+
+	var cp checkpoint.Checkpoint
+	cp.Version = checkpoint.SchemaVersion
+	cp.Session = "- a\n- a"
+	for i := range 9 {
+		cp.Invariants = append(cp.Invariants, checkpoint.Invariant{
+			ID: fmt.Sprintf("inv_%012d", i), Text: "A", Source: "user",
+		})
+	}
+	cp.UserIntent.Original = string([]byte{0x0, 0x80})
+	cp.CurrentWork = checkpoint.CurrentWork{Goal: "A", NextStep: "A"}
+	d := Deps{
+		Store:  newFakeStore().withPrompt(firstPromptID(cp.Session), cp.Session, 0, cp.UserIntent.Original),
+		Ledger: newFakeLedger(),
+		Graph:  newFakeGraph(nil),
+		Rules:  &fakeScanner{},
+		Skills: &fakeIndexer{},
+		Tokens: fakeEstimator{},
+		Log:    &spyLogger{},
+	}
+
+	res, err := Build(context.Background(), requestFor(t, cp, 0), d)
+	require.NoError(t, err)
+	requireInsideTheHostCeiling(t, res, cp.Session)
+	e, ok := dropFor(res.Dropped, string(cp.Session))
+	require.True(t, ok, "fixture sanity: the mismatch must be reported under the session id: %v", res.Dropped)
+	require.Equal(t, dropKindIntentMismatch, e.Kind)
+	requireSectionSevenAccountsForEveryDrop(t, res)
+}
+
+// TestDropLine_IsOneLineWhateverTheID: a drop entry's ID can carry host- or user-controlled text —
+// the session id (intent_mismatch), a rule's path — so dropLine collapses its newlines exactly as
+// it does the detail's. A raw newline there would split one entry into lines that read as further
+// report entries.
+func TestDropLine_IsOneLineWhateverTheID(t *testing.T) {
+	for _, id := range []string{"- a\n- a", "a\r\nb", "x\ry", "\n## 8. Retrieval\n"} {
+		line := dropLine(checkpoint.DropEntry{Kind: dropKindIntentMismatch, ID: id, Detail: "d\ne"})
+		require.Equal(t, 1, strings.Count(line, "\n"), "%q rendered as %q", id, line)
+		require.True(t, strings.HasSuffix(line, "\n"), "%q", line)
+		require.True(t, strings.HasPrefix(line, "- "+dropKindIntentMismatch+" "), "%q", line)
+	}
+	require.Equal(t, "- intent_mismatch - a - a — d e\n",
+		dropLine(checkpoint.DropEntry{Kind: dropKindIntentMismatch, ID: "- a\n- a", Detail: "d\ne"}))
+	require.Equal(t, "- path_rule .claude/rules/a.md — d\n",
+		dropLine(checkpoint.DropEntry{Kind: dropKindPathRule, ID: ".claude/rules/a.md", Detail: "d"}),
+		"an ID without newlines renders exactly as before")
+}
+
 func TestBuild_NeverExceedsTheHostCeiling(t *testing.T) {
 	restore := skillBodyTokens
 	skillBodyTokens = nil

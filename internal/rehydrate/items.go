@@ -1609,13 +1609,17 @@ func rankOfKind(kind string) int {
 
 // dropLine renders one drop-report line. The ID and its space are omitted when the ID is empty,
 // and the " — detail" clause when the detail is.
+//
+// The ID goes through oneLine as the detail does: it can be host- or user-controlled text — the
+// session id for intent_mismatch, a rule's path — and a raw newline in it would split one entry
+// into lines that read as further report entries (develop CI 38571286711).
 func dropLine(e checkpoint.DropEntry) string {
 	var b strings.Builder
 	b.WriteString("- ")
 	b.WriteString(e.Kind)
-	if e.ID != "" {
+	if id := oneLine(e.ID); id != "" {
 		b.WriteByte(' ')
-		b.WriteString(e.ID)
+		b.WriteString(id)
 	}
 	if e.Detail != "" {
 		b.WriteString(" — ")

@@ -183,6 +183,28 @@ func TestDocumentHeader_ShortSessionIsNotPadded(t *testing.T) {
 	require.Equal(t, "# Qompack's record of this session before compaction — checkpoint 12345, session s1", documentHeader(r))
 }
 
+// TestDocumentHeader_SessionIDIsFoldedOntoOneLine: the session id is host-supplied, and eight runes
+// are enough to start a new line with a section heading ("a\n## 7. "). The header folds its line
+// breaks the way every other list line does (oneLine), before the eight-rune cut, so the cut counts
+// folded text and the header stays one line.
+func TestDocumentHeader_SessionIDIsFoldedOntoOneLine(t *testing.T) {
+	const prefix = "# Qompack's record of this session before compaction — checkpoint 0007, session "
+	for _, tc := range []struct{ id, want string }{
+		{id: "a\n## 7. ", want: "a ## 7."},
+		{id: "a\r\nb", want: "a b"},
+		{id: "x\ry", want: "x y"},
+		{id: "abc\ndefghijk", want: "abc defg"},
+	} {
+		var r Request
+		r.Session = core.SessionID(tc.id)
+		r.Ref.Seq = core.CheckpointSeq(7)
+		got := documentHeader(r)
+		require.NotContains(t, got, "\n", "session %q", tc.id)
+		require.NotContains(t, got, "\r", "session %q", tc.id)
+		require.Equal(t, prefix+tc.want, got, "session %q", tc.id)
+	}
+}
+
 // ── item and body assembly ──
 
 // TestItemText_PutsTheHeadingFirst asserts a section is its heading line followed by its admitted
