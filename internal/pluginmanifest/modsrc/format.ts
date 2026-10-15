@@ -42,9 +42,9 @@ export function encodeRequest(req: HelloRequest | BriefRequest): string {
   return JSON.stringify(req) + '\n'
 }
 
-/** An unserved hello. */
+/** An unserved hello: nothing enabled, nothing steered. */
 export function unservedHello(reason: Reason, detail?: string): HelloResponse {
-  const r: HelloResponse = { v: WIRE_VERSION, ok: false, reason, enabled: false }
+  const r: HelloResponse = { v: WIRE_VERSION, ok: false, reason, enabled: false, steering: false }
   if (detail !== undefined && detail !== '') r.detail = detail
   return r
 }
@@ -85,7 +85,8 @@ export function helloRequest(sessionId: string, cwd: string, hostVersion: string
 
 /** One diagnostic line saying what a hello came to, for the host's debug log. */
 export function helloLogLine(r: HelloResponse): string {
-  if (r.ok) return 'qompack mod hello: served, ' + (r.enabled ? 'enabled' : 'not enabled for this host')
+  if (r.ok && !r.enabled) return 'qompack mod hello: served, not enabled for this host'
+  if (r.ok) return 'qompack mod hello: served, enabled, steering ' + (r.steering ? 'on' : 'off')
   return 'qompack mod hello: ' + r.reason + (r.detail !== undefined && r.detail !== '' ? ' (' + r.detail + ')' : '')
 }
 
@@ -130,16 +131,21 @@ function parseStatus(exitCode: number, stdout: string): Parsed {
   return { ok: true, value: obj }
 }
 
-/** Reads a hello child's result. Fields the contract does not name are dropped. */
+/**
+ * Reads a hello child's result. Steering is true only with enabled, as the Go side validates it.
+ * Fields the contract does not name are dropped.
+ */
 export function decodeHello(exitCode: number, stdout: string): HelloResponse {
   const p = parseStatus(exitCode, stdout)
   if (!p.ok) return unservedHello(REASON_ERROR, p.detail)
   const o = p.value
   // An unserved answer may be a bare status: the error object a side sends for a request it could
-  // not read carries no verb fields.
+  // not read carries no verb fields. It enables and steers nothing, whatever it carries.
   if (!o.ok) return unservedHello(o.reason as Reason, o.detail as string | undefined)
   if (typeof o.enabled !== 'boolean') return unservedHello(REASON_ERROR, 'enabled is not a boolean')
-  return { v: WIRE_VERSION, ok: true, enabled: o.enabled }
+  if (typeof o.steering !== 'boolean') return unservedHello(REASON_ERROR, 'steering is not a boolean')
+  if (o.steering && !o.enabled) return unservedHello(REASON_ERROR, 'steering without enabled')
+  return { v: WIRE_VERSION, ok: true, enabled: o.enabled, steering: o.steering }
 }
 
 /**
