@@ -151,3 +151,35 @@ func TestGitattributes_ModSourcesAreLF(t *testing.T) {
 	lines := strings.Split(strings.ReplaceAll(string(b), "\r\n", "\n"), "\n")
 	require.Contains(t, lines, modSourceDir+"/**/*.ts text eol=lf")
 }
+
+// TestUnfilledMarkers_IsTheOneRuleBothScansUse: the plan-document scan and the mod-source scan
+// share one matcher, so the two cannot drift. Each corpus line must give the same tokens from
+// unfilledMarkers, from the Markdown scan of the line, and from the mod-source scan of the line
+// written as a comment.
+func TestUnfilledMarkers_IsTheOneRuleBothScansUse(t *testing.T) {
+	corpus := map[string][]string{
+		"<FILL-IN the path>":                   {"<FILL-IN the path>"},
+		"<TODO write this>":                    {"<TODO write this>"},
+		"<COLLISION-LOG>":                      {"<COLLISION-LOG>"},
+		"<N> and <EMAIL> are notation":         nil,
+		"<ISO-8601> and <SP-NN> and <P 12>":    nil,
+		"<TempDir> is a metavariable":          nil,
+		"two: <A-B> then <C d>":                {"<A-B>", "<C d>"},
+		"plain prose with no markers at all":   nil,
+		"generic-looking <T> stays notation":   nil,
+		"head then tail <WRITE-ME please now>": {"<WRITE-ME please now>"},
+	}
+	for line, want := range corpus {
+		require.Equal(t, want, unfilledMarkers(line), "unfilledMarkers(%q)", line)
+
+		var plan, mod []string
+		for _, m := range findPlanMarkers("p.md", line) {
+			plan = append(plan, m.token)
+		}
+		for _, m := range findModSourceMarkers("m.ts", "// "+line) {
+			mod = append(mod, m.token)
+		}
+		require.Equal(t, want, plan, "plan scan of %q", line)
+		require.Equal(t, want, mod, "mod-source scan of %q", line)
+	}
+}
