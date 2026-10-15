@@ -41,6 +41,7 @@ var tasks = map[string]func(args []string) error{
 	"live-eval":             taskLiveEval,
 	"plugin-validate":       taskPluginValidate,
 	"mod-test":              taskModTest,
+	"mod-validate":          taskModValidate,
 	"fsck":                  taskFsck,
 	"ci-local":              taskCILocal,
 	"release-check":         taskReleaseCheck,
