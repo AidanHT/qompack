@@ -90,6 +90,9 @@ type Manifest struct {
 	Hooks    HooksJSON
 	MCP      MCPJSON
 	Commands []CommandDoc
+	// ModSources is the hooks module's sources, keyed by base name and shipped beside hooks.json.
+	// It is empty unless the manifest came from ForTargetWithMods.
+	ModSources map[string][]byte
 }
 
 // PluginJSON is plugin/.claude-plugin/plugin.json (§3.4).
@@ -107,10 +110,17 @@ type Author struct {
 	Name string `json:"name"`
 }
 
-// HooksJSON is plugin/hooks/hooks.json: hook event name to its matcher groups.
+// HooksJSON is plugin/hooks/hooks.json: hook event name to its matcher groups, plus the hooks
+// module a mods rendering names. Modules is omitted when empty, so a rendering without mods has the
+// bytes it had before mods existed.
 type HooksJSON struct {
-	Hooks map[string][]HookGroup `json:"hooks"`
+	Hooks   map[string][]HookGroup `json:"hooks"`
+	Modules []string               `json:"modules,omitempty"`
 }
+
+// ModuleEntry is the hooks module as hooks.json names it. The host resolves the path relative to
+// hooks.json, so the module and the sources it imports sit in the plugin's hooks/ directory.
+const ModuleEntry = "./register.ts"
 
 // HookGroup is one matcher group. Matcher is omitted for hooks that do not match on tool name.
 type HookGroup struct {
@@ -298,6 +308,20 @@ func ForTarget(version, goos string) Manifest {
 	}
 }
 
+// ForTargetWithMods is ForTarget plus the hooks module: hooks.json names ModuleEntry, and goos's
+// ModSources ship under hooks/. It is opt-in. Default and ForTarget never carry a module, so the
+// committed plugin/ tree and the release bundles do not change until mods are switched on.
+func ForTargetWithMods(version, goos string) (Manifest, error) {
+	src, err := ModSources(goos)
+	if err != nil {
+		return Manifest{}, err
+	}
+	m := ForTarget(version, goos)
+	m.Hooks.Modules = []string{ModuleEntry}
+	m.ModSources = src
+	return m, nil
+}
+
 // marshal renders v with two-space indentation and a trailing newline. Both are load-bearing:
 // `git diff --exit-code -- plugin/` is a CI gate, so the bytes must be stable and must match what
 // a human editor would leave behind.
@@ -351,7 +375,37 @@ func (m Manifest) Files() (map[string][]byte, error) {
 		p := filepath.ToSlash(filepath.Join(pluginDir, "commands", c.Name+".md"))
 		out[p] = renderCommand(c)
 	}
+
+	if err := addModSources(out, m); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// addModSources writes m's mod sources beside hooks.json and checks that every module hooks.json
+// names is one of them, so a rendering can never point the host at a file the plugin lacks.
+func addModSources(out map[string][]byte, m Manifest) error {
+	hooksDir := pluginDir + "/hooks/"
+	for name, b := range m.ModSources {
+		if name != filepath.Base(name) || strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
+			return fmt.Errorf("mod source %q is not a base name", name)
+		}
+		p := hooksDir + name
+		if _, clash := out[p]; clash {
+			return fmt.Errorf("mod source %q collides with a generated file", name)
+		}
+		out[p] = b
+	}
+	for _, mod := range m.Hooks.Modules {
+		name, ok := strings.CutPrefix(mod, "./")
+		if !ok {
+			return fmt.Errorf("hooks.json module %q is not a ./ path relative to hooks.json", mod)
+		}
+		if _, shipped := m.ModSources[name]; !shipped {
+			return fmt.Errorf("hooks.json names module %q, which no mod source provides", mod)
+		}
+	}
+	return nil
 }
 
 // Write materializes the bundle under dir, which is the repository root (or a temp dir when
