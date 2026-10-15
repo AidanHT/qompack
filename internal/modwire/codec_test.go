@@ -164,19 +164,26 @@ func TestBriefResponse_Validate(t *testing.T) {
 }
 
 // TestLimits_TheLargestValidBriefFitsOneMessage is the arithmetic the limits must satisfy: a
-// response at every bound at once — max_chars of the costliest-to-escape character, the most
-// fact IDs at their longest — still encodes under MaxMessageBytes. If a later change raises a
-// bound without raising the frame, this fails before a real brief is truncated by it.
+// response at every bound at once — max_chars of the costliest-to-escape character, the longest
+// detail of the same, the most fact IDs at their longest built from every byte the fact-id
+// alphabet allows — still encodes under MaxMessageBytes. If a later change raises a bound or
+// widens an alphabet without raising the frame, this fails before a real brief is truncated by it.
 func TestLimits_TheLargestValidBriefFitsOneMessage(t *testing.T) {
+	alphabet := allowedBytes(t, modwire.FactIDChars)
 	ids := make([]string, modwire.MaxFactIDs)
 	for i := range ids {
-		ids[i] = strings.Repeat("f", modwire.MaxFactIDBytes)
+		id := make([]byte, modwire.MaxFactIDBytes)
+		for j := range id {
+			id[j] = alphabet[(i*modwire.MaxFactIDBytes+j)%len(alphabet)]
+		}
+		ids[i] = string(id)
 	}
 	worst := modwire.BriefResponse{
 		Status:       modwire.Served(),
 		Instructions: strings.Repeat("\x01", modwire.BriefMaxChars), // escapes to \u0001: 6 bytes each
 		FactIDs:      ids,
 	}
+	worst.Detail = strings.Repeat("\x01", modwire.MaxDetailBytes)
 	require.NoError(t, worst.Validate(modwire.BriefMaxChars))
 	b, err := modwire.Encode(worst)
 	require.NoError(t, err)

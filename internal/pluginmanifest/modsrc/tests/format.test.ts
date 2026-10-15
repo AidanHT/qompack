@@ -108,6 +108,12 @@ describe('decodeBrief', () => {
     expect(r).toEqual(unservedBrief('error', 'modwire: unsupported wire version 2 (this side speaks 1)'))
   })
 
+  test('accepts the fact id shapes the Go side emits', async () => {
+    const ids = ['dec_0123456789ab', 'elim_0123456789ab', 'sha256:' + '0f'.repeat(32), 'toolu_01AB', 'intent:original', 'f'.repeat(128)]
+    const out = JSON.stringify({ v: 1, ok: true, instructions: 'x', fact_ids: ids })
+    expect(decodeBrief(0, out, BRIEF_MAX_CHARS).fact_ids).toEqual(ids)
+  })
+
   test('holds the instructions to max_chars in String length', async () => {
     const text = 'x'.repeat(10)
     const out = JSON.stringify({ v: 1, ok: true, instructions: text, fact_ids: [] })
@@ -127,6 +133,10 @@ describe('decodeBrief', () => {
       [0, '{"v":1,"ok":true,"instructions":"a"}'],
       [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":[""]}'],
       [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":[7]}'],
+      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["a<b"]}'],
+      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["a b"]}'],
+      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["é"]}'],
+      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["' + 'f'.repeat(129) + '"]}'],
       [0, '{"v":1,"ok":false,"reason":"cold","instructions":"leak","fact_ids":[]}'],
       [0, '{"v":"1","ok":true,"instructions":"a","fact_ids":[]}'],
     ] as const) {
