@@ -202,7 +202,7 @@ func TestRunModValidate_FailsClosedWhenClaudeIsAbsent(t *testing.T) {
 }
 
 func TestRunModValidate_PassesTheMaterialisedPlugin(t *testing.T) {
-	fixture := readModValidateFixture(t, "claude-2.1.300-qompack.json")
+	fixture := readModValidateFixture(t, "claude-2.1.300-qompack-hello.json")
 	var seen []string
 	f := &fakeModClaude{t: t}
 	f.answer = validateAnswer(t, fixture, 0, func(dir string) {
@@ -219,7 +219,9 @@ func TestRunModValidate_PassesTheMaterialisedPlugin(t *testing.T) {
 	for _, p := range seen {
 		require.Contains(t, want, p)
 	}
-	require.Contains(t, out.String(), "calls: none")
+	// The validator's line plus the register.ts scan, which adds the $.plugin.root read the line omits.
+	require.Contains(t, out.String(), "calls: $.plugin.root, $.process.run, $.session.id, $.session.root, "+
+		"$.session.version, $.ui.log (from the validator's calls line plus scanned hooks/register.ts)")
 	require.Contains(t, out.String(), "gating hooks: none")
 	require.Contains(t, out.String(), "2.1.300")
 }
