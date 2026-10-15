@@ -165,7 +165,7 @@ func writeHelloFile(root string, h modwire.HelloFile) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(paths.Of(root).Dot, modwire.StateDir)
+	dir := paths.Of(root).State
 	if err := os.MkdirAll(paths.Long(dir), 0o700); err != nil {
 		return err
 	}

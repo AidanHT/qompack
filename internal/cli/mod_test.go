@@ -330,3 +330,11 @@ func TestModHello_IsNotAHookEntryPoint(t *testing.T) {
 	}
 	require.True(t, found, "`qompack mod hello` is registered")
 }
+
+// TestModRecords_StateDirIsThePathsLayouts pins modwire.StateDir, which the mod's generated
+// TypeScript publishes, to the store layout the CLI writes the records under. modwire stays free of
+// internal/paths, so the pin lives here, where both are imported.
+func TestModRecords_StateDirIsThePathsLayouts(t *testing.T) {
+	l := paths.Of(t.TempDir())
+	require.Equal(t, filepath.Join(l.Dot, modwire.StateDir), l.State)
+}
