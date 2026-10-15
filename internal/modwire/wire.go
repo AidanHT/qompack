@@ -44,6 +44,15 @@ const (
 	MaxDetailBytes = 256
 )
 
+// BriefMarker is the heading line a brief's served, non-empty instructions begin with. The mod adds
+// those instructions to a compaction's, so the marker lets it tell instructions it already briefed
+// (a second session.compact dispatch, or a chain that ran it twice) and skip a second brief. Both
+// sides refuse a served brief whose instructions do not begin with it (BriefResponse.Validate, and
+// the mod's decoder). It is printable ASCII without quotes, backslashes or a newline, so it is the
+// same text in Go, in JSON and in the generated TypeScript, and it reads to the summarizer as an
+// ordinary heading. It counts toward the instructions' cap like any other text.
+const BriefMarker = "Qompack - reproduce these items verbatim:"
+
 // Alphabets, as regular-expression character-class bodies, so the Go validators and the mod
 // build their checks from the same text. All three are ASCII, so a byte count is a character
 // count and nothing is lost to U+FFFD.
@@ -273,7 +282,8 @@ func (r BriefRequest) EffectiveMaxChars() int {
 // present; both are empty when the brief was not served.
 type BriefResponse struct {
 	Status
-	// Instructions is the text the mod adds to the compaction's instructions.
+	// Instructions is the text the mod adds to the compaction's instructions. When served and
+	// non-empty it begins with BriefMarker; a served brief with nothing to say is empty.
 	Instructions string `json:"instructions"`
 	// FactIDs names the stored facts the instructions were built from. They are returned to the
 	// mod with the instructions; no Stage A path records them anywhere else, and a later stage may.

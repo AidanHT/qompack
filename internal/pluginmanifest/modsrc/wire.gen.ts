@@ -11,6 +11,9 @@ export const MIN_HOST_VERSION = '2.1.300'
 /** Default and ceiling for a brief's instructions, in UTF-16 code units (String length). */
 export const BRIEF_MAX_CHARS = 4000
 
+/** The heading line served, non-empty brief instructions begin with; its presence means a brief is already in. */
+export const BRIEF_MARKER = 'Qompack - reproduce these items verbatim:'
+
 /** The largest request or response object, newline included. */
 export const MAX_MESSAGE_BYTES = 65536
 

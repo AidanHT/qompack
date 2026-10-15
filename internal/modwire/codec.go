@@ -190,14 +190,17 @@ func validStatus(s Status) error {
 }
 
 // Validate checks a brief response against the contract before the CLI writes it: the status
-// invariants, instructions within maxChars (CharCount units) and only when served, and the fact
-// id bounds.
+// invariants, instructions within maxChars (CharCount units), only when served and opening with
+// BriefMarker when non-empty, and the fact id bounds.
 func (r BriefResponse) Validate(maxChars int) error {
 	if err := validStatus(r.Status); err != nil {
 		return err
 	}
 	if !r.OK && (r.Instructions != "" || len(r.FactIDs) > 0) {
 		return fmt.Errorf("%w: an unserved brief carries no instructions or fact ids", ErrInvalid)
+	}
+	if r.Instructions != "" && !strings.HasPrefix(r.Instructions, BriefMarker) {
+		return fmt.Errorf("%w: served instructions must begin with BriefMarker", ErrInvalid)
 	}
 	if n := CharCount(r.Instructions); n > maxChars {
 		return fmt.Errorf("%w: instructions are %d chars, over the cap of %d", ErrInvalid, n, maxChars)

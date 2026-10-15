@@ -55,6 +55,10 @@ func Schema() SchemaDef {
 				"Default and ceiling for a brief's instructions, in UTF-16 code units (String length).",
 			},
 			{
+				"BriefMarker", "BRIEF_MARKER", BriefMarker,
+				"The heading line served, non-empty brief instructions begin with; its presence means a brief is already in.",
+			},
+			{
 				"MaxMessageBytes", "MAX_MESSAGE_BYTES", MaxMessageBytes,
 				"The largest request or response object, newline included.",
 			},

@@ -8,6 +8,7 @@
 
 import { BINARY_REL_PATH } from './target.gen.ts'
 import {
+  BRIEF_MARKER,
   FACT_ID_CHARS,
   MAX_DETAIL_BYTES,
   MAX_FACT_ID_BYTES,
@@ -150,7 +151,8 @@ export function decodeHello(exitCode: number, stdout: string): HelloResponse {
 
 /**
  * Reads a brief child's result, holding the instructions to `maxChars` (String length, the unit
- * the Go side counts in). Fields the contract does not name are dropped.
+ * the Go side counts in) and requiring non-empty instructions to open with BRIEF_MARKER, as the Go
+ * side does. Fields the contract does not name are dropped.
  */
 export function decodeBrief(exitCode: number, stdout: string, maxChars: number): BriefResponse {
   const p = parseStatus(exitCode, stdout)
@@ -167,6 +169,9 @@ export function decodeBrief(exitCode: number, stdout: string, maxChars: number):
   if (typeof o.instructions !== 'string') return unservedBrief(REASON_ERROR, 'instructions is not a string')
   if (!Array.isArray(o.fact_ids)) return unservedBrief(REASON_ERROR, 'fact_ids is not an array')
   if (o.instructions.length > maxChars) return unservedBrief(REASON_ERROR, 'instructions over max_chars')
+  if (o.instructions !== '' && !o.instructions.startsWith(BRIEF_MARKER)) {
+    return unservedBrief(REASON_ERROR, 'instructions do not open with the brief marker')
+  }
   if (o.fact_ids.length > MAX_FACT_IDS) return unservedBrief(REASON_ERROR, 'too many fact ids')
   const ids: string[] = []
   for (const id of o.fact_ids) {
