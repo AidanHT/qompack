@@ -78,7 +78,7 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
   the no-op spool `qompack mcp` already uses.
 - **Connect deadline.** `mod` verbs dial with at least the 250 ms floor the hook client gives every
   operation off the hot path; the configured 5 ms (25 ms on Windows) default is sized for a warm
-  hot-path connection and would report false "cold" results.
+  hot-path connection and would report a daemon that is merely between accepts as `busy`.
 
 ### 3. The wire contract (`internal/modwire`)
 
