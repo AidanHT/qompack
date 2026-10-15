@@ -168,10 +168,10 @@ func TestGenModWire_RunsInTheDocsJob(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(testModuleRoot(t), ".github", "workflows", "ci.yml"))
 	require.NoError(t, err)
 	ci := string(normalizeNewlines(b))
-	docs := ci[strings.Index(ci, "\n  docs:\n"):]
-	if next := strings.Index(docs[1:], "\n  release-dry-run:"); next >= 0 {
-		docs = docs[:next+1]
-	}
+	_, docs, found := strings.Cut(ci, "\n  docs:\n")
+	require.True(t, found, "ci.yml has no docs job")
+	docs, _, _ = strings.Cut(docs, "\n\n") // the job's steps end at the first blank line
+	require.Contains(t, docs, "gen-command-docs --check\n", "the cut must hold the docs job's gen-* steps")
 	require.Contains(t, docs, "- run: go run ./tools/devtool gen-mod-wire --check\n")
 }
 
