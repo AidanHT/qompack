@@ -102,6 +102,9 @@ type bundleAssembly struct {
 	// legal is LICENSE and THIRD_PARTY_NOTICES.md, keyed by bundle-relative path
 	// (readBundleLegalFiles). assemble refuses to run without every bundleLegalFiles entry.
 	legal map[string][]byte
+	// mods adds the hooks module (pluginmanifest.ForTargetWithMods). It is off unless --mods asks
+	// for it, so a release assembly ships the tree it always has.
+	mods bool
 }
 
 // bundleLegalFiles are the repository files every bundle, and therefore every release zip, ships
@@ -145,6 +148,9 @@ func taskBundle(args []string) error {
 	archive := fs.Bool("archive", false,
 		"also pack each assembled bundle into a reproducible .zip (every target), and write "+
 			"checksums.txt over them; these are the files a release uploads")
+	mods := fs.Bool("mods", false,
+		"also ship the Claude Code hooks module: hooks.json names ./register.ts and the mod sources "+
+			"sit beside it in hooks/ (off by default; release bundles do not carry it)")
 	evidence := fs.String("evidence", "",
 		"file to write the --host-validate record to (default: print it to stdout)")
 	var targets repeatedFlag
@@ -186,6 +192,7 @@ func taskBundle(args []string) error {
 		return err
 	}
 	asm := bundleAssembly{
+		mods:      *mods,
 		legal:     legal,
 		version:   v,
 		source:    gitSource(),
@@ -375,7 +382,7 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 		return "", bundleIdentity{}, fmt.Errorf("clearing %s: %w", dir, err)
 	}
 
-	tree, err := pluginTreeFiles(a.version, tgt.OS)
+	tree, err := pluginTreeFiles(a.version, tgt.OS, a.mods)
 	if err != nil {
 		return "", bundleIdentity{}, err
 	}
@@ -444,8 +451,17 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 // A bundle's root IS the plugin root, so the prefix comes off — and a key that does not carry it
 // is an error rather than a file written to an unexpected place, because that would mean the
 // generator's layout changed underneath the assembler.
-func pluginTreeFiles(version, goos string) (map[string][]byte, error) {
-	files, err := pluginmanifest.ForTarget(version, goos).Files()
+//
+// With mods, the tree is pluginmanifest.ForTargetWithMods's: the same files plus the hooks module.
+func pluginTreeFiles(version, goos string, mods bool) (map[string][]byte, error) {
+	m := pluginmanifest.ForTarget(version, goos)
+	if mods {
+		var err error
+		if m, err = pluginmanifest.ForTargetWithMods(version, goos); err != nil {
+			return nil, fmt.Errorf("generating the plugin tree with mods: %w", err)
+		}
+	}
+	files, err := m.Files()
 	if err != nil {
 		return nil, fmt.Errorf("generating the plugin tree: %w", err)
 	}
