@@ -24,6 +24,13 @@ import (
 //   - claude-2.1.300-strict-warning.json: a scratch plugin whose plugin.json has no author, which
 //     --strict turns into success:false and exit 1.
 //
+// Re-recording a scratch fixture on a new host (G0.0): lay out <dir> as .claude-plugin/plugin.json
+// ({"name","version","description","author":{"name"}}, no author for strict-warning),
+// hooks/hooks.json ({"modules": ["./register.ts"]}) and hooks/register.ts (the .ts.txt beside the
+// fixture; strict-warning's is `export const register = () => {}`), then run
+// `CLAUDE_CONFIG_DIR=$(mktemp -d) DISABLE_AUTOUPDATER=1 claude plugin validate <dir> --strict --json`
+// and replace <dir>, in its plain and its JSON-escaped spelling, with <out>.
+//
 // On 2.1.300 the report has no key for the call list: the calls appear only as a
 // "<module> calls: ..." line in contents[].notes, which is the format these fixtures pin.
 const modValidateFixtures = "testdata/modvalidate"
