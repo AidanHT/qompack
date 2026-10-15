@@ -173,6 +173,9 @@ func TestModSources_RegisterNeverAliasesTheHost(t *testing.T) {
 		"const all = [$]",
 		"use(...$)",
 		"x = cond ? $ : other",
+		"const u = 'a//b'; const h = $",
+		"const u = \"x/*\"; const h = $",
+		"const u = 'it\\'s // here'; const h = $",
 	} {
 		require.NotEmpty(t, hostAliasUses(bad), "the check must catch %q, or it is vacuous", bad)
 	}
@@ -187,6 +190,7 @@ func TestModSources_RegisterNeverAliasesTheHost(t *testing.T) {
 		"// a comment about the host's $ and `$`",
 		"/* $ in a block comment */",
 		"const fee$ = 1; const $x = 2",
+		"const s = 'costs $5' // and $ here",
 	} {
 		require.Empty(t, hostAliasUses(good), "%q is a permitted use", good)
 	}
