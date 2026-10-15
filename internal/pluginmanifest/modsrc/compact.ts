@@ -11,12 +11,14 @@ export function hasUserInstructions(instructions: string | undefined): boolean {
 }
 
 /**
- * The brief request for one compaction. Only the fact that the person gave instructions travels,
- * never their text.
+ * The brief request for one compaction. The host version is the `version` field of
+ * `$.session.version()`; the Go side gates every brief on it. Only the fact that the person gave
+ * instructions travels, never their text.
  */
 export function briefRequest(
   sessionId: string,
   cwd: string,
+  hostVersion: string,
   trigger: string,
   userInstructions: string | undefined,
 ): BriefRequest {
@@ -24,6 +26,7 @@ export function briefRequest(
     v: WIRE_VERSION,
     session_id: sessionId,
     cwd,
+    host_version: hostVersion,
     trigger,
     user_instructions_present: hasUserInstructions(userInstructions),
     max_chars: BRIEF_MAX_CHARS,

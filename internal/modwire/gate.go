@@ -8,7 +8,8 @@ import (
 
 // MeetsMinHostVersion reports whether a host version string, as `$.session.version()` reports it
 // in its `version` field, is at least MinHostVersion. It is the only version gate: the Go side
-// applies it when it serves a hello, and the mod obeys the answer's `enabled` field.
+// applies it when it serves a hello, whose `enabled` field the mod obeys, and to every brief, which
+// is refused below the minimum.
 //
 // The version must start with MAJOR.MINOR.PATCH in decimal. After that, a "+build" suffix does not
 // affect ordering, and a "-prerelease" suffix (a development build such as

@@ -8,9 +8,9 @@ const Version = 1
 // verify the mods surface against a pinned build confirm it or raise it. Below it the mod stays
 // out of the way and the classic hooks run as before.
 //
-// The Go side is the only gate (MeetsMinHostVersion, applied when it serves a hello). The copy
-// of this value in the mod's generated TypeScript is informational: the mod acts on the hello's
-// `enabled` field, never on its own comparison.
+// The Go side is the only gate (MeetsMinHostVersion, applied when it serves a hello and to every
+// brief). The copy of this value in the mod's generated TypeScript is informational: the mod acts
+// on the hello's `enabled` and `steering` fields, never on its own comparison.
 const MinHostVersion = "2.1.300"
 
 // Limits. Each one bounds something the other side cannot be trusted to bound for itself.
@@ -28,7 +28,7 @@ const (
 	// also restricted to a filename-safe alphabet (ValidSessionID).
 	MaxSessionIDBytes = 128
 
-	// MaxHostVersionBytes bounds the host version string a hello carries.
+	// MaxHostVersionBytes bounds the host version string a hello or a brief carries.
 	MaxHostVersionBytes = 128
 
 	// MaxTriggerBytes bounds a brief's trigger name.
@@ -241,6 +241,11 @@ type BriefRequest struct {
 	V         int    `json:"v"`
 	SessionID string `json:"session_id"`
 	CWD       string `json:"cwd"`
+	// HostVersion is the host's full version string, as `$.session.version()` reports it. The Go
+	// side applies MeetsMinHostVersion to every brief, not only to the hello before it: a brief
+	// from a host below MinHostVersion, or with an unreadable version, is refused. Decoding
+	// requires only that it is present and bounded (1 to MaxHostVersionBytes bytes).
+	HostVersion string `json:"host_version"`
 	// Trigger is what is compacting, as the host names it. TriggerManual, TriggerAuto and
 	// TriggerPlugin make the brief close the session's open segment before it reads
 	// (ClosesSegment); TriggerPrecompute and any other well-formed trigger leave the segment open,

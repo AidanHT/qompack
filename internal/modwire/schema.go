@@ -48,7 +48,7 @@ func Schema() SchemaDef {
 			{
 				"MinHostVersion", "MIN_HOST_VERSION", MinHostVersion,
 				"The oldest Claude Code release the mod's features are enabled on (provisional). " +
-					"Informational: the Go side is the only gate, and the mod acts on hello's `enabled`.",
+					"Informational: the Go side is the only gate, on the hello and on every brief.",
 			},
 			{
 				"BriefMaxChars", "BRIEF_MAX_CHARS", BriefMaxChars,
@@ -59,7 +59,7 @@ func Schema() SchemaDef {
 				"The largest request or response object, newline included.",
 			},
 			{"MaxSessionIDBytes", "MAX_SESSION_ID_BYTES", MaxSessionIDBytes, "The longest session id."},
-			{"MaxHostVersionBytes", "MAX_HOST_VERSION_BYTES", MaxHostVersionBytes, "The longest host version string."},
+			{"MaxHostVersionBytes", "MAX_HOST_VERSION_BYTES", MaxHostVersionBytes, "The longest host version string a hello or brief carries."},
 			{"MaxTriggerBytes", "MAX_TRIGGER_BYTES", MaxTriggerBytes, "The longest trigger name."},
 			{"MaxFactIDs", "MAX_FACT_IDS", MaxFactIDs, "The most fact ids one brief response lists."},
 			{"MaxFactIDBytes", "MAX_FACT_ID_BYTES", MaxFactIDBytes, "The longest fact id."},

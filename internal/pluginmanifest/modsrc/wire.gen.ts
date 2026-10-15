@@ -5,7 +5,7 @@
 /** The wire version every request and response carries as `v`. */
 export const WIRE_VERSION = 1
 
-/** The oldest Claude Code release the mod's features are enabled on (provisional). Informational: the Go side is the only gate, and the mod acts on hello's `enabled`. */
+/** The oldest Claude Code release the mod's features are enabled on (provisional). Informational: the Go side is the only gate, on the hello and on every brief. */
 export const MIN_HOST_VERSION = '2.1.300'
 
 /** Default and ceiling for a brief's instructions, in UTF-16 code units (String length). */
@@ -17,7 +17,7 @@ export const MAX_MESSAGE_BYTES = 65536
 /** The longest session id. */
 export const MAX_SESSION_ID_BYTES = 128
 
-/** The longest host version string. */
+/** The longest host version string a hello or brief carries. */
 export const MAX_HOST_VERSION_BYTES = 128
 
 /** The longest trigger name. */
@@ -127,6 +127,7 @@ export type BriefRequest = {
   v: number
   session_id: string
   cwd: string
+  host_version: string
   trigger: string
   user_instructions_present: boolean
   max_chars: number

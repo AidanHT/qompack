@@ -70,8 +70,8 @@ func DecodeHelloRequest(r io.Reader) (HelloRequest, error) {
 	if err := validateCommon(req.SessionID, req.CWD); err != nil {
 		return HelloRequest{}, err
 	}
-	if req.HostVersion == "" || len(req.HostVersion) > MaxHostVersionBytes {
-		return HelloRequest{}, fmt.Errorf("%w: host_version must be 1-%d bytes", ErrInvalid, MaxHostVersionBytes)
+	if err := validHostVersionField(req.HostVersion); err != nil {
+		return HelloRequest{}, err
 	}
 	return req, nil
 }
@@ -83,6 +83,9 @@ func DecodeBriefRequest(r io.Reader) (BriefRequest, error) {
 		return BriefRequest{}, err
 	}
 	if err := validateCommon(req.SessionID, req.CWD); err != nil {
+		return BriefRequest{}, err
+	}
+	if err := validHostVersionField(req.HostVersion); err != nil {
 		return BriefRequest{}, err
 	}
 	if !validTrigger(req.Trigger) {
@@ -129,6 +132,15 @@ func validateCommon(session, cwd string) error {
 	}
 	if cwd == "" || strings.ContainsRune(cwd, 0) {
 		return fmt.Errorf("%w: cwd must be a non-empty path", ErrInvalid)
+	}
+	return nil
+}
+
+// validHostVersionField checks a request's host_version is present and bounded. Whether it is
+// readable, and new enough, is MeetsMinHostVersion's question, answered when the verb is served.
+func validHostVersionField(v string) error {
+	if v == "" || len(v) > MaxHostVersionBytes {
+		return fmt.Errorf("%w: host_version must be 1-%d bytes", ErrInvalid, MaxHostVersionBytes)
 	}
 	return nil
 }
