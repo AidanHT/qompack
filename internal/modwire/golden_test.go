@@ -150,7 +150,7 @@ func TestGolden_EveryMessageIsOneLine(t *testing.T) {
 		return
 	}
 	for _, name := range []string{
-		"hello_request.json", "hello_response_enabled.json", "hello_response_refused.json",
+		"hello_request.json", "hello_response_enabled.json", "hello_response_refused.json", "hello_response_below_min.json",
 		"brief_request.json", "brief_response_served.json", "brief_response_cold.json",
 		"error_unsupported_version.json",
 	} {
