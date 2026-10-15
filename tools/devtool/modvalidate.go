@@ -169,11 +169,16 @@ func taskModValidate(args []string) error {
 	return runModValidate(osModClaude(), root, runtime.GOOS, *record, os.Stdout)
 }
 
-// runModValidate materialises goos's mods plugin (a relative recordPath is under repoRoot), runs `claude plugin validate --strict --json` on
-// it and asserts the Stage A allowlist. It fails closed: without claude, without exit 0 and
-// success:true, on a calls line it cannot read, and on any call outside the allowlist. When the
-// output lists no calls it scans the materialised hooks/register.ts instead. The gating hooks are
-// reported, not judged.
+// runModValidate materialises goos's mods plugin, runs `claude plugin validate --strict --json` on
+// it and asserts the Stage A allowlist; a relative recordPath is resolved under repoRoot. It fails
+// closed: without claude, without exit 0 and success:true, on a calls line it cannot read, and on
+// any call outside the allowlist.
+//
+// The calls checked are the union of the validator's calls line and a scan of the materialised
+// hooks/register.ts, always both (ruling R12): on 2.1.300 the line omits property reads such as
+// $.plugin.root, so the line alone could pass an off-list read. register.ts is enough to scan,
+// because pluginmanifest's TestModSources_OnlyRegisterTouchesTheHostAPI confines `$` to it. Without
+// a calls line, the scan alone decides. The gating hooks are reported, not judged.
 func runModValidate(c modClaude, repoRoot, goos, recordPath string, w io.Writer) (err error) {
 	const task = "mod-validate"
 	bin, err := lookUpModClaude(c, task)
@@ -215,17 +220,21 @@ func runModValidate(c modClaude, repoRoot, goos, recordPath string, w io.Writer)
 		return err
 	}
 
-	calls, found, err := report.calls()
+	listed, found, err := report.calls()
 	if err != nil {
 		return err
 	}
-	source := "the validator's calls line"
+	reg, err := os.ReadFile(filepath.Join(ws.plugin, "hooks", "register.ts"))
+	if err != nil {
+		return fmt.Errorf("hooks/register.ts could not be read for the call scan: %w", err)
+	}
+	set := map[string]bool{}
+	for _, call := range append(listed, scanModuleCalls(string(reg))...) {
+		set[call] = true
+	}
+	calls := sortedKeys(set)
+	source := "the validator's calls line plus scanned hooks/register.ts"
 	if !found {
-		reg, readErr := os.ReadFile(filepath.Join(ws.plugin, "hooks", "register.ts"))
-		if readErr != nil {
-			return fmt.Errorf("the validator listed no calls, and hooks/register.ts could not be read: %w", readErr)
-		}
-		calls = scanModuleCalls(string(reg))
 		source = "scanned hooks/register.ts (the validator listed no calls)"
 	}
 	_, _ = fmt.Fprintf(w, "%s: calls: %s (from %s)\n", task, listOrNone(calls), source)
