@@ -149,9 +149,9 @@ unreadable version, gets a *served* hello with `enabled: false`, and the hello f
 written so the host version is on record for diagnosis. The mod calls `brief` only after a hello
 answered `enabled: true`; the `MIN_HOST_VERSION` constant in its generated TypeScript is
 informational. The configuration switch `runtime.mod.enabled` keeps the features off by default
-until an evaluation supports turning them on; while it is off, every verb answers `refused`. Mods can also be off for reasons Qompack cannot see (the host's
-`disableAllHooks`, safe mode, bare mode, managed policy, or a remote rollout switch); in each case
-the classic path runs as today.
+until an evaluation supports turning them on; while it is off, every verb answers `refused`. Mods
+can also be off for reasons Qompack cannot see (the host's `disableAllHooks`, safe mode, bare mode,
+managed policy, or a remote rollout switch); in each case the classic path runs as today.
 
 ### 6. Provisional timing defaults
 
