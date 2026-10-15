@@ -76,13 +76,26 @@ func TestModSources_OnlyRegisterTouchesTheHostAPI(t *testing.T) {
 	require.True(t, dollarUse.MatchString("await $.process.run(argv)"))
 }
 
-// importSpec matches the module specifier of an import or re-export declaration.
-var importSpec = regexp.MustCompile(`(?m)^\s*(?:import|export)\b[^'"\n]*\bfrom\s+'([^']+)'`)
+// importSpec matches the module specifier of an import or re-export declaration, including one
+// whose braces span several lines, and of a bare side-effect import.
+var importSpec = regexp.MustCompile(`(?m)^\s*(?:(?:import|export)\b[^'"]*?\bfrom|import)\s+['"]([^'"]+)['"]`)
 
 // TestModSources_ImportOnlyEachOtherAndTheHostTypes holds the validator's import rule: relative
 // imports of the mod's own files and the bare `claude-code` module, nothing else, and no dynamic
 // import().
 func TestModSources_ImportOnlyEachOtherAndTheHostTypes(t *testing.T) {
+	for in, want := range map[string]string{
+		"import {\n  A,\n  B,\n} from './wire.gen.ts'\n": "./wire.gen.ts",
+		"import type { R } from 'claude-code'\n":         "claude-code",
+		"import './side.ts'\n":                           "./side.ts",
+		"export { x } from \"./x.ts\"\n":                 "./x.ts",
+	} {
+		m := importSpec.FindStringSubmatch(in)
+		require.Len(t, m, 2, "the pattern must see %q, or the check below is vacuous", in)
+		require.Equal(t, want, m[1])
+	}
+	require.Nil(t, importSpec.FindStringSubmatch("export const VERB_HELLO: Verb = 'hello'\n"))
+
 	src, err := pluginmanifest.ModSources(pluginmanifest.CommittedGOOS)
 	require.NoError(t, err)
 	for name, b := range src {
