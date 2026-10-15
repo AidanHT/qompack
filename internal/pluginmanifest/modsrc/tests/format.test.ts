@@ -18,6 +18,7 @@ import { BRIEF_MAX_CHARS, MAX_FACT_IDS, MAX_MESSAGE_BYTES } from '../hooks/wire.
 
 const helloEnabled = '{"v":1,"ok":true,"enabled":true}'
 const helloRefused = '{"v":1,"ok":false,"reason":"refused","enabled":false}'
+const helloBelowMin = '{"v":1,"ok":true,"enabled":false}'
 const briefServed = '{"v":1,"ok":true,"instructions":"Keep: the failing test is TestLedgerReplay; never edit db/.","fact_ids":["neg_7c1d2e3f4a5b","pin_0a1b2c3d4e5f"]}'
 const briefCold = '{"v":1,"ok":false,"reason":"cold","instructions":"","fact_ids":[]}'
 const unsupportedVersion = '{"v":1,"ok":false,"reason":"error","detail":"modwire: unsupported wire version 2 (this side speaks 1)"}'
@@ -54,6 +55,10 @@ describe('decodeHello', () => {
   test('reads the Go goldens', async () => {
     expect(decodeHello(0, helloEnabled + '\n')).toEqual({ v: 1, ok: true, enabled: true })
     expect(decodeHello(0, helloRefused + '\n')).toEqual({ v: 1, ok: false, reason: 'refused', enabled: false })
+  })
+
+  test('a served hello may still say the features are off for this host', async () => {
+    expect(decodeHello(0, helloBelowMin)).toEqual({ v: 1, ok: true, enabled: false })
   })
 
   test('reads a bare error object as unserved', async () => {

@@ -37,7 +37,8 @@ func HelloFileName(session string) (string, error) {
 }
 
 // BriefRecord is one line of a session's brief-outcome log. The CLI appends one for every brief
-// call, served or not, except a refused root or a project without a store, which get none. Its
+// call, served or not, except a refused one (ReasonRefused: a home root, no store, or the switch
+// off), for which nothing is written and no store is created. Its
 // field set is closed and carries no content: what was asked, what it came to, how much and how
 // long.
 type BriefRecord struct {
@@ -96,8 +97,9 @@ func ParseBriefRecord(line []byte) (BriefRecord, error) {
 }
 
 // HelloFile is a session's hello file: the proof a mod session started and reached the binary,
-// and the host version it reported. The hello verb writes it; checks that need to know whether
-// the mod loaded read it.
+// and the host version it reported. The hello verb writes it for every served hello, including
+// one answered enabled false because the host is too old, and never for a refused one. Checks
+// that need to know whether the mod loaded read it.
 type HelloFile struct {
 	SessionID string `json:"session_id"`
 	// HostVersion is the host's full version string, as the hello request carried it.

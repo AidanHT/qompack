@@ -47,7 +47,8 @@ func Schema() SchemaDef {
 			{"Version", "WIRE_VERSION", Version, "The wire version every request and response carries as `v`."},
 			{
 				"MinHostVersion", "MIN_HOST_VERSION", MinHostVersion,
-				"The oldest Claude Code release the mod's features are enabled on (provisional).",
+				"The oldest Claude Code release the mod's features are enabled on (provisional). " +
+					"Informational: the Go side is the only gate, and the mod acts on hello's `enabled`.",
 			},
 			{
 				"BriefMaxChars", "BRIEF_MAX_CHARS", BriefMaxChars,

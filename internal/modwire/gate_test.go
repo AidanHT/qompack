@@ -13,28 +13,28 @@ import (
 func TestMeetsMinHostVersion(t *testing.T) {
 	require.Equal(t, "2.1.300", modwire.MinHostVersion, "the rows below are written against 2.1.300")
 	cases := map[string]bool{
-		"2.1.300":                                 true,
-		"2.1.301":                                 true,
-		"2.1.3000":                                true,
-		"2.2.0":                                   true,
-		"3.0.0":                                   true,
-		"2.1.300+build.7":                         true, // build metadata does not order
+		"2.1.300":         true,
+		"2.1.301":         true,
+		"2.1.3000":        true,
+		"2.2.0":           true,
+		"3.0.0":           true,
+		"2.1.300+build.7": true, // build metadata does not order
 		"2.1.301-dev.20261014.t101500.sha1a2b3c4": true, // a prerelease of a later release
-		"2.1.299":                                 false,
-		"2.0.999":                                 false,
-		"1.9.999":                                 false,
-		"2.1.300-dev":                             false, // a prerelease of X counts as below X
+		"2.1.299":     false,
+		"2.0.999":     false,
+		"1.9.999":     false,
+		"2.1.300-dev": false, // a prerelease of X counts as below X
 		"2.1.300-dev.20261014.t101500.sha1a2b3c4": false,
-		"2.1.300-":                                false,
-		"":                                        false,
-		"v2.1.300":                                false,
-		"2.1":                                     false,
-		"2.1.300.1":                               false,
-		"2.1.x":                                   false,
-		" 2.1.300":                                false,
-		"2.1.300 (Claude Code)":                   false,
-		"-2.1.300":                                false,
-		"2.1.99999999999999999999":                false, // overflow is unparsable, not huge
+		"2.1.300-":                 false,
+		"":                         false,
+		"v2.1.300":                 false,
+		"2.1":                      false,
+		"2.1.300.1":                false,
+		"2.1.x":                    false,
+		" 2.1.300":                 false,
+		"2.1.300 (Claude Code)":    false,
+		"-2.1.300":                 false,
+		"2.1.99999999999999999999": false, // overflow is unparsable, not huge
 	}
 	for v, want := range cases {
 		require.Equal(t, want, modwire.MeetsMinHostVersion(v), "%q", v)

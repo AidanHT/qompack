@@ -5,7 +5,7 @@
 /** The wire version every request and response carries as `v`. */
 export const WIRE_VERSION = 1
 
-/** The oldest Claude Code release the mod's features are enabled on (provisional). */
+/** The oldest Claude Code release the mod's features are enabled on (provisional). Informational: the Go side is the only gate, and the mod acts on hello's `enabled`. */
 export const MIN_HOST_VERSION = '2.1.300'
 
 /** Default and ceiling for a brief's instructions, in UTF-16 code units (String length). */

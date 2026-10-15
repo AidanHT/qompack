@@ -20,5 +20,9 @@
 //   - A handled failure is a Status with ok false and one of the Reason values; the CLI exits 0
 //     with it. A non-zero exit or unparsable stdout is read by the mod as ReasonError.
 //
+// The version gate lives here and only here: the Go side applies MeetsMinHostVersion when it
+// serves a hello and answers `enabled`; MIN_HOST_VERSION in the generated TypeScript is
+// informational. A prerelease of a release (2.1.300-dev...) counts as below that release.
+//
 // The package is pure: it reads and writes no files and holds no state.
 package modwire

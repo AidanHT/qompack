@@ -7,6 +7,10 @@ const Version = 1
 // release installed when the contract was built, a provisional minimum: the live checks that
 // verify the mods surface against a pinned build confirm it or raise it. Below it the mod stays
 // out of the way and the classic hooks run as before.
+//
+// The Go side is the only gate (MeetsMinHostVersion, applied when it serves a hello). The copy
+// of this value in the mod's generated TypeScript is informational: the mod acts on the hello's
+// `enabled` field, never on its own comparison.
 const MinHostVersion = "2.1.300"
 
 // Limits. Each one bounds something the other side cannot be trusted to bound for itself.
@@ -54,8 +58,9 @@ type Verb string
 
 // The Stage A verbs.
 const (
-	// VerbHello announces a mod session: the host version and the session id. It writes the
-	// hello file and says whether the mod's features are enabled for the project.
+	// VerbHello announces a mod session: the host version and the session id. When the project
+	// is served it writes the hello file and says, in `enabled`, whether the mod's features are
+	// on for this host; when it is refused it writes nothing.
 	VerbHello Verb = "hello"
 
 	// VerbBrief asks for compaction instructions before a compaction runs.
@@ -80,8 +85,10 @@ const (
 	// ReasonTimeout means the daemon accepted but did not answer within its deadline.
 	ReasonTimeout Reason = "timeout"
 
-	// ReasonRefused means the project is not served: its root is the home directory, or the
-	// project or the mod is switched off. Nothing is read, written or spawned for it.
+	// ReasonRefused means the project is not served: its root is the home directory, it has no
+	// .qompack store, or runtime.mod.enabled is false. Nothing is read, written or spawned for
+	// it: no daemon, no store, no hello file and no brief record. This is the only encoding of
+	// "switched off"; a host that is merely too old gets a served hello with enabled false.
 	ReasonRefused Reason = "refused"
 
 	// ReasonError is anything else, including a malformed or unsupported request.
@@ -106,7 +113,8 @@ const (
 	OutcomeBusy Outcome = "busy"
 	// OutcomeTimeout mirrors ReasonTimeout.
 	OutcomeTimeout Outcome = "timeout"
-	// OutcomeRefused mirrors ReasonRefused.
+	// OutcomeRefused mirrors ReasonRefused. A refused call writes nothing, so the log itself never
+	// carries it; it exists so OutcomeFor maps every reason.
 	OutcomeRefused Outcome = "refused"
 	// OutcomeError mirrors ReasonError.
 	OutcomeError Outcome = "error"
@@ -156,11 +164,16 @@ type HelloRequest struct {
 	HostVersion string `json:"host_version"`
 }
 
-// HelloResponse is the stdout of `qompack mod hello`.
+// HelloResponse is the stdout of `qompack mod hello`. Its two "off" answers are distinct:
+//
+//   - ok false, reason refused: the project is not served (ReasonRefused); nothing is written.
+//   - ok true, enabled false: the project is served (it has a store and runtime.mod.enabled is
+//     on) and the hello file is written, recording the host version for diagnosis, but the host
+//     does not meet MinHostVersion or its version is unreadable (MeetsMinHostVersion).
 type HelloResponse struct {
 	Status
-	// Enabled is true when the project has the mod's features switched on and HostVersion is at
-	// least MinHostVersion. It is advisory: every later verb re-checks for itself.
+	// Enabled is MeetsMinHostVersion(HostVersion) on a served hello, and always false on an
+	// unserved one. The mod calls brief only after a hello answered enabled true.
 	Enabled bool `json:"enabled"`
 }
 
