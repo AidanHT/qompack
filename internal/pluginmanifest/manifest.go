@@ -27,9 +27,12 @@ import (
 // pluginDir is the bundle root, relative to the repository root.
 const pluginDir = "plugin"
 
-// pluginRootBin is the bundle's binary directory as the host spells it: the host substitutes
-// ${CLAUDE_PLUGIN_ROOT} with the installed plugin directory.
-const pluginRootBin = "${CLAUDE_PLUGIN_ROOT}/bin/"
+// pluginRoot is the installed plugin directory as the host spells it inside hooks.json and
+// .mcp.json: the host substitutes ${CLAUDE_PLUGIN_ROOT} there, and nowhere else.
+const pluginRoot = "${CLAUDE_PLUGIN_ROOT}/"
+
+// binDir is the bundle's binary directory, relative to the plugin root.
+const binDir = "bin/"
 
 // binaryName is the bundled executable's base name, without the platform suffix.
 const binaryName = "qompack"
@@ -56,10 +59,20 @@ const CommittedGOOS = "linux"
 // No quoting appears anywhere: with no shell there is nothing to word-split a spaced install
 // directory (finding F-1 is closed structurally), and a quote would become a literal path character.
 func BinaryRef(goos string) string {
+	return pluginRoot + BinaryRelPath(goos)
+}
+
+// BinaryRelPath is the bundled executable relative to the plugin root, on goos: bin/qompack, or
+// bin/qompack.exe on windows. It is BinaryRef without the host placeholder.
+//
+// The mod needs it because the host's process API runs an argv exactly as given, with no shell and
+// no ${CLAUDE_PLUGIN_ROOT} substitution: the mod joins this path onto the plugin root the host
+// reports, so the two launch paths name one executable by construction.
+func BinaryRelPath(goos string) string {
 	if goos == "windows" {
-		return pluginRootBin + binaryName + ".exe"
+		return binDir + binaryName + ".exe"
 	}
-	return pluginRootBin + binaryName
+	return binDir + binaryName
 }
 
 // Description is the one sentence that says what Qompack does, wherever a host or a marketplace
@@ -77,6 +90,9 @@ type Manifest struct {
 	Hooks    HooksJSON
 	MCP      MCPJSON
 	Commands []CommandDoc
+	// ModSources is the hooks module's sources, keyed by base name and shipped beside hooks.json.
+	// It is empty unless the manifest came from ForTargetWithMods.
+	ModSources map[string][]byte
 }
 
 // PluginJSON is plugin/.claude-plugin/plugin.json (§3.4).
@@ -94,10 +110,17 @@ type Author struct {
 	Name string `json:"name"`
 }
 
-// HooksJSON is plugin/hooks/hooks.json: hook event name to its matcher groups.
+// HooksJSON is plugin/hooks/hooks.json: hook event name to its matcher groups, plus the hooks
+// module a mods rendering names. Modules is omitted when empty, so a rendering without mods has the
+// bytes it had before mods existed.
 type HooksJSON struct {
-	Hooks map[string][]HookGroup `json:"hooks"`
+	Hooks   map[string][]HookGroup `json:"hooks"`
+	Modules []string               `json:"modules,omitempty"`
 }
+
+// ModuleEntry is the hooks module as hooks.json names it. The host resolves the path relative to
+// hooks.json, so the module and the sources it imports sit in the plugin's hooks/ directory.
+const ModuleEntry = "./register.ts"
 
 // HookGroup is one matcher group. Matcher is omitted for hooks that do not match on tool name.
 type HookGroup struct {
@@ -285,6 +308,20 @@ func ForTarget(version, goos string) Manifest {
 	}
 }
 
+// ForTargetWithMods is ForTarget plus the hooks module: hooks.json names ModuleEntry, and goos's
+// ModSources ship under hooks/. It is opt-in. Default and ForTarget never carry a module, so the
+// committed plugin/ tree and the release bundles do not change until mods are switched on.
+func ForTargetWithMods(version, goos string) (Manifest, error) {
+	src, err := ModSources(goos)
+	if err != nil {
+		return Manifest{}, err
+	}
+	m := ForTarget(version, goos)
+	m.Hooks.Modules = []string{ModuleEntry}
+	m.ModSources = src
+	return m, nil
+}
+
 // marshal renders v with two-space indentation and a trailing newline. Both are load-bearing:
 // `git diff --exit-code -- plugin/` is a CI gate, so the bytes must be stable and must match what
 // a human editor would leave behind.
@@ -338,7 +375,37 @@ func (m Manifest) Files() (map[string][]byte, error) {
 		p := filepath.ToSlash(filepath.Join(pluginDir, "commands", c.Name+".md"))
 		out[p] = renderCommand(c)
 	}
+
+	if err := addModSources(out, m); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// addModSources writes m's mod sources beside hooks.json and checks that every module hooks.json
+// names is one of them, so a rendering can never point the host at a file the plugin lacks.
+func addModSources(out map[string][]byte, m Manifest) error {
+	hooksDir := pluginDir + "/hooks/"
+	for name, b := range m.ModSources {
+		if name != filepath.Base(name) || strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
+			return fmt.Errorf("mod source %q is not a base name", name)
+		}
+		p := hooksDir + name
+		if _, clash := out[p]; clash {
+			return fmt.Errorf("mod source %q collides with a generated file", name)
+		}
+		out[p] = b
+	}
+	for _, mod := range m.Hooks.Modules {
+		name, ok := strings.CutPrefix(mod, "./")
+		if !ok {
+			return fmt.Errorf("hooks.json module %q is not a ./ path relative to hooks.json", mod)
+		}
+		if _, shipped := m.ModSources[name]; !shipped {
+			return fmt.Errorf("hooks.json names module %q, which no mod source provides", mod)
+		}
+	}
+	return nil
 }
 
 // Write materializes the bundle under dir, which is the repository root (or a temp dir when

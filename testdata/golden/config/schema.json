@@ -526,6 +526,27 @@
           ],
           "type": "object"
         },
+        "mod": {
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "let the Claude Code mod reach Qompack; while false every qompack mod verb answers refused and writes nothing",
+              "type": "boolean",
+              "x-qompack-section": "ADR 0015"
+            },
+            "steering": {
+              "default": false,
+              "description": "let the Claude Code mod steer compactions with a brief; while false a hello answers steering false and every brief is refused",
+              "type": "boolean",
+              "x-qompack-section": "ADR 0015"
+            }
+          },
+          "required": [
+            "enabled",
+            "steering"
+          ],
+          "type": "object"
+        },
         "mode": {
           "default": "auto",
           "description": "overall operating mode",
@@ -867,6 +888,7 @@
         "logging",
         "mcp",
         "migration",
+        "mod",
         "mode",
         "phase7",
         "redact",

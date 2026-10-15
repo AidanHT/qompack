@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -53,18 +54,24 @@ func fmtTargets(root string) ([]string, error) {
 
 // taskFmt runs the pinned gofumpt with -w, formatting every file in place. Per the implementation
 // spec's task table this never fails on its own account (formatting is mutating, not a gate) — any
-// underlying gofumpt error is still surfaced on stderr via the inherited streams.
+// underlying error is still surfaced on stderr.
 func taskFmt(args []string) error {
 	targets, err := fmtTargets(".")
 	if err != nil {
 		return err
 	}
 	_ = pinnedRunInherit(gofumptPkg, append([]string{"-l", "-w"}, targets...)...)
+	// The mod's TypeScript sources get their own explicit rules (modsrcrules.go); gofumpt never
+	// reads them.
+	if err := fixModSources("."); err != nil {
+		fmt.Fprintln(os.Stderr, "fmt: mod sources:", err)
+	}
 	return nil
 }
 
 // taskFmtCheck runs gofumpt -l (list only, no write) and fails if it lists any file, printing the
-// offending files exactly as gofumpt reports them.
+// offending files exactly as gofumpt reports them. It also fails when a mod source under
+// modSourceDir breaks the rules taskFmt would repair (checkModSources).
 func taskFmtCheck(args []string) error {
 	targets, err := fmtTargets(".")
 	if err != nil {
@@ -77,10 +84,14 @@ func taskFmtCheck(args []string) error {
 	if err != nil {
 		return fmt.Errorf("gofumpt -l: %w", err)
 	}
-	trimmed := strings.TrimSpace(string(stdout))
-	if trimmed == "" {
-		return nil
+	var failures []error
+	if trimmed := strings.TrimSpace(string(stdout)); trimmed != "" {
+		fmt.Println(trimmed)
+		failures = append(failures,
+			fmt.Errorf("fmt-check: %d file(s) not gofumpt-formatted", len(strings.Split(trimmed, "\n"))))
 	}
-	fmt.Println(trimmed)
-	return fmt.Errorf("fmt-check: %d file(s) not gofumpt-formatted", len(strings.Split(trimmed, "\n")))
+	if err := checkModSources("."); err != nil {
+		failures = append(failures, fmt.Errorf("fmt-check: %w", err))
+	}
+	return errors.Join(failures...)
 }

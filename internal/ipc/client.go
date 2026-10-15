@@ -3,6 +3,7 @@ package ipc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -122,7 +123,38 @@ type ClientOptions struct {
 	// which are always real wall-clock time because that is what the OS network stack enforces
 	// regardless of what a test's injected Clock says. nil falls back to core.SystemClock().
 	Clock core.Clock
+	// OnFailure, when set, is told which step of a Send failed, at most once per Send and before the
+	// spool append. It is not called when the daemon answered, whatever it answered, or in ModeOff.
+	// Send's own contract is unchanged: every failure still spools and returns (Response{OK:false},
+	// nil). It exists for a caller that has to tell the causes apart, which Send's result cannot.
+	OnFailure func(SendFailure)
 }
+
+// SendFailure names the step at which Client.Send gave up on a request.
+type SendFailure string
+
+// The steps a Send can fail at.
+const (
+	// SendNotListening: the dial was refused without a timeout: no pipe or socket at the address,
+	// or a refused connection. On macOS that includes a unix socket whose accept queue is full,
+	// which connect(2) refuses with ECONNREFUSED.
+	SendNotListening SendFailure = "not-listening"
+	// SendNotAccepted: the dial failed with an error that says it timed out. Something holds the
+	// address but did not accept: a named pipe whose every instance is claimed (go-winio retries
+	// ERROR_PIPE_BUSY until the connect deadline), or, on Linux, a unix socket whose accept queue
+	// is full: the non-blocking connect returns EAGAIN at once, and syscall.Errno reports EAGAIN
+	// as a timeout.
+	SendNotAccepted SendFailure = "not-accepted"
+	// SendUnanswered: the daemon accepted the connection, then missed the write, ACK or reply
+	// deadline.
+	SendUnanswered SendFailure = "unanswered"
+	// SendDisabled: the state disables the daemon, so nothing was dialled.
+	SendDisabled SendFailure = "disabled"
+	// SendBroken: any other step: the request could not be encoded, the session is in spool
+	// submode, the caller's context was done, or the exchange broke off or answered with something
+	// that is not an answer.
+	SendBroken SendFailure = "broken"
+)
 
 // client is the real Client (00-ARCHITECTURE.md §5.4, §7.1, §12.2, §12.3). Send never returns an
 // error a hook could propagate: every failure route ends in a spool append (or, if spooling itself
@@ -210,11 +242,11 @@ func (c *client) Send(ctx context.Context, req Request, deadline time.Duration) 
 	}
 	// 2. The operator has disabled the daemon outright.
 	if !c.o.State.DaemonEnabled {
-		return c.spoolAndReturn(req)
+		return c.fail(SendDisabled, req)
 	}
 	// 3. The session has already breached its hot-path budget for this op family: never connect.
 	if c.currentHot() == HotSpool && req.Op.HotPath() {
-		return c.spoolAndReturn(req)
+		return c.fail(SendBroken, req)
 	}
 
 	// 4. Encode, externalizing an oversized Event.ToolResponse before it ever touches the wire.
@@ -222,13 +254,13 @@ func (c *client) Send(ctx context.Context, req Request, deadline time.Duration) 
 	if err != nil {
 		req = c.externalize(req)
 		if line, err = EncodeRequest(req); err != nil {
-			return c.spoolAndReturn(req)
+			return c.fail(SendBroken, req)
 		}
 	}
 	if len(line) >= c.threshold {
 		req = c.externalize(req)
 		if line, err = EncodeRequest(req); err != nil {
-			return c.spoolAndReturn(req)
+			return c.fail(SendBroken, req)
 		}
 	}
 
@@ -243,7 +275,7 @@ func (c *client) Send(ctx context.Context, req Request, deadline time.Duration) 
 		//
 		// Client latency is unchanged: both operations already happen before Send returns, so
 		// this only moves the daemon's start a file-append later.
-		resp, spoolErr := c.spoolAndReturn(req)
+		resp, spoolErr := c.fail(classifyConnectFailure(ctx, err), req)
 		c.lazySpawn()
 		return resp, spoolErr
 	}
@@ -251,10 +283,10 @@ func (c *client) Send(ctx context.Context, req Request, deadline time.Duration) 
 
 	// 6. Write the request line within AckDeadline.
 	if err := conn.SetWriteDeadline(time.Now().Add(c.o.AckDeadline)); err != nil {
-		return c.spoolAndReturn(req)
+		return c.fail(SendBroken, req)
 	}
 	if _, err := conn.Write(line); err != nil {
-		return c.spoolAndReturn(req)
+		return c.fail(exchangeFailure(err), req)
 	}
 
 	if !req.Reply {
@@ -267,12 +299,12 @@ func (c *client) Send(ctx context.Context, req Request, deadline time.Duration) 
 // within AckDeadline.
 func (c *client) awaitACK(conn net.Conn, req Request) (Response, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(c.o.AckDeadline)); err != nil {
-		return c.spoolAndReturn(req)
+		return c.fail(SendBroken, req)
 	}
 	var b [1]byte
 	n, err := io.ReadFull(conn, b[:])
 	if err != nil || n != 1 {
-		return c.spoolAndReturn(req)
+		return c.fail(exchangeFailure(err), req)
 	}
 	switch b[0] {
 	case ACK:
@@ -283,7 +315,7 @@ func (c *client) awaitACK(conn net.Conn, req Request) (Response, error) {
 		c.setHot(HotSpool)
 		return c.spoolAndReturn(req)
 	default:
-		return c.spoolAndReturn(req)
+		return c.fail(SendBroken, req)
 	}
 }
 
@@ -291,15 +323,15 @@ func (c *client) awaitACK(conn net.Conn, req Request) (Response, error) {
 // the caller-supplied deadline (e.g. 10 s for session.start).
 func (c *client) awaitReply(conn net.Conn, req Request, deadline time.Duration) (Response, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(deadline)); err != nil {
-		return c.spoolAndReturn(req)
+		return c.fail(SendBroken, req)
 	}
 	line, err := NewLineReader(conn, c.o.MaxLine).ReadLine()
 	if err != nil {
-		return c.spoolAndReturn(req)
+		return c.fail(exchangeFailure(err), req)
 	}
 	resp, err := DecodeResponse(line)
 	if err != nil {
-		return c.spoolAndReturn(req)
+		return c.fail(SendBroken, req)
 	}
 	if resp.Hot == HotSpool {
 		c.setHot(HotSpool)
@@ -339,6 +371,44 @@ func (c *client) setHot(h HotPathMode) {
 	c.hotMu.Lock()
 	c.hot = h
 	c.hotMu.Unlock()
+}
+
+// fail reports f to OnFailure, when one is set, and then takes the spool path every failure ends on.
+func (c *client) fail(f SendFailure, req Request) (Response, error) {
+	if c.o.OnFailure != nil {
+		c.o.OnFailure(f)
+	}
+	return c.spoolAndReturn(req)
+}
+
+// classifyConnectFailure names a failed dial. A dial whose error says it timed out found something
+// holding the address that did not accept (a busy named pipe, or EAGAIN from a full accept queue on
+// Linux); any other refusal means nothing listens there. A caller whose context was already done
+// failed for its own reason, not the daemon's.
+func classifyConnectFailure(ctx context.Context, err error) SendFailure {
+	switch {
+	case ctx.Err() != nil:
+		return SendBroken
+	case timedOut(err):
+		return SendNotAccepted
+	}
+	return SendNotListening
+}
+
+// exchangeFailure names a failed write or read on a connection the daemon accepted: a deadline that
+// ran out is a missed answer, anything else (EOF, a reset) a broken exchange.
+func exchangeFailure(err error) SendFailure {
+	if timedOut(err) {
+		return SendUnanswered
+	}
+	return SendBroken
+}
+
+// timedOut reports whether err says it timed out, as go-winio's ErrTimeout, an expired deadline
+// (os.ErrDeadlineExceeded, wrapped in a net.OpError) and context.DeadlineExceeded all do.
+func timedOut(err error) bool {
+	var t interface{ Timeout() bool }
+	return errors.As(err, &t) && t.Timeout()
 }
 
 // spoolAndReturn is every failure path's landing point: append to the spool (or, if there is none,

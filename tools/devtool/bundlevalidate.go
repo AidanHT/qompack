@@ -95,11 +95,15 @@ func osClaudeProbe() claudeProbe {
 }
 
 // runClaude executes the CLI with a deadline, capturing the two streams separately.
-func runClaude(bin string, args ...string) claudeRun {
+func runClaude(bin string, args ...string) claudeRun { return runClaudeEnv(nil, bin, args...) }
+
+// runClaudeEnv is runClaude with an explicit environment; nil inherits this process's.
+func runClaudeEnv(env []string, bin string, args ...string) claudeRun {
 	ctx, cancel := context.WithTimeout(context.Background(), claudeProbeTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, bin, args...) //nolint:gosec // G204: fixed subcommand over a path this tool just assembled
+	cmd.Env = env
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

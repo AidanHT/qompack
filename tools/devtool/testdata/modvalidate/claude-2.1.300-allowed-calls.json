@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "strict": true,
+  "target": "<out>\\.claude-plugin\\plugin.json",
+  "manifest": {
+    "file": "<out>\\.claude-plugin\\plugin.json",
+    "type": "plugin",
+    "errors": [],
+    "warnings": [],
+    "notes": [],
+    "gatingHooks": []
+  },
+  "contents": [
+    {
+      "file": "<out>\\hooks\\hooks.json",
+      "type": "hooks",
+      "errors": [],
+      "warnings": [],
+      "notes": [
+        "./register.ts hooks: session.start, session.compact",
+        "./register.ts hooks on session.compact do not run in a plugin a person installs where an organization manages Claude Code: there, these events pass over the plugins you install, and only a plugin the organization lists in managed settings runs them",
+        "./register.ts gating hook without .catch: session.compact",
+        "./register.ts calls: $.process.run (via hello), $.session.id, $.session.root (via hello), $.session.version, $.ui.log"
+      ],
+      "gatingHooks": [
+        {
+          "module": "./register.ts",
+          "pattern": "session.compact",
+          "hook": "session.compact",
+          "hasCatch": false
+        }
+      ]
+    }
+  ],
+  "advice": []
+}

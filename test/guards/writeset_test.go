@@ -34,6 +34,32 @@ var hookSubcommands = [][]string{
 	{"flush"},
 }
 
+// modSubcommands is every `qompack mod` verb the guard drives, in argv form. Each runs with
+// runtime.mod.enabled switched on for the invocation, so it is served and writes what it writes; a
+// refused verb would write nothing and prove nothing. Its stdin is a valid request for the
+// guard's project (modRequest).
+var modSubcommands = [][]string{
+	{"mod", "hello", "--set", "runtime.mod.enabled=true"},
+}
+
+// modRequests builds, per verb, the request the mod would send for the guard's project.
+var modRequests = map[string]func(root string) map[string]any{
+	"hello": func(root string) map[string]any {
+		return map[string]any{"v": 1, "session_id": "s-writeset", "cwd": root, "host_version": "2.1.300"}
+	},
+}
+
+// modRequest is the stdin a mod verb gets in the guard. A verb in modSubcommands with no entry in
+// modRequests fails the guard rather than running on an empty stdin.
+func modRequest(t *testing.T, sub []string, root string) []byte {
+	t.Helper()
+	build, ok := modRequests[sub[1]]
+	require.True(t, ok, "no guard request for mod verb %q", sub[1])
+	b, err := json.Marshal(build(root))
+	require.NoError(t, err)
+	return b
+}
+
 // guardClock is a frozen clock so the guard's own runs are deterministic.
 type guardClock struct{ t time.Time }
 
@@ -44,8 +70,8 @@ func (g guardClock) Since(t time.Time) time.Duration { return g.t.Sub(t) }
 //
 // "Qompack writes to one gitignored directory and nowhere else" is the entire security story a
 // user is asked to accept (D10, §3.3). Stating it in a doc is worth nothing; this snapshots the
-// project tree and the home tree around a full run of all six hooks and fails on any created,
-// modified or deleted path outside <root>/.qompack/ and <home>/.qompack/.
+// project tree and the home tree around a full run of all six hooks, then every `qompack mod` verb,
+// and fails on any created, modified or deleted path outside <root>/.qompack/ and <home>/.qompack/.
 //
 // It runs the hooks IN PROCESS rather than against the built binary on purpose: an in-process run
 // shares this test's working directory and environment, so a stray relative-path write — the most
@@ -106,6 +132,27 @@ func TestGuard_WriteSetConfinedToQompack(t *testing.T) {
 			"hook %v must emit valid hookio.Output", sub)
 	}
 
+	// The mod verbs run after the hooks, so the store they require (and never create) exists.
+	for _, sub := range modSubcommands {
+		var out, errw bytes.Buffer
+		argv := append([]string{"qompack"}, sub...)
+		code := cli.Dispatch(context.Background(), cli.All(), argv, cli.Env{
+			Getenv:  func(string) string { return "" },
+			Stdin:   bytes.NewReader(modRequest(t, sub, root)),
+			Clock:   guardClock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+			HomeDir: home,
+		}, &out, &errw)
+		require.Equal(t, 0, code, "%v must exit 0: %s", sub, errw.String())
+
+		var status struct {
+			OK bool `json:"ok"`
+		}
+		require.NoError(t, json.Unmarshal(bytes.TrimSpace(out.Bytes()), &status), "%v: %q", sub, out.String())
+		require.True(t, status.OK, "%v must be served, or it proves nothing: %s", sub, out.String())
+	}
+	require.FileExists(t, filepath.Join(root, dotQompack, "state", "mod-hello-s-writeset.json"),
+		"mod hello wrote its hello file, so the guard covered a real write")
+
 	after := snapshotTree(t, root, home)
 
 	allowed := []string{
@@ -132,7 +179,7 @@ func TestGuard_WriteSetConfinedToQompack(t *testing.T) {
 	}
 
 	require.Empty(t, offenders,
-		"§13 invariant 7: the six hooks wrote outside %s and %s:\n  %s",
+		"§13 invariant 7: the six hooks and the mod verbs wrote outside %s and %s:\n  %s",
 		allowed[0], allowed[1], strings.Join(offenders, "\n  "))
 
 	// The guard would pass vacuously if the hooks had written nothing at all, so prove the store

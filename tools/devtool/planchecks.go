@@ -401,16 +401,27 @@ func findPlanMarkers(file, content string) []planMarker {
 		if inFence {
 			continue
 		}
-		for _, m := range markerToken.FindAllStringSubmatch(line, -1) {
-			head, tail := m[1], m[2]
-			if markerNotation[head] {
-				continue
-			}
-			if !strings.Contains(head, "-") && strings.TrimSpace(tail) == "" {
-				continue
-			}
-			out = append(out, planMarker{file: file, line: lineNo, token: m[0]})
+		for _, tok := range unfilledMarkers(line) {
+			out = append(out, planMarker{file: file, line: lineNo, token: tok})
 		}
+	}
+	return out
+}
+
+// unfilledMarkers returns every unfilled placeholder in one piece of text, in order. It is the
+// single placeholder rule: findPlanMarkers applies it to Markdown prose and findModSourceMarkers
+// to mod-source comments, so the two scans cannot drift apart.
+func unfilledMarkers(text string) []string {
+	var out []string
+	for _, m := range markerToken.FindAllStringSubmatch(text, -1) {
+		head, tail := m[1], m[2]
+		if markerNotation[head] {
+			continue
+		}
+		if !strings.Contains(head, "-") && strings.TrimSpace(tail) == "" {
+			continue
+		}
+		out = append(out, m[0])
 	}
 	return out
 }
@@ -895,13 +906,23 @@ func runPlanMarkers() error {
 		found = append(found, findPlanMarkers(f, string(b))...)
 	}
 	fmt.Printf("docmarkers: %d plan document(s) scanned\n", len(files))
+	// The mod's TypeScript sources get their own explicit rule (findModSourceMarkers): they ship in
+	// every bundle built with --mods, so an unfilled placeholder in one of their comments is as much
+	// a defect as one in a specification document. Unlike the plan documents they are always in the
+	// checkout.
+	modFound, modScanned, err := modSourceMarkers()
+	if err != nil {
+		return err
+	}
+	found = append(found, modFound...)
+	fmt.Printf("docmarkers: %d mod source(s) scanned\n", modScanned)
 	if len(found) > 0 {
 		lines := make([]string, 0, len(found))
 		for _, m := range found {
 			lines = append(lines, fmt.Sprintf("%s:%d: unfilled placeholder %s", m.file, m.line, m.token))
 		}
 		sort.Strings(lines)
-		return fmt.Errorf("docmarkers: %d unfilled placeholder(s) left in specification documents:\n  %s",
+		return fmt.Errorf("docmarkers: %d unfilled placeholder(s) left in specification documents or mod sources:\n  %s",
 			len(found), strings.Join(lines, "\n  "))
 	}
 	return nil

@@ -1,0 +1,11 @@
+import type { Register } from 'claude-code'
+
+export const register: Register = (on) => {
+  on('session.start', async ($, e, next) => {
+    await $.session.id()
+    await $.ui.toast({ text: 'hi' })
+    await $.fs.read('x')
+    return next(e)
+  })
+  on('tool.call', async ($, e, next) => next(e)).catch(($, e, next) => next(e))
+}
