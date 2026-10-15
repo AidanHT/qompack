@@ -71,6 +71,9 @@ func modUnservedDetail(f ipc.SendFailure) string {
 //   - timeout: the daemon accepted and missed the reply deadline.
 //   - error: anything else, including a disabled daemon.
 //
+// A NAK on an ACK-path request (Reply false) also reads as answered, with resp.OK false; every mod
+// verb sends a Reply request, so it never meets one.
+//
 // In runtime mode off the client dials nothing and Send answers OK with Mode off, which arrives here
 // as an answer; the verb reads resp.Mode.
 //
