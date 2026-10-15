@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -363,4 +364,53 @@ func TestModHello_TheSwitchIsReadBeforeTheModeProbe(t *testing.T) {
 	require.Equal(t, ExitOK, code, stderr)
 	require.Equal(t, modwire.Failure(modwire.ReasonRefused, modRefusedModeOff), decodeHelloOut(t, stdout).Status)
 	require.Equal(t, 1, probes, "with the switch on, a mode-off state.bin is probed as before")
+}
+
+// TestModHello_AFailedWriteNamesNoAbsolutePath: a detail goes to the mod and from there to the
+// host's debug log, so a hello file that cannot be written is described without the absolute path
+// the filesystem's error carries. The path is given relative to the project root instead.
+func TestModHello_AFailedWriteNamesNoAbsolutePath(t *testing.T) {
+	p := newModProject(t, true)
+	require.NoError(t, os.WriteFile(paths.Of(p.root).State, []byte("not a directory"), 0o600))
+
+	code, stdout, stderr := runMod(t, p.env(helloRequest(t, p.root, "2.1.300"), nil),
+		append([]string{"hello"}, enableMod...)...)
+	require.Equal(t, ExitOK, code, stderr)
+	r := decodeHelloOut(t, stdout)
+	require.Equal(t, modwire.ReasonError, r.Reason)
+	requireNoAbsolutePath(t, r.Detail, p.root, p.home)
+	require.Contains(t, r.Detail, filepath.Join(".", ".qompack", "state"),
+		"the path is kept, relative to the project root")
+}
+
+// TestModFailure_TakesTheRootAndHomeOutOfTheDetail covers the error shapes a mod verb can meet on
+// its way to an answer, the configuration loader's among them, in each spelling a path may take.
+func TestModFailure_TakesTheRootAndHomeOutOfTheDetail(t *testing.T) {
+	home := t.TempDir()
+	root := filepath.Join(home, "work", "project")
+	for _, msg := range []string{
+		"configuration: config: " + filepath.Join(root, ".qompack", "config.json") + ": bad",
+		"configuration: config: " + filepath.Join(home, ".qompack", "config.json") + ": bad",
+		"hello file: open " + paths.Long(filepath.Join(root, ".qompack", "state", "x")) + ": denied",
+		"hello file: rename " + filepath.ToSlash(root) + "/a " + filepath.ToSlash(home) + "/b: denied",
+	} {
+		st := modFailure(errors.New(msg), root, home)
+		require.Equal(t, modwire.ReasonError, st.Reason)
+		requireNoAbsolutePath(t, st.Detail, root, home)
+	}
+	st := modFailure(errors.New("configuration: config: "+filepath.Join(root, "x")+" and "+filepath.Join(home, "y")),
+		root, home)
+	require.Equal(t, "configuration: config: "+filepath.Join(".", "x")+" and "+filepath.Join("~", "y"), st.Detail)
+}
+
+// requireNoAbsolutePath fails when detail names any of the given directories, or the temporary
+// directory they live in, in any spelling.
+func requireNoAbsolutePath(t *testing.T, detail string, dirs ...string) {
+	t.Helper()
+	require.NotEmpty(t, detail)
+	for _, abs := range append(dirs, os.TempDir()) {
+		for _, form := range []string{abs, filepath.ToSlash(abs), paths.Long(abs)} {
+			require.NotContains(t, detail, form, "the detail names an absolute path")
+		}
+	}
 }
