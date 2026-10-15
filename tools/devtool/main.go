@@ -49,6 +49,7 @@ var tasks = map[string]func(args []string) error{
 	"gen-config-docs":       taskGenConfigDocs,
 	"gen-mcp-docs":          taskGenMCPDocs,
 	"gen-command-docs":      taskGenCommandDocs,
+	"gen-mod-wire":          taskGenModWire,
 	"gen-contract-fixtures": taskGenContractFixtures,
 	"gen-fixtures":          taskGenFixtures,
 	"install-hooks":         taskInstallHooks,
