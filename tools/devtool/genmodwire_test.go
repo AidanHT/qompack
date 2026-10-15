@@ -177,11 +177,19 @@ func TestGenModWire_RunsInTheDocsJob(t *testing.T) {
 	require.Contains(t, docs, "- run: go run ./tools/devtool gen-mod-wire --check\n")
 }
 
+// tsSingleQuoted escapes text for the body of a TypeScript single-quoted string literal whose
+// value is that text. The goldens are printable ASCII on one line, so these two are all it needs.
+var tsSingleQuoted = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+
 // TestModTests_DecodeTheGoResponseGoldens anchors the mod's decoder tests to the Go side's bytes.
 // Every response golden internal/modwire writes must appear, verbatim, as a string the mod's
 // tests decode, so a contract change that regenerates a golden also breaks the TypeScript test
-// that has not caught up with it.
+// that has not caught up with it. The golden is looked for as a TypeScript single-quoted literal
+// whose value is exactly its bytes, so a golden holding a JSON escape (the served brief's \n) is
+// matched as the string the test decodes.
 func TestModTests_DecodeTheGoResponseGoldens(t *testing.T) {
+	require.Equal(t, `'a\\nb\'c'`, "'"+tsSingleQuoted.Replace(`a\nb'c`)+"'",
+		"a backslash and a quote are escaped as a TypeScript literal escapes them")
 	repo := testModuleRoot(t)
 	tsTest, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash(modSourceDir), "tests", "format.test.ts"))
 	require.NoError(t, err)
@@ -194,7 +202,7 @@ func TestModTests_DecodeTheGoResponseGoldens(t *testing.T) {
 		b, readErr := os.ReadFile(g)
 		require.NoError(t, readErr)
 		line := strings.TrimRight(string(normalizeNewlines(b)), "\n")
-		require.Contains(t, string(tsTest), "'"+line+"'",
+		require.Contains(t, string(tsTest), "'"+tsSingleQuoted.Replace(line)+"'",
 			"modsrc/tests/format.test.ts must decode %s verbatim", filepath.Base(g))
 	}
 }

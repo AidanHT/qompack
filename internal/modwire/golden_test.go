@@ -88,7 +88,7 @@ func TestGolden_Messages(t *testing.T) {
 		{"brief_request.json", goldenBriefRequest},
 		{"brief_response_served.json", modwire.BriefResponse{
 			Status:       modwire.Served(),
-			Instructions: "Keep: the failing test is TestLedgerReplay; never edit db/.",
+			Instructions: modwire.BriefMarker + "\nKeep: the failing test is TestLedgerReplay; never edit db/.",
 			FactIDs:      []string{"neg_7c1d2e3f4a5b", "pin_0a1b2c3d4e5f"},
 		}},
 		{"brief_response_cold.json", modwire.BriefResponse{Status: modwire.Failure(modwire.ReasonCold, "")}},

@@ -1,6 +1,7 @@
 package modwire_test
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -155,9 +156,10 @@ func TestEncode_RefusesAnOversizedMessage(t *testing.T) {
 }
 
 func TestBriefResponse_Validate(t *testing.T) {
-	ok := modwire.BriefResponse{Status: modwire.Served(), Instructions: "abc", FactIDs: []string{"f1"}}
-	require.NoError(t, ok.Validate(3))
-	require.ErrorIs(t, ok.Validate(2), modwire.ErrInvalid, "instructions over max_chars")
+	ok := modwire.BriefResponse{Status: modwire.Served(), Instructions: modwire.BriefMarker + "abc", FactIDs: []string{"f1"}}
+	n := modwire.CharCount(ok.Instructions)
+	require.NoError(t, ok.Validate(n))
+	require.ErrorIs(t, ok.Validate(n-1), modwire.ErrInvalid, "instructions over max_chars")
 
 	bad := []modwire.BriefResponse{
 		{Status: modwire.Status{V: 2, OK: true}},
@@ -168,9 +170,35 @@ func TestBriefResponse_Validate(t *testing.T) {
 		{Status: modwire.Served(), FactIDs: []string{""}},
 		{Status: modwire.Served(), FactIDs: []string{strings.Repeat("f", modwire.MaxFactIDBytes+1)}},
 		{Status: modwire.Served(), FactIDs: make([]string, modwire.MaxFactIDs+1)},
+		{Status: modwire.Served(), Instructions: "abc"},
 	}
 	for i, r := range bad {
 		require.ErrorIs(t, r.Validate(modwire.BriefMaxChars), modwire.ErrInvalid, "case %d", i)
+	}
+}
+
+// TestBriefMarker_OpensEveryServedInstructions pins the marker: a fixed heading line that served,
+// non-empty instructions begin with, so the mod can tell a compaction it already briefed. It is
+// printable ASCII with no quote, backslash or newline, so it is the same text in Go, in JSON and in
+// a TypeScript literal, and the summarizer reads it as an ordinary heading.
+func TestBriefMarker_OpensEveryServedInstructions(t *testing.T) {
+	m := modwire.BriefMarker
+	require.NotEmpty(t, m)
+	for i := range len(m) {
+		c := m[i]
+		require.True(t, c >= ' ' && c <= '~' && c != '\'' && c != '"' && c != '\\', "byte %q of the marker", c)
+	}
+	enc, err := json.Marshal(m)
+	require.NoError(t, err)
+	require.Equal(t, `"`+m+`"`, string(enc), "the marker encodes as itself in JSON")
+
+	for _, good := range []string{m, m + "\n- keep the ledger facts", ""} {
+		r := modwire.BriefResponse{Status: modwire.Served(), Instructions: good}
+		require.NoError(t, r.Validate(modwire.BriefMaxChars), "%q", good)
+	}
+	for _, bad := range []string{"keep the ledger facts", " " + m, "\n" + m, m[:len(m)-1], strings.ToLower(m)} {
+		r := modwire.BriefResponse{Status: modwire.Served(), Instructions: bad}
+		require.ErrorIs(t, r.Validate(modwire.BriefMaxChars), modwire.ErrInvalid, "%q", bad)
 	}
 }
 
@@ -189,9 +217,11 @@ func TestLimits_TheLargestValidBriefFitsOneMessage(t *testing.T) {
 		}
 		ids[i] = string(id)
 	}
+	// Served instructions open with the marker; the rest of the cap is the costliest character.
+	fill := modwire.BriefMaxChars - modwire.CharCount(modwire.BriefMarker)
 	worst := modwire.BriefResponse{
 		Status:       modwire.Served(),
-		Instructions: strings.Repeat("\x01", modwire.BriefMaxChars), // escapes to \u0001: 6 bytes each
+		Instructions: modwire.BriefMarker + strings.Repeat("\x01", fill), // \x01 escapes to \u0001: 6 bytes each
 		FactIDs:      ids,
 	}
 	worst.Detail = strings.Repeat("\x01", modwire.MaxDetailBytes)

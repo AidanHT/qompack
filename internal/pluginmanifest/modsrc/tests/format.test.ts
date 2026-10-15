@@ -18,13 +18,13 @@ import {
   unservedHello,
   verbArgv,
 } from '../hooks/format.ts'
-import { BRIEF_MAX_CHARS, MAX_FACT_IDS, MAX_MESSAGE_BYTES } from '../hooks/wire.gen.ts'
+import { BRIEF_MARKER, BRIEF_MAX_CHARS, MAX_FACT_IDS, MAX_MESSAGE_BYTES } from '../hooks/wire.gen.ts'
 
 const helloEnabled = '{"v":1,"ok":true,"enabled":true,"steering":false}'
 const helloSteering = '{"v":1,"ok":true,"enabled":true,"steering":true}'
 const helloRefused = '{"v":1,"ok":false,"reason":"refused","enabled":false,"steering":false}'
 const helloBelowMin = '{"v":1,"ok":true,"enabled":false,"steering":false}'
-const briefServed = '{"v":1,"ok":true,"instructions":"Keep: the failing test is TestLedgerReplay; never edit db/.","fact_ids":["neg_7c1d2e3f4a5b","pin_0a1b2c3d4e5f"]}'
+const briefServed = '{"v":1,"ok":true,"instructions":"Qompack - reproduce these items verbatim:\\nKeep: the failing test is TestLedgerReplay; never edit db/.","fact_ids":["neg_7c1d2e3f4a5b","pin_0a1b2c3d4e5f"]}'
 const briefCold = '{"v":1,"ok":false,"reason":"cold","instructions":"","fact_ids":[]}'
 const unsupportedVersion = '{"v":1,"ok":false,"reason":"error","detail":"modwire: unsupported wire version 2 (this side speaks 1)"}'
 
@@ -124,7 +124,7 @@ describe('decodeBrief', () => {
     expect(decodeBrief(0, briefServed + '\n', BRIEF_MAX_CHARS)).toEqual({
       v: 1,
       ok: true,
-      instructions: 'Keep: the failing test is TestLedgerReplay; never edit db/.',
+      instructions: BRIEF_MARKER + '\nKeep: the failing test is TestLedgerReplay; never edit db/.',
       fact_ids: ['neg_7c1d2e3f4a5b', 'pin_0a1b2c3d4e5f'],
     })
     expect(decodeBrief(0, briefCold, BRIEF_MAX_CHARS)).toEqual(unservedBrief('cold'))
@@ -137,36 +137,50 @@ describe('decodeBrief', () => {
 
   test('accepts the fact id shapes the Go side emits', async () => {
     const ids = ['dec_0123456789ab', 'elim_0123456789ab', 'sha256:' + '0f'.repeat(32), 'toolu_01AB', 'intent:original', 'f'.repeat(128)]
-    const out = JSON.stringify({ v: 1, ok: true, instructions: 'x', fact_ids: ids })
+    const out = JSON.stringify({ v: 1, ok: true, instructions: BRIEF_MARKER, fact_ids: ids })
     expect(decodeBrief(0, out, BRIEF_MAX_CHARS).fact_ids).toEqual(ids)
   })
 
   test('holds the instructions to max_chars in String length', async () => {
-    const text = 'x'.repeat(10)
+    const text = BRIEF_MARKER + 'x'.repeat(10)
     const out = JSON.stringify({ v: 1, ok: true, instructions: text, fact_ids: [] })
-    expect(decodeBrief(0, out, 10).ok).toBe(true)
-    expect(decodeBrief(0, out, 9).reason).toBe('error')
+    expect(decodeBrief(0, out, text.length).ok).toBe(true)
+    expect(decodeBrief(0, out, text.length - 1).reason).toBe('error')
+  })
+
+  test('served instructions must open with the brief marker', async () => {
+    const answer = (instructions: string) => JSON.stringify({ v: 1, ok: true, instructions, fact_ids: [] })
+    expect(decodeBrief(0, answer(BRIEF_MARKER + '\n- keep it'), BRIEF_MAX_CHARS).ok).toBe(true)
+    expect(decodeBrief(0, answer(''), BRIEF_MAX_CHARS)).toEqual({ v: 1, ok: true, instructions: '', fact_ids: [] })
+    for (const text of ['keep it', ' ' + BRIEF_MARKER, '\n' + BRIEF_MARKER, BRIEF_MARKER.toLowerCase()]) {
+      expect(decodeBrief(0, answer(text), BRIEF_MAX_CHARS)).toEqual(
+        unservedBrief('error', 'instructions do not open with the brief marker'),
+      )
+    }
   })
 
   test('fails open on anything else', async () => {
     const big = JSON.stringify({ v: 1, ok: true, instructions: 'y'.repeat(MAX_MESSAGE_BYTES), fact_ids: [] })
     const ids = JSON.stringify({ v: 1, ok: true, instructions: '', fact_ids: Array(MAX_FACT_IDS + 1).fill('f') })
+    // Served instructions open with the marker, so each case below fails for the reason it names.
+    const m = JSON.stringify(BRIEF_MARKER)
     for (const [code, out] of [
       [2, briefServed],
       [0, 'garbage'],
       [0, big],
       [0, ids],
       [0, '{"v":1,"ok":true,"fact_ids":[]}'],
-      [0, '{"v":1,"ok":true,"instructions":"a"}'],
-      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":[""]}'],
-      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":[7]}'],
+      [0, '{"v":1,"ok":true,"instructions":' + m + '}'],
+      [0, '{"v":1,"ok":true,"instructions":' + m + ',"fact_ids":[""]}'],
+      [0, '{"v":1,"ok":true,"instructions":' + m + ',"fact_ids":[7]}'],
       [0, '{"v":1,"ok":false,"reason":"cold","detail":"' + 'd'.repeat(257) + '"}'],
-      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["a<b"]}'],
-      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["a b"]}'],
-      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["é"]}'],
-      [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["' + 'f'.repeat(129) + '"]}'],
+      [0, '{"v":1,"ok":true,"instructions":' + m + ',"fact_ids":["a<b"]}'],
+      [0, '{"v":1,"ok":true,"instructions":' + m + ',"fact_ids":["a b"]}'],
+      [0, '{"v":1,"ok":true,"instructions":' + m + ',"fact_ids":["é"]}'],
+      [0, '{"v":1,"ok":true,"instructions":' + m + ',"fact_ids":["' + 'f'.repeat(129) + '"]}'],
       [0, '{"v":1,"ok":false,"reason":"cold","instructions":"leak","fact_ids":[]}'],
-      [0, '{"v":"1","ok":true,"instructions":"a","fact_ids":[]}'],
+      [0, '{"v":1,"ok":true,"instructions":"Keep it","fact_ids":[]}'],
+      [0, '{"v":"1","ok":true,"instructions":' + m + ',"fact_ids":[]}'],
     ] as const) {
       const r = decodeBrief(code, out, BRIEF_MAX_CHARS)
       expect(r.ok).toBe(false)
