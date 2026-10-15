@@ -175,7 +175,7 @@ func TestRunModValidate_FailsClosedWhenClaudeIsAbsent(t *testing.T) {
 			return claudeRun{}
 		},
 	}
-	err := runModValidate(c, "windows", "", &bytes.Buffer{})
+	err := runModValidate(c, testModuleRoot(t), "windows", "", &bytes.Buffer{})
 	require.ErrorContains(t, err, "not on PATH")
 	require.False(t, ran)
 }
@@ -191,7 +191,7 @@ func TestRunModValidate_PassesTheMaterialisedPlugin(t *testing.T) {
 		require.JSONEq(t, `["./register.ts"]`, string(hooks["modules"]))
 	})
 	var out bytes.Buffer
-	require.NoError(t, runModValidate(f.claude(), "windows", "", &out))
+	require.NoError(t, runModValidate(f.claude(), testModuleRoot(t), "windows", "", &out))
 	want, err := pluginTreeFiles(modPluginVersion, "windows", true)
 	require.NoError(t, err)
 	require.Len(t, seen, len(want), "the --mods plugin tree, with no tests: %v", seen)
@@ -207,7 +207,7 @@ func TestRunModValidate_SurfacesGatingHooks(t *testing.T) {
 	f := &fakeModClaude{t: t}
 	f.answer = validateAnswer(t, readModValidateFixture(t, "claude-2.1.300-allowed-calls.json"), 0, nil)
 	var out bytes.Buffer
-	require.NoError(t, runModValidate(f.claude(), "windows", "", &out))
+	require.NoError(t, runModValidate(f.claude(), testModuleRoot(t), "windows", "", &out))
 	require.Contains(t, out.String(), "gating hook session.compact (./register.ts): no .catch")
 	require.Contains(t, out.String(), "$.process.run")
 }
@@ -215,7 +215,7 @@ func TestRunModValidate_SurfacesGatingHooks(t *testing.T) {
 func TestRunModValidate_FailsAnUnlistedCall(t *testing.T) {
 	f := &fakeModClaude{t: t}
 	f.answer = validateAnswer(t, readModValidateFixture(t, "claude-2.1.300-unlisted-calls.json"), 0, nil)
-	err := runModValidate(f.claude(), "windows", "", &bytes.Buffer{})
+	err := runModValidate(f.claude(), testModuleRoot(t), "windows", "", &bytes.Buffer{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "$.fs.read")
 	require.Contains(t, err.Error(), "$.ui.toast")
@@ -239,13 +239,13 @@ func TestRunModValidate_FailsWithoutAPassingVerdict(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &fakeModClaude{t: t}
 			f.answer = validateAnswer(t, tc.fixture, tc.exit, nil)
-			err := runModValidate(f.claude(), "windows", "", &bytes.Buffer{})
+			err := runModValidate(f.claude(), testModuleRoot(t), "windows", "", &bytes.Buffer{})
 			require.ErrorContains(t, err, tc.want)
 		})
 	}
 
 	f := &fakeModClaude{t: t, answer: func([]string) claudeRun { return claudeRun{ExitCode: -1, Err: errors.New("boom")} }}
-	require.ErrorContains(t, runModValidate(f.claude(), "windows", "", &bytes.Buffer{}), "boom")
+	require.ErrorContains(t, runModValidate(f.claude(), testModuleRoot(t), "windows", "", &bytes.Buffer{}), "boom")
 }
 
 // TestRunModValidate_FallsBackToScanningRegister covers an output that lists no calls: the task then
@@ -258,7 +258,7 @@ func TestRunModValidate_FallsBackToScanningRegister(t *testing.T) {
 	f := &fakeModClaude{t: t}
 	f.answer = validateAnswer(t, noCalls, 0, nil)
 	var out bytes.Buffer
-	require.NoError(t, runModValidate(f.claude(), "windows", "", &out))
+	require.NoError(t, runModValidate(f.claude(), testModuleRoot(t), "windows", "", &out))
 	require.Contains(t, out.String(), "scanned hooks/register.ts")
 
 	f = &fakeModClaude{t: t}
@@ -266,7 +266,7 @@ func TestRunModValidate_FallsBackToScanningRegister(t *testing.T) {
 		p := filepath.Join(dir, "hooks", "register.ts")
 		require.NoError(t, os.WriteFile(p, []byte("export function register(on) { on('session.start', async ($, e, next) => { await $.fs.read('x'); return next(e) }) }\n"), 0o600))
 	})
-	err := runModValidate(f.claude(), "windows", "", &bytes.Buffer{})
+	err := runModValidate(f.claude(), testModuleRoot(t), "windows", "", &bytes.Buffer{})
 	require.ErrorContains(t, err, "$.fs.read")
 }
 
@@ -277,8 +277,21 @@ func TestRunModValidate_RecordsTheRedactedOutput(t *testing.T) {
 	f := &fakeModClaude{t: t}
 	f.answer = validateAnswer(t, fixture, 0, nil)
 	rec := filepath.Join(t.TempDir(), "sub", "validate.json")
-	require.NoError(t, runModValidate(f.claude(), "windows", rec, &bytes.Buffer{}))
+	require.NoError(t, runModValidate(f.claude(), testModuleRoot(t), "windows", rec, &bytes.Buffer{}))
 	got, err := os.ReadFile(rec)
+	require.NoError(t, err)
+	require.Equal(t, string(fixture), string(got))
+}
+
+// TestRunModValidate_RecordsRelativeToTheRepoRootItIsGiven keeps the task off the package-level
+// root: a relative --record path lands under the repository root the caller passes in.
+func TestRunModValidate_RecordsRelativeToTheRepoRootItIsGiven(t *testing.T) {
+	fixture := readModValidateFixture(t, "claude-2.1.300-qompack.json")
+	f := &fakeModClaude{t: t}
+	f.answer = validateAnswer(t, fixture, 0, nil)
+	repo := t.TempDir()
+	require.NoError(t, runModValidate(f.claude(), repo, "windows", "sub/validate.json", &bytes.Buffer{}))
+	got, err := os.ReadFile(filepath.Join(repo, "sub", "validate.json"))
 	require.NoError(t, err)
 	require.Equal(t, string(fixture), string(got))
 }
