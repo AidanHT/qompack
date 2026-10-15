@@ -108,9 +108,10 @@ const (
 	ReasonTimeout Reason = "timeout"
 
 	// ReasonRefused means the project is not served: its root is the home directory, it has no
-	// .qompack store, or runtime.mod.enabled is false. Nothing is read, written or spawned for
-	// it: no daemon, no store, no hello file and no brief record. This is the only encoding of
-	// "switched off"; a host that is merely too old gets a served hello with enabled false.
+	// .qompack store, its runtime mode is off (as the hooks read it), or runtime.mod.enabled is
+	// false. Nothing is written or spawned for it: no daemon, no store, no hello file and no brief
+	// record. This is the only encoding of "switched off"; a host that is merely too old gets a
+	// served hello with enabled false.
 	ReasonRefused Reason = "refused"
 
 	// ReasonError is anything else, including a malformed or unsupported request.
@@ -189,9 +190,10 @@ type HelloRequest struct {
 // HelloResponse is the stdout of `qompack mod hello`. Its two "off" answers are distinct:
 //
 //   - ok false, reason refused: the project is not served (ReasonRefused); nothing is written.
-//   - ok true, enabled false: the project is served (it has a store and runtime.mod.enabled is
-//     on) and the hello file is written, recording the host version for diagnosis, but the host
-//     does not meet MinHostVersion or its version is unreadable (MeetsMinHostVersion).
+//   - ok true, enabled false: the project is served (it has a store, its runtime mode is not off
+//     and runtime.mod.enabled is on) and the hello file is written, recording the host version
+//     for diagnosis, but the host does not meet MinHostVersion or its version is unreadable
+//     (MeetsMinHostVersion).
 type HelloResponse struct {
 	Status
 	// Enabled is MeetsMinHostVersion(HostVersion) on a served hello, and always false on an

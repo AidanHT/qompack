@@ -30,9 +30,10 @@ type declaration or a page is provisional until it is checked against the pinned
 
 - Claude Code mods documentation: overview, create, reference, api, events, test and troubleshoot
   pages under `https://code.claude.com/docs/en/plugins/mods/`, and the Claude Code changelog.
-- The published mods type declarations, `mods/types/claude-code.d.ts` in the `anthropics/claude-code`
-  repository. The copy read says on its first line that Claude Code 2.1.277 wrote it, which is
-  older than the release that turned mods on by default; it is therefore read as provisional.
+- The published mods type declarations, `mods/types/claude-code.d.ts` in the
+  `anthropics/claude-code` repository. The copy read says on its first line that Claude Code
+  2.1.277 wrote it, which is older than the release that turned mods on by default; it is
+  therefore read as provisional.
 - A probe mod (classic hooks plus a hooks module, with tests) validated and tested on the
   maintainer's machine against Claude Code 2.1.293 without a model call, and `claude plugin
   validate` / `claude plugin test` runs of this repository's mod sources against the installed
@@ -94,8 +95,9 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
 - An unserved verb answers `ok: false` with exactly one reason: `cold` (no daemon listening; the
   CLI starts the detached daemon and returns at once without waiting for it), `busy` (a daemon
   exists but did not accept in time), `timeout` (it accepted but missed its deadline), `refused`
-  (a home-directory root, a project with no `.qompack` store, or `runtime.mod.enabled` false;
-  nothing is read, written or spawned for it, so no daemon, store, hello file or brief record) or
+  (a home-directory root, a project with no `.qompack` store, `runtime.mode` off as the hooks read
+  it, or `runtime.mod.enabled` false; nothing is written or spawned for it, so no daemon, store,
+  hello file or brief record) or
   `error` (anything else, including a malformed or unsupported request). `refused` is the only
   encoding of "switched off"; a host that is merely too old is answered differently (decision 5).
 - The CLI exits 0 with `{ok: false, reason}` for every failure it handles. The mod reads a non-zero
@@ -149,9 +151,10 @@ unreadable version, gets a *served* hello with `enabled: false`, and the hello f
 written so the host version is on record for diagnosis. The mod calls `brief` only after a hello
 answered `enabled: true`; the `MIN_HOST_VERSION` constant in its generated TypeScript is
 informational. The configuration switch `runtime.mod.enabled` keeps the features off by default
-until an evaluation supports turning them on; while it is off, every verb answers `refused`. Mods
-can also be off for reasons Qompack cannot see (the host's `disableAllHooks`, safe mode, bare mode,
-managed policy, or a remote rollout switch); in each case the classic path runs as today.
+until an evaluation supports turning them on; while it is off, or while `runtime.mode` is off,
+every verb answers `refused`. Mods can also be off for reasons Qompack cannot see (the host's
+`disableAllHooks`, safe mode, bare mode, managed policy, or a remote rollout switch); in each case
+the classic path runs as today.
 
 ### 6. Provisional timing defaults
 
