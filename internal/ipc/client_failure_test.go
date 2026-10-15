@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"sync"
 	"syscall"
@@ -163,12 +164,16 @@ func TestClassifyConnectFailure(t *testing.T) {
 		err  error
 		want SendFailure
 	}{
-		"winio timeout":        {live, timeoutErr{}, SendNotAccepted},
-		"wrapped timeout":      {live, fmt.Errorf("dial: %w", timeoutErr{}), SendNotAccepted},
-		"os deadline":          {live, os.ErrDeadlineExceeded, SendNotAccepted},
-		"budget spent":         {live, context.DeadlineExceeded, SendNotAccepted},
-		"no pipe or socket":    {live, &fs.PathError{Op: "open", Path: "p", Err: fs.ErrNotExist}, SendNotListening},
-		"refused":              {live, syscall.ECONNREFUSED, SendNotListening},
+		"winio timeout":     {live, timeoutErr{}, SendNotAccepted},
+		"wrapped timeout":   {live, fmt.Errorf("dial: %w", timeoutErr{}), SendNotAccepted},
+		"os deadline":       {live, os.ErrDeadlineExceeded, SendNotAccepted},
+		"budget spent":      {live, context.DeadlineExceeded, SendNotAccepted},
+		"no pipe or socket": {live, &fs.PathError{Op: "open", Path: "p", Err: fs.ErrNotExist}, SendNotListening},
+		"refused":           {live, syscall.ECONNREFUSED, SendNotListening},
+		// The shape net.Dial gives a Linux unix-socket connect to a full accept queue.
+		"full queue (linux)": {live, &net.OpError{Op: "dial", Net: "unix", Err: os.NewSyscallError("connect", syscall.EAGAIN)}, SendNotAccepted},
+		// And macOS's, which refuses it.
+		"full queue (macos)":   {live, &net.OpError{Op: "dial", Net: "unix", Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}, SendNotListening},
 		"anything else":        {live, errors.New("odd"), SendNotListening},
 		"caller cancelled":     {cancelled, context.Canceled, SendBroken},
 		"caller gone, timeout": {cancelled, timeoutErr{}, SendBroken},
