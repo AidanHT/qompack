@@ -13,7 +13,7 @@
 //
 // Compatibility rules, which every message obeys:
 //
-//   - Every message carries "v": Version.
+//   - Every message, and each of the two records, carries "v": Version.
 //   - A reader ignores fields it does not know, so a later writer may add one.
 //   - Keys are matched as encoding/json matches them: case-insensitively, with a repeated key
 //     resolving to its last value, so a case-variant spelling of a known key ("Session_ID",

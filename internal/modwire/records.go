@@ -37,10 +37,11 @@ func HelloFileName(session string) (string, error) {
 }
 
 // BriefRecord is one line of a session's brief-outcome log. The CLI appends one for every brief
-// call, served or not, except a refused one (ReasonRefused: a home root, no store, runtime mode
-// off, or the switch off), for which nothing is written and no store is created. Its field set is
-// closed and carries no content: what was asked, what it came to, how much and how long. Like a
-// message it carries "v": Version, and a line whose v is absent or another version is refused.
+// call, served or not, except a refused one (ReasonRefused: a home root, no store, either mod
+// switch off, runtime mode off, or a host below MinHostVersion), for which nothing is written and
+// no store is created. Its field set is closed and carries no content: what was asked, what it
+// came to, how much and how long. Like a message it carries "v": Version, and a line whose v is
+// absent or another version is refused.
 type BriefRecord struct {
 	V int `json:"v"`
 	// TS is when the call finished.

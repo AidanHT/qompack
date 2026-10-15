@@ -122,7 +122,8 @@ const (
 	// on for this host; when it is refused it writes nothing.
 	VerbHello Verb = "hello"
 
-	// VerbBrief asks for compaction instructions before a compaction runs.
+	// VerbBrief asks for compaction instructions before a compaction runs. The mod sends it only
+	// after a hello answered steering true.
 	VerbBrief Verb = "brief"
 )
 
@@ -144,11 +145,14 @@ const (
 	// ReasonTimeout means the daemon accepted but did not answer within its deadline.
 	ReasonTimeout Reason = "timeout"
 
-	// ReasonRefused means the project is not served: its root is the home directory, it has no
-	// .qompack store, its runtime mode is off (as the hooks read it), or runtime.mod.enabled is
-	// false. Nothing is written or spawned for it: no daemon, no store, no hello file and no brief
-	// record. This is the only encoding of "switched off"; a host that is merely too old gets a
-	// served hello with enabled false.
+	// ReasonRefused means the verb is not served for this project. Every verb is refused when the
+	// project root is the home directory, it has no .qompack store, runtime.mod.enabled is false,
+	// or its runtime mode is off (as the hooks read it). A brief is also refused when
+	// runtime.mod.steering is false, or when its host_version is below MinHostVersion or
+	// unreadable (MeetsMinHostVersion). Nothing is written or spawned for a refused verb: no
+	// daemon, no store, no hello file and no brief record. This is the only encoding of "switched
+	// off"; a hello from a host that is merely too old is served with enabled false, so its
+	// version is on record.
 	ReasonRefused Reason = "refused"
 
 	// ReasonError is anything else, including a malformed or unsupported request.
