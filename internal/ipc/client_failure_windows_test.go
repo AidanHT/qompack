@@ -15,18 +15,15 @@ import (
 // with ERROR_PIPE_BUSY until the connect deadline runs out. That is a daemon that exists and did
 // not accept in time, which is reported apart from no daemon at all.
 //
-// The listener here is never served, so it never creates a second instance: the first dial takes
-// the only one and holds it, and the client's dial finds the pipe busy.
+// The listener here is never served: with no pending ConnectNamedPipe on its one instance, go-winio's
+// dial finds the pipe busy and retries until the deadline, which is how a daemon that has stopped
+// accepting looks to a client.
 func TestSendFailure_BusyPipeIsNotAccepted(t *testing.T) {
 	addr, err := Resolve(t.TempDir())
 	require.NoError(t, err)
 	ln, err := listen(addr, logging.Nop(), MaxLineBytes)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ln.Close() })
-
-	holder, err := dial(addr, answerDeadline)
-	require.NoError(t, err, "the first dial takes the pipe's only instance")
-	t.Cleanup(func() { _ = holder.Close() })
 
 	log := &failureLog{}
 	c, _ := newTestClient(t, addr, ClientOptions{OnFailure: log.record})
