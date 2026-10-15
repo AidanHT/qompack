@@ -895,13 +895,22 @@ func runPlanMarkers() error {
 		found = append(found, findPlanMarkers(f, string(b))...)
 	}
 	fmt.Printf("docmarkers: %d plan document(s) scanned\n", len(files))
+	// The mod's TypeScript sources get their own explicit rule (findModSourceMarkers): they ship in
+	// every bundle, so an unfilled placeholder in one of their comments is as much a defect as one
+	// in a specification document. Unlike the plan documents they are always in the checkout.
+	modFound, modScanned, err := modSourceMarkers()
+	if err != nil {
+		return err
+	}
+	found = append(found, modFound...)
+	fmt.Printf("docmarkers: %d mod source(s) scanned\n", modScanned)
 	if len(found) > 0 {
 		lines := make([]string, 0, len(found))
 		for _, m := range found {
 			lines = append(lines, fmt.Sprintf("%s:%d: unfilled placeholder %s", m.file, m.line, m.token))
 		}
 		sort.Strings(lines)
-		return fmt.Errorf("docmarkers: %d unfilled placeholder(s) left in specification documents:\n  %s",
+		return fmt.Errorf("docmarkers: %d unfilled placeholder(s) left in specification documents or mod sources:\n  %s",
 			len(found), strings.Join(lines, "\n  "))
 	}
 	return nil

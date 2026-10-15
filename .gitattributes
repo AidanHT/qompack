@@ -1,6 +1,7 @@
 * text=auto eol=lf
 *.go text eol=lf
 *.md text eol=lf
+internal/pluginmanifest/modsrc/**/*.ts text eol=lf
 *.golden -text
 testdata/corpora/** -text
 *.png binary
