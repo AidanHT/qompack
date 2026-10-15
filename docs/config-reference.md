@@ -93,6 +93,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.migration.replacement.newResult` | boolean | `false` | — | Qompack.md v1.5 §8.7 / SP-21 | replace newly delivered tool results with Qompack handles (SP-21 M4); refused until the M4 gate passes |
 | `runtime.migration.settingsVersion` | integer | `1` | [1,1] | Qompack.md v1.5 Appendix C / SP-19 M0 | version of the runtime.migration block; a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
 | `runtime.mod.enabled` | boolean | `false` | — | ADR 0015 | let the Claude Code mod reach Qompack; while false every qompack mod verb answers refused and writes nothing |
+| `runtime.mod.steering` | boolean | `false` | — | ADR 0015 | let the Claude Code mod steer compactions with a brief; while false a hello answers steering false and every brief is refused |
 | `runtime.mode` | string | `"auto"` | one of `auto`, `full`, `passive`, `off` | 00-ARCH §12 | overall operating mode |
 | `runtime.phase7.filters.segmentBloom` | boolean | `false` | — | Qompack.md v1.5 §6 / SP-16 M6 | build a per-segment bloom filter alongside each segment index to skip segments that cannot match (SP-16 §3); refused until the M6-G16-E gate passes |
 | `runtime.phase7.retrieval.demandPromotion` | boolean | `false` | — | Qompack.md v1.5 §8.6 / SP-16 M6 | let observed demand promote a representation in the NEXT Qompack injection (SP-16 §2); refused until the M6-G16-C gate passes |
@@ -311,6 +312,7 @@ The hook or command that reads these keys loads the configuration each time it r
 |---|---|
 | `eval` | the eval commands, which load the configuration when they run |
 | `runtime.mod.enabled` | each `qompack mod` verb, which loads the configuration when it runs |
+| `runtime.mod.steering` | each `qompack mod` verb, which loads the configuration when it runs |
 | `runtime.mode` | each hook, which loads the configuration when it runs; the daemon's session start reads the live configuration (currentCfg) |
 
 ### Needs a daemon restart

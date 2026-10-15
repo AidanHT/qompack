@@ -29,11 +29,13 @@ type RuntimeCfg struct {
 }
 
 // ModCfg controls Qompack's Claude Code mod, the in-process hooks module that reaches the binary
-// through `qompack mod <verb>` (docs/adr/0015-claude-code-mods-integration.md). The switch stays off
-// until an evaluation supports turning it on; while it is off every verb answers refused and writes
-// nothing.
+// through `qompack mod <verb>` (docs/adr/0015-claude-code-mods-integration.md). Both switches stay
+// off until an evaluation supports turning them on. While Enabled is off every verb answers refused
+// and writes nothing; while Steering is off a hello answers steering false and a brief is refused,
+// so no compaction is steered.
 type ModCfg struct {
-	Enabled bool `json:"enabled" doc:"let the Claude Code mod reach Qompack; while false every qompack mod verb answers refused and writes nothing" sec:"ADR 0015"`
+	Enabled  bool `json:"enabled"  doc:"let the Claude Code mod reach Qompack; while false every qompack mod verb answers refused and writes nothing" sec:"ADR 0015"`
+	Steering bool `json:"steering" doc:"let the Claude Code mod steer compactions with a brief; while false a hello answers steering false and every brief is refused" sec:"ADR 0015"`
 }
 
 // DaemonCfg controls the resident per-project daemon's lifecycle (00-ARCHITECTURE §2.4).
