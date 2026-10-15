@@ -27,9 +27,12 @@ import (
 // pluginDir is the bundle root, relative to the repository root.
 const pluginDir = "plugin"
 
-// pluginRootBin is the bundle's binary directory as the host spells it: the host substitutes
-// ${CLAUDE_PLUGIN_ROOT} with the installed plugin directory.
-const pluginRootBin = "${CLAUDE_PLUGIN_ROOT}/bin/"
+// pluginRoot is the installed plugin directory as the host spells it inside hooks.json and
+// .mcp.json: the host substitutes ${CLAUDE_PLUGIN_ROOT} there, and nowhere else.
+const pluginRoot = "${CLAUDE_PLUGIN_ROOT}/"
+
+// binDir is the bundle's binary directory, relative to the plugin root.
+const binDir = "bin/"
 
 // binaryName is the bundled executable's base name, without the platform suffix.
 const binaryName = "qompack"
@@ -56,10 +59,20 @@ const CommittedGOOS = "linux"
 // No quoting appears anywhere: with no shell there is nothing to word-split a spaced install
 // directory (finding F-1 is closed structurally), and a quote would become a literal path character.
 func BinaryRef(goos string) string {
+	return pluginRoot + BinaryRelPath(goos)
+}
+
+// BinaryRelPath is the bundled executable relative to the plugin root, on goos: bin/qompack, or
+// bin/qompack.exe on windows. It is BinaryRef without the host placeholder.
+//
+// The mod needs it because the host's process API runs an argv exactly as given, with no shell and
+// no ${CLAUDE_PLUGIN_ROOT} substitution: the mod joins this path onto the plugin root the host
+// reports, so the two launch paths name one executable by construction.
+func BinaryRelPath(goos string) string {
 	if goos == "windows" {
-		return pluginRootBin + binaryName + ".exe"
+		return binDir + binaryName + ".exe"
 	}
-	return pluginRootBin + binaryName
+	return binDir + binaryName
 }
 
 // Description is the one sentence that says what Qompack does, wherever a host or a marketplace
