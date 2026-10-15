@@ -40,6 +40,7 @@ var tasks = map[string]func(args []string) error{
 	"replay":                taskReplay,
 	"live-eval":             taskLiveEval,
 	"plugin-validate":       taskPluginValidate,
+	"mod-test":              taskModTest,
 	"fsck":                  taskFsck,
 	"ci-local":              taskCILocal,
 	"release-check":         taskReleaseCheck,
