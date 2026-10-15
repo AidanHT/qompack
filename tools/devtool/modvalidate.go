@@ -26,11 +26,12 @@ var modStageAAllowlist = []string{
 	"$.ui.log",
 }
 
-// validateReport is the part of `claude plugin validate --json` mod-validate reads. Success is a
-// pointer so a report without the key reads as no verdict rather than as false. The issue lists
+// validateReport is the part of `claude plugin validate --json` mod-validate reads. Success and
+// Strict are pointers so a report without the key reads as no verdict rather than as false. The issue lists
 // are kept raw: they are shown, never interpreted.
 type validateReport struct {
 	Success  *bool             `json:"success"`
+	Strict   *bool             `json:"strict"`
 	Manifest validateSection   `json:"manifest"`
 	Contents []validateSection `json:"contents"`
 }
@@ -171,7 +172,7 @@ func taskModValidate(args []string) error {
 
 // runModValidate materialises goos's mods plugin, runs `claude plugin validate --strict --json` on
 // it and asserts the Stage A allowlist; a relative recordPath is resolved under repoRoot. It fails
-// closed: without claude, without exit 0 and success:true, on a calls line it cannot read, and on
+// closed: without claude, without exit 0, success:true and strict:true, on a calls line it cannot read, and on
 // any call outside the allowlist.
 //
 // The calls checked are the union of the validator's calls line and a scan of the materialised
@@ -218,6 +219,10 @@ func runModValidate(c modClaude, repoRoot, goos, recordPath string, w io.Writer)
 	}
 	if err := validateVerdict(report, run.ExitCode, redact); err != nil {
 		return err
+	}
+	if report.Strict == nil || !*report.Strict {
+		return errors.New("`claude plugin validate --strict --json` did not report \"strict\": true, " +
+			"so a warning may have passed as success")
 	}
 
 	listed, found, err := report.calls()
