@@ -319,10 +319,11 @@ func TestRunModValidate_RecordsRelativeToTheRepoRootItIsGiven(t *testing.T) {
 	require.Equal(t, string(fixture), string(got))
 }
 
-// TestRunModValidate_UnionsTheRegisterScanWithTheCallsLine is ruling R12: 2.1.300's calls line
-// omits property reads (the allowed-calls module reads $.plugin.root and the line does not list
-// it), so the scan of hooks/register.ts is always added to the line's set. An off-list read the
-// line cannot show still fails the task; an allowlisted one does not.
+// TestRunModValidate_UnionsTheRegisterScanWithTheCallsLine: the calls line alone is not enough to
+// judge the allowlist, because 2.1.300's line omits property reads (the allowed-calls module reads
+// $.plugin.root and the line does not list it), so the scan of hooks/register.ts is always added to
+// the line's set. An off-list read the line cannot show still fails the task; an allowlisted one
+// does not.
 func TestRunModValidate_UnionsTheRegisterScanWithTheCallsLine(t *testing.T) {
 	fixture := readModValidateFixture(t, "claude-2.1.300-allowed-calls.json")
 	require.NotContains(t, string(fixture), "$.plugin.root", "the recorded line omits the property read")

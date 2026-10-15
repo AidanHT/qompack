@@ -176,10 +176,11 @@ func taskModValidate(args []string) error {
 // read, and on any call outside the allowlist.
 //
 // The calls checked are the union of the validator's calls line and a scan of the materialised
-// hooks/register.ts, always both (ruling R12): on 2.1.300 the line omits property reads such as
-// $.plugin.root, so the line alone could pass an off-list read. register.ts is enough to scan,
-// because pluginmanifest's TestModSources_OnlyRegisterTouchesTheHostAPI confines `$` to it. Without
-// a calls line, the scan alone decides. The gating hooks are reported, not judged.
+// hooks/register.ts, always both, because the line alone is not complete: on 2.1.300 it omits
+// property reads such as $.plugin.root, so it alone could pass an off-list read. register.ts is
+// enough to scan, because pluginmanifest's TestModSources_OnlyRegisterTouchesTheHostAPI confines
+// `$` to it. Without a calls line, the scan alone decides. The gating hooks are reported, not
+// judged.
 func runModValidate(c modClaude, repoRoot, goos, recordPath string, w io.Writer) (err error) {
 	const task = "mod-validate"
 	bin, err := lookUpModClaude(c, task)

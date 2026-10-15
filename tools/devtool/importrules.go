@@ -161,7 +161,7 @@ var allow = map[string][]string{
 	// core and nothing else in internal/. mcp is its only consumer.
 	"hostperm": {},
 
-	// modwire (V7 W0) is the mod wire contract: the JSON shapes `qompack mod <verb>` reads and
+	// modwire (ADR 0015) is the mod wire contract: the JSON shapes `qompack mod <verb>` reads and
 	// writes, their limits and the two per-session records. It is pure types and codecs over
 	// encoding/json and core, so it is foundation-only. cli and daemon are composition roots and
 	// may import it without an entry; any other consumer needs one here.
