@@ -109,3 +109,31 @@ func TestDetail_IsBounded(t *testing.T) {
 	require.True(t, utf8.ValidString(st.Detail), "truncation never splits a character")
 	require.NoError(t, modwire.HelloResponse{Status: st}.Validate())
 }
+
+// TestFailureFor_DetailIsValidUTF8: an error text holding bytes that are not UTF-8 reaches the
+// detail as valid UTF-8. encoding/json writes each invalid byte as U+FFFD, three bytes, so a detail
+// that kept them would fit MaxDetailBytes in Go and decode on the mod's side to a longer string,
+// which the mod's own byte check (TextEncoder over the decoded text) then refuses.
+func TestFailureFor_DetailIsValidUTF8(t *testing.T) {
+	for name, text := range map[string]string{
+		"all invalid":    strings.Repeat("\xff", modwire.MaxDetailBytes),
+		"mixed":          strings.Repeat("ok\xfe", modwire.MaxDetailBytes),
+		"truncated rune": "detail " + strings.Repeat("é", 10) + "\xc3",
+	} {
+		t.Run(name, func(t *testing.T) {
+			st := modwire.FailureFor(errors.New(text))
+			require.True(t, utf8.ValidString(st.Detail), "the detail is valid UTF-8")
+			require.LessOrEqual(t, len(st.Detail), modwire.MaxDetailBytes)
+
+			// What the mod decodes from the wire is byte for byte what Go measured.
+			b, err := modwire.Encode(st)
+			require.NoError(t, err)
+			var got struct {
+				Detail string `json:"detail"`
+			}
+			require.NoError(t, json.Unmarshal(b, &got))
+			require.Equal(t, st.Detail, got.Detail)
+			require.LessOrEqual(t, len(got.Detail), modwire.MaxDetailBytes)
+		})
+	}
+}
