@@ -20,9 +20,10 @@ import {
 } from '../hooks/format.ts'
 import { BRIEF_MAX_CHARS, MAX_FACT_IDS, MAX_MESSAGE_BYTES } from '../hooks/wire.gen.ts'
 
-const helloEnabled = '{"v":1,"ok":true,"enabled":true}'
-const helloRefused = '{"v":1,"ok":false,"reason":"refused","enabled":false}'
-const helloBelowMin = '{"v":1,"ok":true,"enabled":false}'
+const helloEnabled = '{"v":1,"ok":true,"enabled":true,"steering":false}'
+const helloSteering = '{"v":1,"ok":true,"enabled":true,"steering":true}'
+const helloRefused = '{"v":1,"ok":false,"reason":"refused","enabled":false,"steering":false}'
+const helloBelowMin = '{"v":1,"ok":true,"enabled":false,"steering":false}'
 const briefServed = '{"v":1,"ok":true,"instructions":"Keep: the failing test is TestLedgerReplay; never edit db/.","fact_ids":["neg_7c1d2e3f4a5b","pin_0a1b2c3d4e5f"]}'
 const briefCold = '{"v":1,"ok":false,"reason":"cold","instructions":"","fact_ids":[]}'
 const unsupportedVersion = '{"v":1,"ok":false,"reason":"error","detail":"modwire: unsupported wire version 2 (this side speaks 1)"}'
@@ -57,12 +58,19 @@ describe('encodeRequest', () => {
 
 describe('decodeHello', () => {
   test('reads the Go goldens', async () => {
-    expect(decodeHello(0, helloEnabled + '\n')).toEqual({ v: 1, ok: true, enabled: true })
-    expect(decodeHello(0, helloRefused + '\n')).toEqual({ v: 1, ok: false, reason: 'refused', enabled: false })
+    expect(decodeHello(0, helloEnabled + '\n')).toEqual({ v: 1, ok: true, enabled: true, steering: false })
+    expect(decodeHello(0, helloSteering + '\n')).toEqual({ v: 1, ok: true, enabled: true, steering: true })
+    expect(decodeHello(0, helloRefused + '\n')).toEqual({
+      v: 1,
+      ok: false,
+      reason: 'refused',
+      enabled: false,
+      steering: false,
+    })
   })
 
   test('a served hello may still say the features are off for this host', async () => {
-    expect(decodeHello(0, helloBelowMin)).toEqual({ v: 1, ok: true, enabled: false })
+    expect(decodeHello(0, helloBelowMin)).toEqual({ v: 1, ok: true, enabled: false, steering: false })
   })
 
   test('reads a bare error object as unserved', async () => {
@@ -70,6 +78,7 @@ describe('decodeHello', () => {
     expect(r.ok).toBe(false)
     expect(r.reason).toBe('error')
     expect(r.enabled).toBe(false)
+    expect(r.steering).toBe(false)
   })
 
   test('fails open on anything else', async () => {
@@ -83,16 +92,30 @@ describe('decodeHello', () => {
       [0, '{"v":1,"ok":true,"reason":"cold","enabled":true}'],
       [0, '{"v":1,"ok":false,"reason":"sleepy","enabled":false}'],
       [0, '{"v":1,"ok":true}'],
+      [0, '{"v":1,"ok":true,"enabled":true}'],
+      [0, '{"v":1,"ok":true,"enabled":true,"steering":"yes"}'],
+      [0, '{"v":1,"ok":true,"enabled":false,"steering":true}'],
     ] as const) {
       const r = decodeHello(code, out)
       expect(r.ok).toBe(false)
       expect(r.reason).toBe('error')
       expect(r.enabled).toBe(false)
+      expect(r.steering).toBe(false)
     }
   })
 
+  test('an unserved answer never steers, whatever it carries', async () => {
+    const r = decodeHello(0, '{"v":1,"ok":false,"reason":"cold","enabled":true,"steering":true}')
+    expect(r).toEqual({ v: 1, ok: false, reason: 'cold', enabled: false, steering: false })
+  })
+
   test('drops fields the contract does not name', async () => {
-    expect(decodeHello(0, '{"v":1,"ok":true,"enabled":false,"extra":1}')).toEqual({ v: 1, ok: true, enabled: false })
+    expect(decodeHello(0, '{"v":1,"ok":true,"enabled":false,"steering":false,"extra":1}')).toEqual({
+      v: 1,
+      ok: true,
+      enabled: false,
+      steering: false,
+    })
   })
 })
 
@@ -178,7 +201,8 @@ describe('helloRequest', () => {
 
 describe('helloLogLine', () => {
   test('says what the hello came to', async () => {
-    expect(helloLogLine(decodeHello(0, helloEnabled))).toBe('qompack mod hello: served, enabled')
+    expect(helloLogLine(decodeHello(0, helloEnabled))).toBe('qompack mod hello: served, enabled, steering off')
+    expect(helloLogLine(decodeHello(0, helloSteering))).toBe('qompack mod hello: served, enabled, steering on')
     expect(helloLogLine(decodeHello(0, helloBelowMin))).toBe('qompack mod hello: served, not enabled for this host')
     expect(helloLogLine(decodeHello(0, helloRefused))).toBe('qompack mod hello: refused')
     expect(helloLogLine(unservedHello('cold', 'starting'))).toBe('qompack mod hello: cold (starting)')

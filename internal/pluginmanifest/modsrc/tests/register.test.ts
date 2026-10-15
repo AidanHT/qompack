@@ -15,7 +15,7 @@ const ROOT = '/work/project'
 const SESSION = 'sess-1'
 const VERSION = '2.1.300'
 
-const helloEnabled = '{"v":1,"ok":true,"enabled":true}\n'
+const helloEnabled = '{"v":1,"ok":true,"enabled":true,"steering":false}\n'
 
 type Seen = { argv: string[]; init: Record<string, unknown> }
 
@@ -58,12 +58,14 @@ describe('session.start', () => {
     expect(init.timeoutMs).toBe(TIMEOUT_MS)
     expect(init.env).toBeUndefined()
     expect(JSON.parse(String(init.stdin))).toEqual({ v: 1, session_id: SESSION, cwd: ROOT, host_version: VERSION })
-    expect(logs).toEqual(['qompack mod hello: served, enabled'])
+    expect(logs).toEqual(['qompack mod hello: served, enabled, steering off'])
   })
 
   test('a served hello for a host below the minimum is logged as not enabled', async ($, on) => {
     const logs = stubSession(on)
-    on('process.run', () => ({ value: { exitCode: 0, stdout: '{"v":1,"ok":true,"enabled":false}', stderr: '' } }))
+    on('process.run', () => ({
+      value: { exitCode: 0, stdout: '{"v":1,"ok":true,"enabled":false,"steering":false}', stderr: '' },
+    }))
     expect(await $.session.start(start)).toEqual({ cwd: ROOT })
     expect(logs).toEqual(['qompack mod hello: served, not enabled for this host'])
   })
@@ -83,7 +85,7 @@ describe('session.start', () => {
     const results = [
       { exitCode: 1, stdout: '', stderr: 'boom' },
       { exitCode: 0, stdout: 'not json', stderr: '' },
-      { exitCode: 0, stdout: '{"v":2,"ok":true,"enabled":true}', stderr: '' },
+      { exitCode: 0, stdout: '{"v":2,"ok":true,"enabled":true,"steering":true}', stderr: '' },
     ]
     on('process.run', () => ({ value: results.shift() }))
     for (const want of ['exit 1', 'response is not JSON', 'unsupported wire version 2']) {
@@ -132,6 +134,7 @@ describe('hello on a surface without the process noun', () => {
     expect(r.ok).toBe(false)
     expect(r.reason).toBe('error')
     expect(r.enabled).toBe(false)
+    expect(r.steering).toBe(false)
     expect(logs).toHaveLength(1)
     expect(logs[0]).toMatch(/^qompack mod hello: error \(process: /)
   })
