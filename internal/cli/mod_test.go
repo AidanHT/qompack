@@ -102,7 +102,9 @@ func treeOf(t *testing.T, roots ...string) []string {
 			if err != nil {
 				return err
 			}
-			info, ierr := d.Info()
+			// os.Lstat, not d.Info: on Windows the walk's entry carries the parent directory's copy
+			// of a child directory's times, which lags a change made just before the snapshot.
+			info, ierr := os.Lstat(p)
 			if ierr != nil {
 				return ierr
 			}
