@@ -111,9 +111,10 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	}, rt.Budgets)
 	require.Equal(t, config.RSelectionCfg{SubmodularEnabled: false}, rt.Selection)
 
-	// The Claude Code mod's switch (ADR 0015, decision 5): off until an evaluation supports
-	// turning it on. While it is off every `qompack mod` verb answers refused.
-	require.Equal(t, config.ModCfg{Enabled: false}, rt.Mod)
+	// The Claude Code mod's switches (ADR 0015, decision 5): both off until an evaluation supports
+	// turning them on. While enabled is off every `qompack mod` verb answers refused; while steering
+	// is off a hello answers steering false and a brief is refused.
+	require.Equal(t, config.ModCfg{Enabled: false, Steering: false}, rt.Mod)
 	require.Equal(t, config.RTokensCfg{
 		ProseCharsPerToken: 4.0, CodeCharsPerToken: 3.6, JSONCharsPerToken: 3.2,
 		DiffCharsPerToken: 3.4, BinaryCharsPerToken: 3.0,
