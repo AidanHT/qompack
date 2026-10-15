@@ -67,7 +67,7 @@ func TestFactIDs_OutsideTheAlphabetAreInvalid(t *testing.T) {
 // TestTriggers_AcceptAnyWellFormedName: a trigger the host adds later is served and recorded, as
 // long as it is a plain identifier; only a malformed one is refused.
 func TestTriggers_AcceptAnyWellFormedName(t *testing.T) {
-	in := `{"v":1,"session_id":"s","cwd":"/p","trigger":"autoCompact_2-x","max_chars":0}`
+	in := `{"v":1,"session_id":"s","cwd":"/p","host_version":"2.1.300","trigger":"autoCompact_2-x","max_chars":0}`
 	req, err := modwire.DecodeBriefRequest(strings.NewReader(in))
 	require.NoError(t, err)
 	require.Equal(t, "autoCompact_2-x", req.Trigger)
@@ -78,7 +78,7 @@ func TestTriggers_AcceptAnyWellFormedName(t *testing.T) {
 
 	for _, bad := range []string{"Auto Mode", "a.b", "a/b", "é", strings.Repeat("t", modwire.MaxTriggerBytes+1)} {
 		_, err := modwire.DecodeBriefRequest(strings.NewReader(
-			`{"v":1,"session_id":"s","cwd":"/p","trigger":"` + bad + `"}`))
+			`{"v":1,"session_id":"s","cwd":"/p","host_version":"2.1.300","trigger":"` + bad + `"}`))
 		require.ErrorIs(t, err, modwire.ErrInvalid, "%q", bad)
 	}
 	for _, b := range allowedBytes(t, modwire.TriggerChars) {

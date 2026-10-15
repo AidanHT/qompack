@@ -112,6 +112,7 @@ func TestRenderModWire_FieldShapes(t *testing.T) {
 		"  v: number\n"+
 		"  session_id: string\n"+
 		"  cwd: string\n"+
+		"  host_version: string\n"+
 		"  trigger: string\n"+
 		"  user_instructions_present: boolean\n"+
 		"  max_chars: number\n"+

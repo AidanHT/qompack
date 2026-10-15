@@ -55,6 +55,7 @@ var (
 		V:                       modwire.Version,
 		SessionID:               "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b",
 		CWD:                     "/home/dev/project",
+		HostVersion:             "2.1.300",
 		Trigger:                 "auto",
 		UserInstructionsPresent: true,
 		MaxChars:                modwire.BriefMaxChars,

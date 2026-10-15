@@ -3,29 +3,39 @@
 
 import { describe, expect, test } from 'claude-code/testing'
 import { briefRequest, hasUserInstructions, mergeInstructions } from '../hooks/compact.ts'
-import { unservedBrief } from '../hooks/format.ts'
+import { encodeRequest, unservedBrief } from '../hooks/format.ts'
 import { BRIEF_MAX_CHARS } from '../hooks/wire.gen.ts'
+
+// internal/modwire's brief request golden, verbatim: the mod writes exactly these bytes.
+const briefRequestGolden =
+  '{"v":1,"session_id":"3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b","cwd":"/home/dev/project","host_version":"2.1.300","trigger":"auto","user_instructions_present":true,"max_chars":4000}'
 
 const served = { v: 1, ok: true, instructions: 'Keep the ledger facts.', fact_ids: ['f1'] }
 
 describe('briefRequest', () => {
-  test('carries the session values, the default cap and only whether instructions exist', async () => {
-    expect(briefRequest('s-1', '/p', 'auto', 'keep the db notes')).toEqual({
+  test('carries the session values, the host version, the default cap and only whether instructions exist', async () => {
+    expect(briefRequest('s-1', '/p', '2.1.300', 'auto', 'keep the db notes')).toEqual({
       v: 1,
       session_id: 's-1',
       cwd: '/p',
+      host_version: '2.1.300',
       trigger: 'auto',
       user_instructions_present: true,
       max_chars: BRIEF_MAX_CHARS,
     })
-    expect(JSON.stringify(briefRequest('s-1', '/p', 'auto', 'keep the db notes'))).not.toContain('db notes')
+    expect(JSON.stringify(briefRequest('s-1', '/p', '2.1.300', 'auto', 'keep the db notes'))).not.toContain('db notes')
+  })
+
+  test('encodes in the Go golden field order', async () => {
+    const req = briefRequest('3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b', '/home/dev/project', '2.1.300', 'auto', 'mine')
+    expect(encodeRequest(req)).toBe(briefRequestGolden + '\n')
   })
 
   test('blank instructions are no instructions', async () => {
     expect(hasUserInstructions(undefined)).toBe(false)
     expect(hasUserInstructions('')).toBe(false)
     expect(hasUserInstructions('  \n')).toBe(false)
-    expect(briefRequest('s', '/p', 'manual', ' ').user_instructions_present).toBe(false)
+    expect(briefRequest('s', '/p', '2.1.300', 'manual', ' ').user_instructions_present).toBe(false)
   })
 })
 

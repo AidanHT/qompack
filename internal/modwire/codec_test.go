@@ -10,11 +10,11 @@ import (
 	"github.com/qompack/qompack/internal/modwire"
 )
 
-const validBrief = `{"v":1,"session_id":"s-1","cwd":"/p","trigger":"manual",` +
+const validBrief = `{"v":1,"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"manual",` +
 	`"user_instructions_present":false,"max_chars":100}`
 
 func TestDecode_UnknownFieldsAreIgnored(t *testing.T) {
-	in := `{"v":1,"session_id":"s-1","cwd":"/p","trigger":"auto","user_instructions_present":false,` +
+	in := `{"v":1,"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto","user_instructions_present":false,` +
 		`"max_chars":10,"future_field":{"nested":[1,2,3]},"another":"x"}`
 	got, err := modwire.DecodeBriefRequest(strings.NewReader(in))
 	require.NoError(t, err)
@@ -29,9 +29,9 @@ func TestDecode_UnknownFieldsAreIgnored(t *testing.T) {
 
 func TestDecode_UnknownVersionIsRefusedWithAnErrorObject(t *testing.T) {
 	for _, in := range []string{
-		`{"v":2,"session_id":"s-1","cwd":"/p","trigger":"auto","max_chars":1}`,
-		`{"v":0,"session_id":"s-1","cwd":"/p","trigger":"auto"}`,
-		`{"session_id":"s-1","cwd":"/p","trigger":"auto"}`,
+		`{"v":2,"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto","max_chars":1}`,
+		`{"v":0,"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		`{"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
 	} {
 		_, err := modwire.DecodeBriefRequest(strings.NewReader(in))
 		require.ErrorIs(t, err, modwire.ErrUnsupportedVersion, in)
@@ -54,9 +54,9 @@ func TestDecode_MalformedInputIsAnError(t *testing.T) {
 		``,
 		`not json`,
 		`[1,2]`,
-		`{"v":1,"session_id":"s-1","cwd":"/p","trigger":"auto"} {"v":1}`,
-		`{"v":"1","session_id":"s-1","cwd":"/p","trigger":"auto"}`,
-		`{"v":1,"session_id":"s-1","cwd":"/p","trigger":"auto","max_chars":"ten"}`,
+		`{"v":1,"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto"} {"v":1}`,
+		`{"v":"1","session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		`{"v":1,"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto","max_chars":"ten"}`,
 	} {
 		_, err := modwire.DecodeBriefRequest(strings.NewReader(in))
 		require.ErrorIs(t, err, modwire.ErrMalformed, "%q", in)
@@ -66,24 +66,28 @@ func TestDecode_MalformedInputIsAnError(t *testing.T) {
 
 func TestDecode_OversizedInputIsRefused(t *testing.T) {
 	pad := strings.Repeat("x", modwire.MaxMessageBytes)
-	in := `{"v":1,"session_id":"s-1","cwd":"/p","trigger":"auto","pad":"` + pad + `"}`
+	in := `{"v":1,"session_id":"s-1","cwd":"/p","host_version":"2.1.300","trigger":"auto","pad":"` + pad + `"}`
 	_, err := modwire.DecodeBriefRequest(strings.NewReader(in))
 	require.ErrorIs(t, err, modwire.ErrTooLarge)
 }
 
 func TestDecode_FieldValidation(t *testing.T) {
 	cases := map[string]string{
-		"empty session":       `{"v":1,"session_id":"","cwd":"/p","trigger":"auto"}`,
-		"traversal session":   `{"v":1,"session_id":"../x","cwd":"/p","trigger":"auto"}`,
-		"separator session":   `{"v":1,"session_id":"a/b","cwd":"/p","trigger":"auto"}`,
-		"backslash session":   `{"v":1,"session_id":"a\\b","cwd":"/p","trigger":"auto"}`,
-		"dot session":         `{"v":1,"session_id":"..","cwd":"/p","trigger":"auto"}`,
-		"empty cwd":           `{"v":1,"session_id":"s","cwd":"","trigger":"auto"}`,
-		"nul in cwd":          `{"v":1,"session_id":"s","cwd":"/p\u0000q","trigger":"auto"}`,
-		"empty trigger":       `{"v":1,"session_id":"s","cwd":"/p","trigger":""}`,
-		"odd trigger":         `{"v":1,"session_id":"s","cwd":"/p","trigger":"Auto Mode"}`,
-		"negative max_chars":  `{"v":1,"session_id":"s","cwd":"/p","trigger":"auto","max_chars":-1}`,
-		"overlong session id": `{"v":1,"session_id":"` + strings.Repeat("a", modwire.MaxSessionIDBytes+1) + `","cwd":"/p","trigger":"auto"}`,
+		"empty session":       `{"v":1,"session_id":"","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		"traversal session":   `{"v":1,"session_id":"../x","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		"separator session":   `{"v":1,"session_id":"a/b","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		"backslash session":   `{"v":1,"session_id":"a\\b","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		"dot session":         `{"v":1,"session_id":"..","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		"empty cwd":           `{"v":1,"session_id":"s","cwd":"","host_version":"2.1.300","trigger":"auto"}`,
+		"nul in cwd":          `{"v":1,"session_id":"s","cwd":"/p\u0000q","host_version":"2.1.300","trigger":"auto"}`,
+		"empty trigger":       `{"v":1,"session_id":"s","cwd":"/p","host_version":"2.1.300","trigger":""}`,
+		"odd trigger":         `{"v":1,"session_id":"s","cwd":"/p","host_version":"2.1.300","trigger":"Auto Mode"}`,
+		"negative max_chars":  `{"v":1,"session_id":"s","cwd":"/p","host_version":"2.1.300","trigger":"auto","max_chars":-1}`,
+		"overlong session id": `{"v":1,"session_id":"` + strings.Repeat("a", modwire.MaxSessionIDBytes+1) + `","cwd":"/p","host_version":"2.1.300","trigger":"auto"}`,
+		"no host version":     `{"v":1,"session_id":"s","cwd":"/p","trigger":"auto"}`,
+		"empty host version":  `{"v":1,"session_id":"s","cwd":"/p","host_version":"","trigger":"auto"}`,
+		"overlong host version": `{"v":1,"session_id":"s","cwd":"/p","host_version":"` +
+			strings.Repeat("9", modwire.MaxHostVersionBytes+1) + `","trigger":"auto"}`,
 	}
 	for name, in := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -96,8 +100,15 @@ func TestDecode_FieldValidation(t *testing.T) {
 	_, err := modwire.DecodeHelloRequest(strings.NewReader(`{"v":1,"session_id":"s","cwd":"/p","host_version":""}`))
 	require.ErrorIs(t, err, modwire.ErrInvalid, "a hello without a host version cannot be gated")
 
-	_, err = modwire.DecodeBriefRequest(strings.NewReader(validBrief))
+	got, err := modwire.DecodeBriefRequest(strings.NewReader(validBrief))
 	require.NoError(t, err)
+	require.Equal(t, "2.1.300", got.HostVersion, "every brief carries the host version it is gated on")
+
+	// An unreadable version is still a well-formed request: the gate, not the decoder, refuses it.
+	got, err = modwire.DecodeBriefRequest(strings.NewReader(
+		`{"v":1,"session_id":"s","cwd":"/p","host_version":"not a version","trigger":"auto"}`))
+	require.NoError(t, err)
+	require.False(t, modwire.MeetsMinHostVersion(got.HostVersion))
 }
 
 func TestBriefRequest_EffectiveMaxChars(t *testing.T) {
@@ -211,7 +222,7 @@ func TestVocabulary(t *testing.T) {
 // TestDecode_KeyMatchingIsEncodingJSONs pins what doc.go states: keys match field names without
 // regard to case, and a repeated key resolves to its last value.
 func TestDecode_KeyMatchingIsEncodingJSONs(t *testing.T) {
-	in := `{"v":1,"Session_ID":"s-1","CWD":"/p","trigger":"auto","trigger":"manual","MAX_CHARS":7}`
+	in := `{"v":1,"Session_ID":"s-1","CWD":"/p","host_version":"2.1.300","trigger":"auto","trigger":"manual","MAX_CHARS":7}`
 	got, err := modwire.DecodeBriefRequest(strings.NewReader(in))
 	require.NoError(t, err)
 	require.Equal(t, "s-1", got.SessionID)
