@@ -110,6 +110,10 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 		HookDegradedMs: 1000,
 	}, rt.Budgets)
 	require.Equal(t, config.RSelectionCfg{SubmodularEnabled: false}, rt.Selection)
+
+	// The Claude Code mod's switch (ADR 0015, decision 5): off until an evaluation supports
+	// turning it on. While it is off every `qompack mod` verb answers refused.
+	require.Equal(t, config.ModCfg{Enabled: false}, rt.Mod)
 	require.Equal(t, config.RTokensCfg{
 		ProseCharsPerToken: 4.0, CodeCharsPerToken: 3.6, JSONCharsPerToken: 3.2,
 		DiffCharsPerToken: 3.4, BinaryCharsPerToken: 3.0,
