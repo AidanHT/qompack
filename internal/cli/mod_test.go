@@ -379,7 +379,7 @@ func TestModHello_AFailedWriteNamesNoAbsolutePath(t *testing.T) {
 	r := decodeHelloOut(t, stdout)
 	require.Equal(t, modwire.ReasonError, r.Reason)
 	requireNoAbsolutePath(t, r.Detail, p.root, p.home)
-	require.Contains(t, r.Detail, filepath.Join(".", ".qompack", "state"),
+	require.Contains(t, r.Detail, "."+string(filepath.Separator)+filepath.Join(".qompack", "state"),
 		"the path is kept, relative to the project root")
 }
 
@@ -400,7 +400,8 @@ func TestModFailure_TakesTheRootAndHomeOutOfTheDetail(t *testing.T) {
 	}
 	st := modFailure(errors.New("configuration: config: "+filepath.Join(root, "x")+" and "+filepath.Join(home, "y")),
 		root, home)
-	require.Equal(t, "configuration: config: "+filepath.Join(".", "x")+" and "+filepath.Join("~", "y"), st.Detail)
+	sep := string(filepath.Separator)
+	require.Equal(t, "configuration: config: ."+sep+"x and ~"+sep+"y", st.Detail)
 }
 
 // requireNoAbsolutePath fails when detail names any of the given directories, or the temporary

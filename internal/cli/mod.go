@@ -2,10 +2,12 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/qompack/qompack/internal/config"
@@ -80,6 +82,31 @@ const (
 	modRefusedModeOff  = "runtime.mode is off"
 )
 
+// modFailure is modwire.FailureFor with the absolute paths taken out of the detail, which reaches
+// the host's debug log: the project root becomes "." and the home directory "~", in each spelling
+// this process may have given them to the filesystem (as resolved, in slash form, and in the
+// long-path form paths.Long adds). The longest spelling is replaced first, so a root inside the
+// home reads as ".", not "~/...". Errors from the filesystem and the configuration loader name
+// paths under these two directories only.
+func modFailure(err error, root, home string) modwire.Status {
+	type sub struct{ from, to string }
+	var subs []sub
+	for _, d := range []sub{{root, "."}, {home, "~"}} {
+		if d.from == "" {
+			continue
+		}
+		for _, form := range []string{paths.Long(d.from), d.from, filepath.ToSlash(d.from)} {
+			subs = append(subs, sub{form, d.to})
+		}
+	}
+	sort.SliceStable(subs, func(i, j int) bool { return len(subs[i].from) > len(subs[j].from) })
+	msg := err.Error()
+	for _, s := range subs {
+		msg = strings.ReplaceAll(msg, s.from, s.to)
+	}
+	return modwire.FailureFor(errors.New(msg))
+}
+
 // modServedProject decides whether a mod request for cwd is served, and returns the project root
 // and its configuration when it is.
 //
@@ -135,7 +162,7 @@ func modHello(_ context.Context, env Env, stdin io.Reader) any {
 	root, _, refusal, err := modServedProject(env, req.CWD)
 	switch {
 	case err != nil:
-		return unserved(modwire.FailureFor(err))
+		return unserved(modFailure(err, root, homeDir(env)))
 	case refusal != "":
 		return unserved(modwire.Failure(modwire.ReasonRefused, refusal))
 	}
@@ -147,7 +174,7 @@ func modHello(_ context.Context, env Env, stdin io.Reader) any {
 	if err := writeHelloFile(root, modwire.HelloFile{
 		SessionID: req.SessionID, HostVersion: req.HostVersion, TS: core.NowMilli(clk),
 	}); err != nil {
-		return unserved(modwire.FailureFor(fmt.Errorf("hello file: %w", err)))
+		return unserved(modFailure(fmt.Errorf("hello file: %w", err), root, homeDir(env)))
 	}
 	resp := modwire.HelloResponse{Status: modwire.Served(), Enabled: modwire.MeetsMinHostVersion(req.HostVersion)}
 	if err := resp.Validate(); err != nil {
