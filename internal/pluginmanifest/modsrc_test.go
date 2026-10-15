@@ -123,13 +123,61 @@ var bareDollar = regexp.MustCompile(`(?:^|[^\w$])\$(?:[^\w${]|$)`)
 // characters on either side.
 var dollarMember = regexp.MustCompile(`^\$\s*\.\s*[A-Za-z_]`)
 
-// lineComment and blockComment are stripped before the scan: comment text is not code. The scan
-// of register.ts for host calls (devtool mod-validate) still counts comment text, so register.ts
-// keeps `$.` out of its comments anyway.
-var (
-	lineComment  = regexp.MustCompile(`(?m)//.*$`)
-	blockComment = regexp.MustCompile(`(?s)/\*.*?\*/`)
-)
+// codeOnly returns src with comments removed and the contents of '...' and "..." literals blanked,
+// so neither comment text nor a string's characters reach the scan, and a // or /* inside a string
+// does not swallow the code after it. A newline is kept wherever one was, so lines stay lines.
+// Template literals are left whole (their ${ is excluded by bareDollar, and any other `$` in one
+// counts, which fails closed). Regular-expression literals are not recognised; register.ts has
+// none. The scan of register.ts for host calls (devtool mod-validate) still counts comment text,
+// so register.ts keeps `$.` out of its comments anyway.
+func codeOnly(src string) string {
+	var b strings.Builder
+	for i := 0; i < len(src); i++ {
+		c := src[i]
+		switch {
+		case c == '/' && i+1 < len(src) && src[i+1] == '/':
+			for i < len(src) && src[i] != '\n' {
+				i++
+			}
+			if i < len(src) {
+				b.WriteByte('\n')
+			}
+		case c == '/' && i+1 < len(src) && src[i+1] == '*':
+			end := strings.Index(src[i+2:], "*/")
+			if end < 0 {
+				end = len(src) - i - 2
+			}
+			b.WriteString(strings.Repeat("\n", strings.Count(src[i:i+2+end], "\n")))
+			i += 2 + end + 1
+		case c == '\'' || c == '"':
+			b.WriteByte(c)
+			for i++; i < len(src) && src[i] != c && src[i] != '\n'; i++ {
+				if src[i] == '\\' && i+1 < len(src) {
+					i++
+				}
+				b.WriteByte(' ')
+			}
+			if i < len(src) {
+				b.WriteByte(src[i])
+			}
+		case c == '`':
+			b.WriteByte(c)
+			for i++; i < len(src) && src[i] != '`'; i++ {
+				if src[i] == '\\' && i+1 < len(src) {
+					b.WriteByte(src[i])
+					i++
+				}
+				b.WriteByte(src[i])
+			}
+			if i < len(src) {
+				b.WriteByte('`')
+			}
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
 
 // hostAliasUses returns each use of `$` in src that is neither a member access nor a parameter or
 // argument: an alias (`const h = $`), a destructuring (`const { fs } = $`), a bracket access
@@ -137,7 +185,7 @@ var (
 // and the call scan mod-validate runs is a regular expression, so a call made through any of these
 // is invisible to both.
 func hostAliasUses(src string) []string {
-	code := lineComment.ReplaceAllString(blockComment.ReplaceAllString(src, ""), "")
+	code := codeOnly(src)
 	var bad []string
 	for _, loc := range bareDollar.FindAllStringIndex(code, -1) {
 		at := strings.IndexByte(code[loc[0]:loc[1]], '$') + loc[0]
