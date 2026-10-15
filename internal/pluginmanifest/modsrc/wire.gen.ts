@@ -107,6 +107,7 @@ export type HelloResponse = {
   reason?: Reason
   detail?: string
   enabled: boolean
+  steering: boolean
 }
 
 /** The stdin of `qompack mod brief`. */

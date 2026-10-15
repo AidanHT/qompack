@@ -60,13 +60,16 @@ func parseHostVersion(v string) (nums [3]uint64, prerelease, ok bool) {
 }
 
 // Validate checks a hello response against the contract before the CLI writes it: the status
-// invariants, and that an unserved hello enables nothing.
+// invariants, that an unserved hello enables nothing, and that only an enabled hello steers.
 func (r HelloResponse) Validate() error {
 	if err := validStatus(r.Status); err != nil {
 		return err
 	}
-	if !r.OK && r.Enabled {
+	if !r.OK && (r.Enabled || r.Steering) {
 		return fmt.Errorf("%w: an unserved hello enables nothing", ErrInvalid)
+	}
+	if r.Steering && !r.Enabled {
+		return fmt.Errorf("%w: a hello that is not enabled does not steer", ErrInvalid)
 	}
 	return nil
 }

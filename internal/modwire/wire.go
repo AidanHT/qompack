@@ -194,11 +194,18 @@ type HelloRequest struct {
 //     and runtime.mod.enabled is on) and the hello file is written, recording the host version
 //     for diagnosis, but the host does not meet MinHostVersion or its version is unreadable
 //     (MeetsMinHostVersion).
+//
+// A served, enabled hello then says in Steering whether the mod may steer compactions with a
+// brief. Steering true implies Enabled true; Validate refuses any other combination.
 type HelloResponse struct {
 	Status
 	// Enabled is MeetsMinHostVersion(HostVersion) on a served hello, and always false on an
-	// unserved one. The mod calls brief only after a hello answered enabled true.
+	// unserved one.
 	Enabled bool `json:"enabled"`
+	// Steering is true when the hello is served with Enabled true and runtime.mod.steering is on,
+	// and false otherwise. The mod calls brief only after a hello answered steering true; a brief
+	// sent while runtime.mod.steering is off is refused.
+	Steering bool `json:"steering"`
 }
 
 // BriefRequest is the stdin of `qompack mod brief`, sent before a compaction runs.
