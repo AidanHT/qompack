@@ -133,6 +133,7 @@ describe('decodeBrief', () => {
       [0, '{"v":1,"ok":true,"instructions":"a"}'],
       [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":[""]}'],
       [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":[7]}'],
+      [0, '{"v":1,"ok":false,"reason":"cold","detail":"' + 'd'.repeat(257) + '"}'],
       [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["a<b"]}'],
       [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["a b"]}'],
       [0, '{"v":1,"ok":true,"instructions":"a","fact_ids":["é"]}'],

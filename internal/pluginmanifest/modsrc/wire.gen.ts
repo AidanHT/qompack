@@ -29,6 +29,18 @@ export const MAX_FACT_IDS = 256
 /** The longest fact id. */
 export const MAX_FACT_ID_BYTES = 128
 
+/** The longest status detail. */
+export const MAX_DETAIL_BYTES = 256
+
+/** The bytes a session id may hold, as a regular-expression character-class body. */
+export const SESSION_ID_CHARS = 'A-Za-z0-9._-'
+
+/** The bytes a trigger name may hold, as a regular-expression character-class body. */
+export const TRIGGER_CHARS = 'A-Za-z0-9_-'
+
+/** The bytes a fact id may hold, as a regular-expression character-class body; each encodes as itself in JSON. */
+export const FACT_ID_CHARS = 'A-Za-z0-9._:/-'
+
 /** How long the mod waits for one `qompack mod <verb>` child, in milliseconds (provisional). */
 export const TIMEOUT_MS = 2000
 

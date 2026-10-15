@@ -63,6 +63,19 @@ func Schema() SchemaDef {
 			{"MaxTriggerBytes", "MAX_TRIGGER_BYTES", MaxTriggerBytes, "The longest trigger name."},
 			{"MaxFactIDs", "MAX_FACT_IDS", MaxFactIDs, "The most fact ids one brief response lists."},
 			{"MaxFactIDBytes", "MAX_FACT_ID_BYTES", MaxFactIDBytes, "The longest fact id."},
+			{"MaxDetailBytes", "MAX_DETAIL_BYTES", MaxDetailBytes, "The longest status detail."},
+			{
+				"SessionIDChars", "SESSION_ID_CHARS", SessionIDChars,
+				"The bytes a session id may hold, as a regular-expression character-class body.",
+			},
+			{
+				"TriggerChars", "TRIGGER_CHARS", TriggerChars,
+				"The bytes a trigger name may hold, as a regular-expression character-class body.",
+			},
+			{
+				"FactIDChars", "FACT_ID_CHARS", FactIDChars,
+				"The bytes a fact id may hold, as a regular-expression character-class body; each encodes as itself in JSON.",
+			},
 			{
 				"TimeoutMs", "TIMEOUT_MS", TimeoutMs,
 				"How long the mod waits for one `qompack mod <verb>` child, in milliseconds (provisional).",

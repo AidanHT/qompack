@@ -8,6 +8,8 @@
 
 import { BINARY_REL_PATH } from './target.gen.ts'
 import {
+  FACT_ID_CHARS,
+  MAX_DETAIL_BYTES,
   MAX_FACT_ID_BYTES,
   MAX_FACT_IDS,
   MAX_MESSAGE_BYTES,
@@ -65,6 +67,10 @@ export function runFailureDetail(err: unknown): string {
 
 const encoder = new TextEncoder()
 
+// Built from the published alphabet, as the Go validator is. Every allowed byte is ASCII, so the
+// String length of a matching id is its byte length.
+const factIdPattern = new RegExp('^[' + FACT_ID_CHARS + ']+$')
+
 function byteLength(s: string): number {
   return encoder.encode(s).length
 }
@@ -93,6 +99,9 @@ function parseStatus(exitCode: number, stdout: string): Parsed {
   }
   if (obj.detail !== undefined && typeof obj.detail !== 'string') {
     return { ok: false, detail: 'detail is not a string' }
+  }
+  if (typeof obj.detail === 'string' && byteLength(obj.detail) > MAX_DETAIL_BYTES) {
+    return { ok: false, detail: 'detail too long' }
   }
   return { ok: true, value: obj }
 }
@@ -131,7 +140,7 @@ export function decodeBrief(exitCode: number, stdout: string, maxChars: number):
   if (o.fact_ids.length > MAX_FACT_IDS) return unservedBrief(REASON_ERROR, 'too many fact ids')
   const ids: string[] = []
   for (const id of o.fact_ids) {
-    if (typeof id !== 'string' || id === '' || byteLength(id) > MAX_FACT_ID_BYTES) {
+    if (typeof id !== 'string' || id.length > MAX_FACT_ID_BYTES || !factIdPattern.test(id)) {
       return unservedBrief(REASON_ERROR, 'bad fact id')
     }
     ids.push(id)

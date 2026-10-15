@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"unicode/utf16"
+	"unicode/utf8"
 )
 
 // The decode and validation errors. Each maps to ReasonError through FailureFor; they are distinct
@@ -40,7 +42,19 @@ func (e *VersionError) Unwrap() error { return ErrUnsupportedVersion }
 // ReasonError, and the error's text as the detail. The detail names the problem, never content
 // from the request.
 func FailureFor(err error) Status {
-	return Failure(ReasonError, err.Error())
+	return Failure(ReasonError, truncateDetail(err.Error()))
+}
+
+// truncateDetail cuts a detail to MaxDetailBytes without splitting a UTF-8 sequence.
+func truncateDetail(s string) string {
+	if len(s) <= MaxDetailBytes {
+		return s
+	}
+	cut := MaxDetailBytes
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
 
 // DecodeHelloRequest reads and validates one hello request.
@@ -68,7 +82,7 @@ func DecodeBriefRequest(r io.Reader) (BriefRequest, error) {
 		return BriefRequest{}, err
 	}
 	if !validTrigger(req.Trigger) {
-		return BriefRequest{}, fmt.Errorf("%w: trigger must be 1-%d bytes of [a-z0-9_-]", ErrInvalid, MaxTriggerBytes)
+		return BriefRequest{}, fmt.Errorf("%w: trigger must be 1-%d bytes of [%s]", ErrInvalid, MaxTriggerBytes, TriggerChars)
 	}
 	if req.MaxChars < 0 {
 		return BriefRequest{}, fmt.Errorf("%w: max_chars must not be negative", ErrInvalid)
@@ -115,36 +129,24 @@ func validateCommon(session, cwd string) error {
 	return nil
 }
 
+// The validators are built from the published alphabets, so the Go checks and the mod's cannot
+// disagree about which bytes are allowed.
+var (
+	sessionIDPattern = regexp.MustCompile("^[" + SessionIDChars + "]+$")
+	triggerPattern   = regexp.MustCompile("^[" + TriggerChars + "]+$")
+	factIDPattern    = regexp.MustCompile("^[" + FactIDChars + "]+$")
+)
+
+// validTrigger accepts any plain identifier: 1 to MaxTriggerBytes bytes of TriggerChars.
 func validTrigger(s string) bool {
-	if s == "" || len(s) > MaxTriggerBytes {
-		return false
-	}
-	for i := range len(s) {
-		c := s[i]
-		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_' && c != '-' {
-			return false
-		}
-	}
-	return true
+	return len(s) <= MaxTriggerBytes && triggerPattern.MatchString(s)
 }
 
 // ValidSessionID reports whether s can name a per-session file: 1 to MaxSessionIDBytes bytes of
 // ASCII letters, digits, '.', '_' and '-', and neither "." nor "..". Host session ids are UUIDs,
 // which pass; anything that could escape the state directory does not.
 func ValidSessionID(s string) bool {
-	if s == "" || len(s) > MaxSessionIDBytes || s == "." || s == ".." {
-		return false
-	}
-	for i := range len(s) {
-		c := s[i]
-		switch {
-		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
-		case c == '.', c == '_', c == '-':
-		default:
-			return false
-		}
-	}
-	return true
+	return len(s) <= MaxSessionIDBytes && s != "." && s != ".." && sessionIDPattern.MatchString(s)
 }
 
 func knownReason(r Reason) bool {
@@ -165,6 +167,8 @@ func validStatus(s Status) error {
 		return fmt.Errorf("%w: a served response carries no reason", ErrInvalid)
 	case !s.OK && !knownReason(s.Reason):
 		return fmt.Errorf("%w: an unserved response needs a known reason, got %q", ErrInvalid, s.Reason)
+	case len(s.Detail) > MaxDetailBytes:
+		return fmt.Errorf("%w: detail is over %d bytes", ErrInvalid, MaxDetailBytes)
 	}
 	return nil
 }
@@ -186,8 +190,8 @@ func (r BriefResponse) Validate(maxChars int) error {
 		return fmt.Errorf("%w: %d fact ids, over the cap of %d", ErrInvalid, len(r.FactIDs), MaxFactIDs)
 	}
 	for _, id := range r.FactIDs {
-		if id == "" || len(id) > MaxFactIDBytes {
-			return fmt.Errorf("%w: a fact id must be 1-%d bytes", ErrInvalid, MaxFactIDBytes)
+		if len(id) > MaxFactIDBytes || !factIDPattern.MatchString(id) {
+			return fmt.Errorf("%w: a fact id must be 1-%d bytes of [%s]", ErrInvalid, MaxFactIDBytes, FactIDChars)
 		}
 	}
 	return nil

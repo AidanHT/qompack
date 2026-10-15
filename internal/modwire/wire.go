@@ -39,6 +39,28 @@ const (
 
 	// MaxFactIDBytes bounds one fact id.
 	MaxFactIDBytes = 128
+
+	// MaxDetailBytes bounds a status's detail, the one free-text field a response carries.
+	MaxDetailBytes = 256
+)
+
+// Alphabets, as regular-expression character-class bodies, so the Go validators and the mod
+// build their checks from the same text. All three are ASCII, so a byte count is a character
+// count and nothing is lost to U+FFFD.
+const (
+	// SessionIDChars is what a session id may hold: it names per-session files.
+	SessionIDChars = "A-Za-z0-9._-"
+
+	// TriggerChars is what a trigger name may hold. Any plain identifier is accepted, so a
+	// trigger the host adds later is served and recorded, not refused.
+	TriggerChars = "A-Za-z0-9_-"
+
+	// FactIDChars is what a fact id may hold. Every byte here encodes as itself in JSON, with
+	// encoding/json's HTML escaping on (which is why < > & are absent), so MaxFactIDs ids of
+	// MaxFactIDBytes cost exactly that many bytes on the wire. The stored facts' own ids fit
+	// unchanged: decision ids (dec_…), pinned-invariant ids (inv_…), negative-knowledge record
+	// ids (elim_…), content hashes (sha256:…) and host tool-use ids.
+	FactIDChars = "A-Za-z0-9._:/-"
 )
 
 // Timing. The mod passes TimeoutMs to the host's process API for every verb; the daemon answers a
@@ -183,7 +205,9 @@ type BriefRequest struct {
 	SessionID string `json:"session_id"`
 	CWD       string `json:"cwd"`
 	// Trigger is what is compacting, as the host names it (manual, auto, and so on). It is
-	// logged, not interpreted, so a trigger the host adds later is still served.
+	// logged, not interpreted: any plain identifier (TriggerChars, at most MaxTriggerBytes) is
+	// served and recorded, so a trigger the host adds later is too. Only a malformed one is
+	// refused.
 	Trigger string `json:"trigger"`
 	// UserInstructionsPresent says whether the person gave their own compaction instructions.
 	// Only the fact is sent, never the text.

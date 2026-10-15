@@ -65,7 +65,7 @@ func (r BriefRecord) validate() error {
 	case !known:
 		return fmt.Errorf("%w: unknown outcome %q", ErrInvalid, r.Outcome)
 	case !validTrigger(r.Trigger):
-		return fmt.Errorf("%w: trigger must be 1-%d bytes of [a-z0-9_-]", ErrInvalid, MaxTriggerBytes)
+		return fmt.Errorf("%w: trigger must be 1-%d bytes of [%s]", ErrInvalid, MaxTriggerBytes, TriggerChars)
 	case r.Chars < 0 || r.Chars > BriefMaxChars:
 		return fmt.Errorf("%w: chars must be 0-%d", ErrInvalid, BriefMaxChars)
 	case r.Outcome != OutcomeServed && r.Chars != 0:
