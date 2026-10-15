@@ -120,6 +120,9 @@ func treeOf(t *testing.T, roots ...string) []string {
 // enableMod is the --set flag that turns runtime.mod.enabled on for one invocation.
 var enableMod = []string{"--set", "runtime.mod.enabled=true"}
 
+// enableSteering is the --set flag that turns runtime.mod.steering on for one invocation.
+var enableSteering = []string{"--set", "runtime.mod.steering=true"}
+
 func TestModHello_ServedWritesTheHelloFile(t *testing.T) {
 	p := newModProject(t, true)
 	code, stdout, stderr := runMod(t, p.env(helloRequest(t, p.root, "2.1.300"), nil),
@@ -154,6 +157,90 @@ func TestModHello_BelowTheMinimumIsServedButNotEnabled(t *testing.T) {
 			require.Equal(t, version, h.HostVersion)
 		})
 	}
+}
+
+// TestModHello_SteeringFollowsItsSwitchAndTheHost: a served hello answers steering true only when
+// runtime.mod.steering is on and the host is enabled; steering off, the default, is still a served
+// hello, and a host below the minimum steers nothing whatever the switch says.
+func TestModHello_SteeringFollowsItsSwitchAndTheHost(t *testing.T) {
+	for _, tc := range []struct {
+		name, version string
+		args          []string
+		want          modwire.HelloResponse
+	}{
+		{
+			name: "steering off by default", version: "2.1.300",
+			args: append([]string{"hello"}, enableMod...),
+			want: modwire.HelloResponse{Status: modwire.Served(), Enabled: true},
+		},
+		{
+			name: "steering on", version: "2.1.300",
+			args: append(append([]string{"hello"}, enableMod...), enableSteering...),
+			want: modwire.HelloResponse{Status: modwire.Served(), Enabled: true, Steering: true},
+		},
+		{
+			name: "steering on, host below the minimum", version: "2.1.299",
+			args: append(append([]string{"hello"}, enableMod...), enableSteering...),
+			want: modwire.HelloResponse{Status: modwire.Served()},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newModProject(t, true)
+			code, stdout, stderr := runMod(t, p.env(helloRequest(t, p.root, tc.version), nil), tc.args...)
+			require.Equal(t, ExitOK, code, stderr)
+			require.Equal(t, tc.want, decodeHelloOut(t, stdout))
+			require.FileExists(t, p.helloFilePath())
+		})
+	}
+
+	t.Run("refused with steering on", func(t *testing.T) {
+		p := newModProject(t, true)
+		code, stdout, stderr := runMod(t, p.env(helloRequest(t, p.root, "2.1.300"), nil),
+			append([]string{"hello"}, enableSteering...)...)
+		require.Equal(t, ExitOK, code, stderr)
+		r := decodeHelloOut(t, stdout)
+		require.Equal(t, modwire.ReasonRefused, r.Reason)
+		require.False(t, r.Steering, "steering alone does not serve a hello")
+	})
+}
+
+// TestModServedProject_ASteeringRequestIsRefusedBeforeTheModeProbe: a verb that steers (brief)
+// asks modServedProject for steering too. Steering off refuses it for that switch, after the
+// enabled switch and, like it, before the mode read can probe a daemon.
+func TestModServedProject_ASteeringRequestIsRefusedBeforeTheModeProbe(t *testing.T) {
+	p := newModProject(t, true)
+	require.NoError(t, paths.EnsureLayout(paths.Of(p.root)))
+	staleModeOffState(t, p.root)
+	probes := 0
+	prev := stateDaemonAlive
+	stateDaemonAlive = func(string) bool { probes++; return true }
+	t.Cleanup(func() { stateDaemonAlive = prev })
+
+	env := p.env("", nil)
+	env.Set = map[string]string{"runtime.mod.enabled": "true"}
+	_, _, refusal, err := modServedProject(env, p.root, true)
+	require.NoError(t, err)
+	require.Equal(t, modRefusedSteeringOff, refusal)
+	require.Zero(t, probes)
+
+	env.Set = map[string]string{"runtime.mod.steering": "true"}
+	_, _, refusal, err = modServedProject(env, p.root, true)
+	require.NoError(t, err)
+	require.Equal(t, modRefusedOff, refusal, "steering alone does not serve a request")
+	require.Zero(t, probes)
+
+	env.Set = map[string]string{"runtime.mod.enabled": "true", "runtime.mod.steering": "true"}
+	_, _, refusal, err = modServedProject(env, p.root, true)
+	require.NoError(t, err)
+	require.Equal(t, modRefusedModeOff, refusal, "both switches on, the mode is read as before")
+	require.Equal(t, 1, probes)
+
+	env.Set = map[string]string{"runtime.mod.enabled": "true"}
+	staleModeOffState(t, p.root)
+	useStateDaemonAlive(t, false)
+	_, _, refusal, err = modServedProject(env, p.root, false)
+	require.NoError(t, err)
+	require.Empty(t, refusal, "a verb that does not steer is served with steering off")
 }
 
 func TestModHello_SwitchOnThroughTheProjectConfigFile(t *testing.T) {

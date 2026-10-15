@@ -64,3 +64,20 @@ func TestHello_TheTwoOffEncodingsAreDistinct(t *testing.T) {
 	require.ErrorIs(t, modwire.HelloResponse{Status: modwire.Status{V: 1, OK: false}}.Validate(),
 		modwire.ErrInvalid, "an unserved hello needs a reason")
 }
+
+// TestHello_SteeringOnlyWithEnabled pins the steering field: true only on a served hello that is
+// enabled (runtime.mod.steering on as well), so a mod that reads steering true may also rely on
+// enabled true.
+func TestHello_SteeringOnlyWithEnabled(t *testing.T) {
+	steering := modwire.HelloResponse{Status: modwire.Served(), Enabled: true, Steering: true}
+	require.NoError(t, steering.Validate())
+	got, err := modwire.Encode(steering)
+	require.NoError(t, err)
+	requireGolden(t, "hello_response_steering.json", got)
+
+	require.ErrorIs(t, modwire.HelloResponse{Status: modwire.Served(), Steering: true}.Validate(),
+		modwire.ErrInvalid, "a hello that is not enabled does not steer")
+	require.ErrorIs(t, modwire.HelloResponse{
+		Status: modwire.Failure(modwire.ReasonRefused, ""), Steering: true,
+	}.Validate(), modwire.ErrInvalid, "an unserved hello never steers")
+}
