@@ -172,8 +172,8 @@ func taskModValidate(args []string) error {
 
 // runModValidate materialises goos's mods plugin, runs `claude plugin validate --strict --json` on
 // it and asserts the Stage A allowlist; a relative recordPath is resolved under repoRoot. It fails
-// closed: without claude, without exit 0, success:true and strict:true, on a calls line it cannot read, and on
-// any call outside the allowlist.
+// closed: without claude, without exit 0, success:true and strict:true, on a calls line it cannot
+// read, and on any call outside the allowlist.
 //
 // The calls checked are the union of the validator's calls line and a scan of the materialised
 // hooks/register.ts, always both (ruling R12): on 2.1.300 the line omits property reads such as
