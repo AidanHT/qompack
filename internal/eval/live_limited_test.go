@@ -48,7 +48,9 @@ func TestLiveSummary_LimitedSensitivity(t *testing.T) {
 // TestLiveSummary_RateUse: each arm's per-trial utilization deltas, by window: how much of the
 // five-hour and seven-day windows a trial uses, which R2's calendar estimate reads.
 func TestLiveSummary_RateUse(t *testing.T) {
-	d := func(v float64) eval.LiveRateDelta { return eval.LiveRateDelta{Delta: &v, Basis: eval.RateBasisPrevious} }
+	d := func(v float64) eval.LiveRateDelta {
+		return eval.LiveRateDelta{Delta: &v, Basis: eval.RateBasisPrevious}
+	}
 	ts := trials(eval.ArmSteer, 3, 3)
 	ts[0].RateUse = map[string]eval.LiveRateDelta{"five_hour": d(0.02), "seven_day": d(0.01)}
 	ts[1].RateUse = map[string]eval.LiveRateDelta{"five_hour": d(0.04)}

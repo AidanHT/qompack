@@ -116,7 +116,15 @@ type LiveTrial struct {
 	// Hello is the steer arm's hello file as the session left it: a treatment outcome, counted as
 	// assigned whatever it says (intention to treat). nil on every other arm.
 	Hello *LiveHelloOutcome `json:"hello,omitempty"`
-	Notes []string          `json:"notes,omitempty"`
+	// RateLimits is every rate_limit_event the session's stream carried, and RateUse each window's
+	// utilization delta over the trial (W6 item 8): what the trial spent of the subscription.
+	RateLimits []HostRateLimit          `json:"rate_limits,omitempty"`
+	RateUse    map[string]LiveRateDelta `json:"rate_use,omitempty"`
+	// Limited says how a subscription limit cut the trial short (W6 item 8). Such a trial is kept on
+	// disk under another name in its slot, excluded from every analysis but the limited sensitivity
+	// analysis, and its slot is run again.
+	Limited string   `json:"limited,omitempty"`
+	Notes   []string `json:"notes,omitempty"`
 }
 
 // LiveHelloOutcome is what a steer trial's project held of the mod's hello file after the session:
@@ -435,6 +443,16 @@ type ArmSummary struct {
 	// HelloProblemTrials counts the arm's trials whose hello file was missing or wrong: treatment
 	// outcomes, counted and reported, never excluded.
 	HelloProblemTrials int `json:"hello_problem_trials,omitempty"`
+	// RateUse is, by window, the arm's per-trial utilization deltas: how much of the subscription's
+	// five-hour and seven-day windows one trial uses (W6 item 8; R2's calendar estimate reads it).
+	RateUse map[string]LiveRateUseStats `json:"rate_use,omitempty"`
+}
+
+// LiveRateUseStats summarizes one window's per-trial utilization deltas over the trials that had one.
+type LiveRateUseStats struct {
+	Trials int     `json:"trials"`
+	Mean   float64 `json:"mean"`
+	Max    float64 `json:"max"`
 }
 
 // HookLatency is one hook's host-measured durations over an arm's trials, in milliseconds, with
@@ -482,6 +500,16 @@ type LiveSummary struct {
 	// HostModels is every distinct model the trials' hosts reported at start-up, sorted: what the run
 	// actually ran on, which an alias leaves to the host (preregistration section 3's contingency).
 	HostModels []string `json:"host_models,omitempty"`
+	// LimitedTrials counts, per arm, the trials a subscription limit cut short: set aside, excluded
+	// from every analysis above and run again (W6 item 8). LimitedSensitivity is each arm's outcomes
+	// with those trials added back as failures on every outcome, reported beside the primary analysis
+	// and never decided.
+	LimitedTrials      map[string]int        `json:"limited_trials,omitempty"`
+	LimitedSensitivity map[string]ArmSummary `json:"limited_sensitivity,omitempty"`
+	// Paused says why the run paused cleanly before its plan was done (a limit or the night window's
+	// end, W6 item 8); `devtool live-eval --resume` continues it. Empty for a run that finished or
+	// stopped.
+	Paused string `json:"paused,omitempty"`
 }
 
 // VariantHeldOut is the ByVariant key that groups the held-out tasks, whatever their variant.
@@ -631,6 +659,56 @@ func (s *LiveSummary) StopEarly(ran, planned int, why string) {
 	s.Notes = append(s.Notes, "the run was stopped early: "+why)
 }
 
+// Pause records that the run paused cleanly after ran of its planned trials, and why (W6 item 8):
+// it reaches no verdict yet, and `devtool live-eval --resume` continues the same plan, whose
+// verdict is then computed over every session's trials.
+func (s *LiveSummary) Pause(ran, planned int, why string) {
+	s.Decision = LiveDecision{
+		Verdict: "not-applicable",
+		Reason: fmt.Sprintf("the run paused after %d of the %d planned trials; it continues with `devtool live-eval "+
+			"--resume <run-dir>`, and the verdict is computed over every session's trials", ran, planned),
+	}
+	s.Paused = why
+	s.Notes = append(s.Notes, "the run paused cleanly: "+why)
+}
+
+// AddLimited records the limited trials of a run whose scored trials are scored (W6 item 8): their
+// count per arm, and the sensitivity analysis that counts each as a failure on every outcome. The
+// primary analysis and its decision are untouched.
+func (s *LiveSummary) AddLimited(a LiveAnalysis, scored, limited []LiveTrial) {
+	if len(limited) == 0 {
+		return
+	}
+	s.LimitedTrials = map[string]int{}
+	with := append([]LiveTrial{}, scored...)
+	for _, t := range limited {
+		s.LimitedTrials[t.Arm]++
+		t.HarnessError = joinNonEmpty(t.HarnessError, "limited: "+t.Limited)
+		t.TaskSuccess, t.Completed = false, false
+		if t.Recovered != nil {
+			failed := false
+			t.Recovered = &failed
+		}
+		with = append(with, t)
+	}
+	s.LimitedSensitivity = SummarizeLive(s.RunID, a, with).Arms
+	var parts []string
+	for _, arm := range slices.Sorted(maps.Keys(s.LimitedTrials)) {
+		sens := s.LimitedSensitivity[arm]
+		parts = append(parts, fmt.Sprintf("%d %s (task success with them as failures %d/%d, recovery %d/%d)",
+			s.LimitedTrials[arm], arm, sens.TaskSuccess.K, sens.TaskSuccess.N, sens.Recovery.K, sens.Recovery.N))
+	}
+	s.Notes = append(s.Notes, "limited trials, set aside and run again, excluded from the analysis above: "+
+		strings.Join(parts, "; ")+". The sensitivity analysis counting them as failures is reported, not decided")
+}
+
+func joinNonEmpty(a, b string) string {
+	if a == "" {
+		return b
+	}
+	return a + "; " + b
+}
+
 // DecideLive applies the pre-registered decision rule to the primary outcome, task success after
 // compaction:
 //
@@ -759,7 +837,13 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	var storeN int
 	var hooks []float64
 	hostHooks := map[string][]int64{}
+	rateUse := map[string][]float64{}
 	for _, t := range ts {
+		for w, d := range t.RateUse {
+			if d.Delta != nil {
+				rateUse[w] = append(rateUse[w], *d.Delta)
+			}
+		}
 		// A trial the harness could not run as designed is never complete, whatever its steps say.
 		if t.Completed && t.HarnessError == "" {
 			out.Completed++
@@ -840,6 +924,19 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		out.HostHookMS[name] = HookLatency{
 			N: len(ms), P50: nearestRank(ms, 50), P95: nearestRank(ms, 95), Max: ms[len(ms)-1],
 		}
+	}
+	for w, ds := range rateUse {
+		st := LiveRateUseStats{Trials: len(ds), Max: ds[0]}
+		total := 0.0
+		for _, d := range ds {
+			total += d
+			st.Max = math.Max(st.Max, d)
+		}
+		st.Mean = total / float64(len(ds))
+		if out.RateUse == nil {
+			out.RateUse = map[string]LiveRateUseStats{}
+		}
+		out.RateUse[w] = st
 	}
 	out.TaskSuccess = wilson(taskK, len(ts), z)
 	out.ConstraintClean = wilson(cleanK, len(ts), z)
