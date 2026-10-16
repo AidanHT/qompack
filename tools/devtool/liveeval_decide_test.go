@@ -389,3 +389,28 @@ func TestRunLiveEval_SizeFromAPilotSummary(t *testing.T) {
 	_, err = parseLiveTest([]string{"--resume", dir, "--size-from", summary})
 	require.ErrorContains(t, err, "--size-from")
 }
+
+// TestRunLiveEval_DescribeShowsThePreregisteredDecisions: --describe prints the decision rules the
+// hashed task set pre-registers — the bootstrap, the sequence and S, the sizing's Δs and ICC_int, and
+// amendment 4's efficiency block with each guard — so the Run Book's reader sees them before a run.
+func TestRunLiveEval_DescribeShowsThePreregisteredDecisions(t *testing.T) {
+	night, err := parseNightWindow("22:00-07:00")
+	require.NoError(t, err)
+	o := liveOptions{
+		tasksFile: liveTestTasksV7, rates: liveTestRates, arms: eval.LiveArms, out: filepath.Join(t.TempDir(), "run"),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), bundleMods: fakeModsBundle(t, "deadbeef"), idleExit: 1800,
+		defectsAttested: true, openDefects: []string{}, orderSeed: 11, describe: true, night: night,
+		fiveHourGate: eval.LiveFiveHourGate, sevenDayCeiling: eval.LiveSevenDayCeiling,
+	}
+	var w bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, fakeLiveEnv(t, nil), &w))
+	for _, want := range []string{
+		"## Pre-registered decisions", "B = 10000 resamples, seed 20261016", "the lower bound above -0.10",
+		"Δ_H1 0.25, Δ_H2 0.15, ICC_int 0.10", "margin 0.10 on cost and active_time", "caps a step with no result at 600000 ms",
+		"steer vs classic: harm shown when the ratio's lower bound exceeds 1.10 (gated",
+		"classic vs stock: harm shown when the ratio's lower bound exceeds 1.10 (a label for the docs, not gating)",
+		"a claim, not a ship condition", "redesign ratio 1.25", "- Daemon idle exit: 1800 s; step timeout 10m0s",
+	} {
+		require.Contains(t, w.String(), want)
+	}
+}
