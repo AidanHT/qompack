@@ -206,3 +206,28 @@ func TestModTests_DecodeTheGoResponseGoldens(t *testing.T) {
 			"modsrc/tests/format.test.ts must decode %s verbatim", filepath.Base(g))
 	}
 }
+
+// TestModTests_EncodeTheGoRequestGoldens anchors the mod's encoder tests to the Go side's bytes,
+// as TestModTests_DecodeTheGoResponseGoldens does for the decoders: every request golden
+// internal/modwire writes must appear, verbatim, as a TypeScript single-quoted literal in the
+// mod's tests, which compare the encoder's output with it. A contract change that regenerates a
+// request golden then breaks the TypeScript test that still expects the old bytes.
+func TestModTests_EncodeTheGoRequestGoldens(t *testing.T) {
+	repo := testModuleRoot(t)
+	var tsTests strings.Builder
+	for _, name := range []string{"format.test.ts", "compact.test.ts"} {
+		b, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash(modSourceDir), "tests", name))
+		require.NoError(t, err)
+		tsTests.Write(b)
+	}
+	goldens, err := filepath.Glob(filepath.Join(repo, "internal", "modwire", "testdata", "*_request.json"))
+	require.NoError(t, err)
+	require.Len(t, goldens, len(modwire.Verbs()), "one request golden per verb; the check would be vacuous")
+	for _, g := range goldens {
+		b, readErr := os.ReadFile(g)
+		require.NoError(t, readErr)
+		line := strings.TrimRight(string(normalizeNewlines(b)), "\n")
+		require.Contains(t, tsTests.String(), "'"+tsSingleQuoted.Replace(line)+"'",
+			"modsrc/tests must encode %s verbatim", filepath.Base(g))
+	}
+}
