@@ -13,8 +13,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/qompack/qompack/internal/eval"
@@ -113,7 +115,33 @@ type livePacer struct {
 	// sessionMargin is how long before the night window closes the last trial may start: a trial
 	// runs up to the session timeout (review M4).
 	sessionMargin time.Duration
+	// holdUntil and holdWhy are a reset a usage-limit result announced (review M5).
+	holdUntil time.Time
+	holdWhy   string
 }
+
+// liveMaxWait is the longest wait spent in-process: a five-hour reset is at most five hours away, so
+// anything longer (a reset days away) is a pause (review M4).
+const liveMaxWait = 5*time.Hour + 10*time.Minute
+
+// hold makes the pacing wait for until, as for a five-hour reset.
+func (p *livePacer) hold(until time.Time, why string) {
+	if until.After(p.holdUntil) {
+		p.holdUntil, p.holdWhy = until, why
+	}
+}
+
+// verdict is PaceLive's verdict, with a held reset in the future turned into a wait.
+func (p *livePacer) verdict(now time.Time) eval.LivePaceVerdict {
+	v := eval.PaceLive(p.snap, now, p.pacing)
+	if v.Action == eval.PaceGo && p.holdUntil.After(now) {
+		v = eval.LivePaceVerdict{Action: eval.PaceWait, Until: p.holdUntil, Reason: p.holdWhy}
+	}
+	return v
+}
+
+// wouldStart reports that the pacing would start a trial at now: nothing to wait for.
+func (p *livePacer) wouldStart(now time.Time) bool { return p.verdict(now).Action == eval.PaceGo }
 
 // newLivePacer makes the session's pacer, starting from the snapshot a previous session of the run
 // left in dir (none for a new run).
@@ -181,7 +209,11 @@ func (p *livePacer) before(ctx context.Context, env *liveEnv, w io.Writer) (stri
 		if !p.night.contains(now) {
 			return fmt.Sprintf("%s is outside the night window %s", now.Format("15:04"), p.night), nil
 		}
-		v := eval.PaceLive(p.snap, now, p.pacing)
+		if end := p.night.end(now); p.night.set && p.sessionMargin > 0 && now.Add(p.sessionMargin).After(end) {
+			return fmt.Sprintf("the night window %s closes at %s, within the session timeout %s of now (%s)", p.night,
+				end.Format("15:04"), p.sessionMargin, now.Format("15:04")), nil
+		}
+		v := p.verdict(now)
 		switch v.Action {
 		case eval.PaceGo:
 			return "", nil
@@ -191,6 +223,9 @@ func (p *livePacer) before(ctx context.Context, env *liveEnv, w io.Writer) (stri
 			return pauseReason(v), nil
 		}
 		until := v.Until.Add(liveResetMargin)
+		if until.Sub(now) > liveMaxWait {
+			return fmt.Sprintf("%s; it resets at %s, more than %s away", v.Reason, v.Until.Format(time.RFC3339), liveMaxWait), nil
+		}
 		if p.night.set && until.After(p.night.end(now)) {
 			return fmt.Sprintf("%s; it resets at %s, after the night window %s closes", v.Reason,
 				v.Until.Format(time.RFC3339), p.night), nil
@@ -226,6 +261,91 @@ func (p *livePacer) observe(env *liveEnv, evs []eval.HostRateLimit) error {
 			FiveHourGate: p.pacing.FiveHourGate, SevenDayCeiling: p.pacing.SevenDayCeiling, NightWindow: p.night.String(),
 		},
 	})
+}
+
+// liveOverageStopFile marks, in the run directory, a stop on paid overage (review M1).
+const liveOverageStopFile = "overage-stop.json"
+
+// markLiveOverageStop leaves the overage-stop marker for why, when why is an overage stop.
+func markLiveOverageStop(dir string, env *liveEnv, why error) {
+	if why == nil || !strings.Contains(why.Error(), "overage") {
+		return
+	}
+	_ = writeJSONFile(filepath.Join(dir, liveOverageStopFile), map[string]string{
+		"at": env.now().UTC().Format(time.RFC3339), "why": why.Error(),
+	})
+}
+
+// checkLiveOverageStop refuses a session of a run that stopped on paid overage until the operator
+// says --overage-checked, which clears the marker.
+func checkLiveOverageStop(o liveOptions) error {
+	p := filepath.Join(o.out, liveOverageStopFile)
+	if _, err := os.Stat(p); err != nil {
+		return nil
+	}
+	if !o.overageChecked {
+		return fmt.Errorf("live-eval: this run stopped on paid overage (%s); check the account cannot spend overage, then "+
+			"resume with --overage-checked", p)
+	}
+	return os.Remove(p)
+}
+
+// markLiveLimited makes a limited trial's record a failure on every outcome, recovery included when
+// the task declares recovery checks, so the sensitivity analysis counts it as one even when it was cut
+// short before any recovery verdict existed (review M2).
+func markLiveLimited(rec *eval.LiveTrial, task eval.LiveTask) {
+	rec.TaskSuccess, rec.Completed = false, false
+	for _, c := range task.Checks {
+		if c.Outcome == eval.OutcomeRecovery {
+			failed := false
+			rec.Recovered = &failed
+			return
+		}
+	}
+}
+
+// liveLockFile holds, in the run directory, the session that is running it (review M8).
+const liveLockFile = "session.lock"
+
+// liveLock is session.lock.
+type liveLock struct {
+	PID       int    `json:"pid"`
+	StartedAt string `json:"started_at"`
+}
+
+// acquireLiveLock takes the run directory's lock for this session: one session at a time, as the
+// guard requires (W6 item 9). A lock whose holder no longer runs, left by a crash, is taken over.
+func acquireLiveLock(dir string, now time.Time) (func(), error) {
+	p := filepath.Join(dir, liveLockFile)
+	b, err := json.Marshal(liveLock{PID: os.Getpid(), StartedAt: now.UTC().Format(time.RFC3339)})
+	if err != nil {
+		return nil, err
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, liveFilePerm)
+		if err == nil {
+			_, werr := f.Write(b)
+			cerr := f.Close()
+			if werr != nil || cerr != nil {
+				_ = os.Remove(p)
+				return nil, errors.Join(werr, cerr)
+			}
+			return func() { _ = os.Remove(p) }, nil
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return nil, fmt.Errorf("live-eval: taking %s: %w", p, err)
+		}
+		raw, _ := os.ReadFile(p)
+		var held liveLock
+		if json.Unmarshal(raw, &held) == nil && held.PID > 0 && liveProcessAlive(held.PID) {
+			return nil, fmt.Errorf("live-eval: another session (pid %d, since %s) is running this run directory; one "+
+				"session at a time (%s)", held.PID, held.StartedAt, p)
+		}
+		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("live-eval: removing the stale %s: %w", p, err)
+		}
+	}
+	return nil, fmt.Errorf("live-eval: could not take %s", p)
 }
 
 // liveOverageStop is the session driver's StopOn: the reason to stop a session at once when a
@@ -311,4 +431,19 @@ func boolText(b *bool) string {
 		return "absent"
 	}
 	return fmt.Sprint(*b)
+}
+
+// liveProcessAlive reports that a process with this pid runs on this machine. On Windows finding a
+// process opens it, which fails for one that no longer exists; elsewhere signal 0 asks without
+// signalling. A process the harness may not open reads as gone, which only lets a stale lock go.
+func liveProcessAlive(pid int) bool {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		_ = p.Release()
+		return true
+	}
+	return p.Signal(syscall.Signal(0)) == nil
 }

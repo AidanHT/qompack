@@ -237,7 +237,7 @@ checks:
 				if run.Limited == "" {
 					break
 				}
-				if eval.PaceLive(pacer.snap, env.now(), pacer.pacing).Action == eval.PaceGo {
+				if pacer.wouldStart(env.now()) {
 					results.Paused = fmt.Sprintf("a limit cut %s run %d short (%s) and no event says when it lifts", c.ID, n, run.Limited)
 					break checks
 				}

@@ -127,8 +127,11 @@ type LiveTrial struct {
 	// Limited says how a subscription limit cut the trial short (W6 item 8). Such a trial is kept on
 	// disk under another name in its slot, excluded from every analysis but the limited sensitivity
 	// analysis, and its slot is run again.
-	Limited string   `json:"limited,omitempty"`
-	Notes   []string `json:"notes,omitempty"`
+	Limited string `json:"limited,omitempty"`
+	// LimitResetsAt is when the usage-limit result that cut the trial short said the limit resets,
+	// in Unix seconds; 0 when it did not say.
+	LimitResetsAt int64    `json:"limit_resets_at,omitempty"`
+	Notes         []string `json:"notes,omitempty"`
 }
 
 // LiveHelloOutcome is what a steer trial's project held of the mod's hello file after the session:

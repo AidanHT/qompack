@@ -139,6 +139,9 @@ type liveOptions struct {
 	// from the values a run directory stored (review I3).
 	pacingGiven    map[string]bool
 	pacingOverride bool
+	// overageChecked is the operator's word that an earlier overage stop of this run was looked into
+	// (review M1).
+	overageChecked bool
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -196,6 +199,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"skip every slot that holds a scored trial, run the rest, and decide over every session's trials")
 	fs.BoolVar(&o.pacingOverride, "pacing-override", false, "let the pacing flags change the values a resumed run "+
 		"stored at its first session")
+	fs.BoolVar(&o.overageChecked, "overage-checked", false, "resume a run that stopped on paid overage: the operator "+
+		"has checked the account cannot spend overage")
 	fs.BoolVar(&o.describe, "describe", false, "print, as Markdown, what the run would do (tasks, checks, arms, bundles, "+
 		"host pin, trial order, model, flags and pacing); start nothing")
 	if err := fs.Parse(args); err != nil {
@@ -506,6 +511,14 @@ func executeLivePlan(ctx context.Context, o liveOptions, env *liveEnv, w io.Writ
 	for _, s := range plan.ArmStates {
 		states[s.Arm] = s
 	}
+	release, err := acquireLiveLock(o.out, env.now())
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := checkLiveOverageStop(o); err != nil {
+		return err
+	}
 	pacer, err := newLivePacer(o, o.out, env.now())
 	if err != nil {
 		return err
@@ -539,6 +552,7 @@ slots:
 			why, paceErr := pacer.before(ctx, env, w)
 			if paceErr != nil {
 				stop(paceErr)
+				markLiveOverageStop(o.out, env, paceErr)
 				break slots
 			}
 			if why != "" {
@@ -576,6 +590,7 @@ slots:
 			}
 			if over := liveOverage(rec.RateLimits); over != "" {
 				stop(fmt.Errorf("live-eval: after %s/%s/%d: %s", p.Task, p.Arm, p.Trial, over))
+				markLiveOverageStop(o.out, env, abort)
 				break slots
 			}
 			if problem := eval.LiveRateProblem(rec.RateLimits); problem != "" {
@@ -595,7 +610,10 @@ slots:
 				}
 				break slots
 			}
-			if rec.Limited != "" && eval.PaceLive(pacer.snap, env.now(), pacer.pacing).Action == eval.PaceGo {
+			if rec.LimitResetsAt != 0 {
+				pacer.hold(time.Unix(rec.LimitResetsAt, 0), "a usage-limit result said the limit resets then")
+			}
+			if rec.Limited != "" && pacer.wouldStart(env.now()) {
 				// Nothing says when the limit lifts: running the slot again now would meet it again.
 				paused = "a limit cut " + fmt.Sprintf("%s/%s/%d", p.Task, p.Arm, p.Trial) + " short (" + rec.Limited +
 					") and no event says when it lifts"
@@ -963,6 +981,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 			kind = liveSlotDiscarded
 		case rec.Limited != "":
 			kind = liveSlotLimited
+			markLiveLimited(&rec, task)
 		default:
 			_ = writeJSONFile(filepath.Join(trialDir, liveScoredRecord), rec)
 			return
@@ -1114,6 +1133,9 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 		rec.Limited = "the session was stopped: " + proc.Stopped
 	}
 	rec.OverageStatus, rec.OverageDisabledReason = eval.LiveOverageState(stream.RateLimits)
+	if reset, ok := eval.LiveUsageLimitReset(stream); ok && rec.Limited != "" {
+		rec.LimitResetsAt = reset.Unix()
+	}
 	rec.HostReportedPlugins = stream.Init != nil
 	if stream.Init != nil {
 		rec.SessionID = stream.Init.SessionID

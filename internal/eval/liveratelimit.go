@@ -49,7 +49,10 @@ const (
 // subscription's limit refused it. The exact form is G0.16's to record; until then this matches the
 // forms Claude Code has printed ("Claude AI usage limit reached|<epoch>", "… limit reached ∙ resets
 // …", "You've hit your limit") and an exhausted rate-limit retry. It is read only from a result
-// marked is_error.
+// marked is_error. It is provisional and broad: "rate limit" also matches a transient API 429 that
+// outlasted its retries, which then counts as limited (excluded, run again, reported in the
+// sensitivity analysis) rather than scored. Narrowing it to the form G0.16 records is tracked on
+// that check's row (review M6).
 var LiveUsageLimitPattern = regexp.MustCompile(`(?i)usage limit|limit reached|hit your limit|rate[ _-]?limit`)
 
 // HostRateLimit is one rate_limit_event line's rate_limit_info, with the turn it arrived in.
@@ -352,6 +355,31 @@ func LiveUsageLimited(s HostStream) string {
 		}
 	}
 	return ""
+}
+
+// liveUsageLimitEpoch is the reset epoch some usage-limit results end with: "…|1790116800".
+var liveUsageLimitEpoch = regexp.MustCompile(`\|\s*(\d{9,11})\s*$`)
+
+// LiveUsageLimitReset is when a usage-limit result says the limit resets, when one carries the
+// "|<Unix seconds>" suffix (review M5; the form is G0.16's to confirm).
+func LiveUsageLimitReset(s HostStream) (time.Time, bool) {
+	for _, t := range s.Turns {
+		if t.Result == nil || !t.Result.IsError {
+			continue
+		}
+		for _, text := range append([]string{t.Result.Result}, t.Result.Errors...) {
+			if !LiveUsageLimitPattern.MatchString(text) {
+				continue
+			}
+			if m := liveUsageLimitEpoch.FindStringSubmatch(text); m != nil {
+				var sec int64
+				if _, err := fmt.Sscan(m[1], &sec); err == nil {
+					return time.Unix(sec, 0), true
+				}
+			}
+		}
+	}
+	return time.Time{}, false
 }
 
 func orUnknownWindow(name string) string {
