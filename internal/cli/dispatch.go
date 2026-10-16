@@ -18,6 +18,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/qompack/qompack/internal/commands"
 	"github.com/qompack/qompack/internal/core"
@@ -73,6 +74,11 @@ type Env struct {
 	// binary for no functional benefit — verify with
 	// `go list -deps ./cmd/qompack | grep -c '^testing$'` == 0.
 	Self string
+	// Started is when the process started, as Clock reads it: cmd/qompack/main.go takes it first
+	// thing. A `qompack mod` verb that asks the daemon counts its deadline from it, because the
+	// mod's timeout runs from the spawn. The zero value means the verb's own start, which is what
+	// every Env a test builds gets unless the row sets it.
+	Started time.Time
 }
 
 // Dispatch routes argv to a command and returns the process exit code.

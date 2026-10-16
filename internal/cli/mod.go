@@ -34,6 +34,11 @@ func modCmds() []Cmd {
 			Summary: "the Claude Code mod's session announcement (JSON on stdin and stdout)",
 			Run:     runModVerb(modwire.VerbHello, modHello),
 		},
+		{
+			Name:    "mod brief",
+			Summary: "the Claude Code mod's compaction brief (JSON on stdin and stdout)",
+			Run:     runModVerb(modwire.VerbBrief, modBrief),
+		},
 	}
 }
 
