@@ -205,7 +205,7 @@ func TestLiveCheck_DryRunAndFlags(t *testing.T) {
 	o.bundle = fakeBundle(t)
 	require.ErrorContains(t, runLiveCheck(context.Background(), o, env, &w), liveEvalGateEnv)
 
-	p, err := parseLiveCheckFlags([]string{"--suite", "s.json"})
+	p, err := parseLiveCheckTest([]string{"--suite", "s.json"})
 	require.NoError(t, err)
 	require.Equal(t, eval.LiveCheckTierQuick, p.tier)
 	require.Equal(t, liveCheckPrecomputeUnread, p.precompute)
@@ -215,7 +215,7 @@ func TestLiveCheck_DryRunAndFlags(t *testing.T) {
 	for _, bad := range [][]string{
 		{"--suite", "s.json", "--tier", "slow"}, {}, {"--compare", "a"}, {"--suite", "s", "--seven-day-ceiling", "2"},
 	} {
-		_, err := parseLiveCheckFlags(bad)
+		_, err := parseLiveCheckTest(bad)
 		require.Error(t, err, bad)
 	}
 

@@ -25,6 +25,7 @@ import (
 var liveResumeFlags = map[string]bool{
 	"resume": true, "claude": true, "rates": true, "step-timeout": true, "session-timeout": true,
 	"keep-raw-transcripts": true, "dry-run": true, "five-hour-gate": true, "seven-day-ceiling": true, "night-window": true,
+	"pacing-override": true,
 }
 
 // resumeLiveEval continues the run in o.resume.

@@ -109,6 +109,9 @@ func parseLiveCheckFlags(args []string) (liveCheckOptions, error) {
 			return o, err
 		}
 		o.night = n
+	} else if !o.dryRun {
+		return o, errors.New("live-check: a run that starts sessions names its night window: --night-window HH:MM-HH:MM, " +
+			"or --night-window none to run at any hour")
 	}
 	if o.fiveHourGate <= 0 || o.fiveHourGate > 1 || o.sevenDayCeiling <= 0 || o.sevenDayCeiling > 1 || o.idleExit <= 0 {
 		return o, errors.New("live-check: the gate and ceiling must be utilizations in (0, 1] and --daemon-idle-exit positive")
@@ -178,7 +181,9 @@ func runLiveCheck(ctx context.Context, o liveCheckOptions, env *liveEnv, w io.Wr
 	fmt.Fprintf(w, "live-check: run %s: suite %s (%s) at tier %s on Claude Code %s\n", runID, suite.ID,
 		shortHash(r.manifest.SuiteSHA256), o.tier, r.manifest.ClaudeCodeVersion)
 
-	pacer, err := newLivePacer(liveOptions{fiveHourGate: o.fiveHourGate, sevenDayCeiling: o.sevenDayCeiling, night: o.night}, o.out)
+	pacer, err := newLivePacer(liveOptions{
+		fiveHourGate: o.fiveHourGate, sevenDayCeiling: o.sevenDayCeiling, night: o.night, sessionTimeout: o.sessionTimeout,
+	}, o.out, env.now())
 	if err != nil {
 		return err
 	}

@@ -25,19 +25,19 @@ const liveTestTasksV7 = "../../testdata/eval/live/tasks-v7-harness-test.json"
 // the two-arm design's qompack arm is refused; --bundle-mods and --order-seed are flags; every
 // Qompack arm's daemon idles out at the product default of 1800 s unless told otherwise.
 func TestParseLiveFlags_StageAArms(t *testing.T) {
-	o, err := parseLiveFlags(nil)
+	o, err := parseLiveTest(nil)
 	require.NoError(t, err)
 	require.Equal(t, []string{"stock", "classic", "generic", "steer"}, o.arms)
 	require.Equal(t, 1800, o.idleExit)
 
-	o, err = parseLiveFlags([]string{"--arms", "steer,stock", "--bundle-mods", "m", "--order-seed", "7"})
+	o, err = parseLiveTest([]string{"--arms", "steer,stock", "--bundle-mods", "m", "--order-seed", "7"})
 	require.NoError(t, err)
 	require.Equal(t, []string{"steer", "stock"}, o.arms)
 	require.Equal(t, "m", o.bundleMods)
 	require.Equal(t, int64(7), o.orderSeed)
 
 	for _, bad := range [][]string{{"--arms", "qompack"}, {"--arms", "stock,stock"}} {
-		_, err := parseLiveFlags(bad)
+		_, err := parseLiveTest(bad)
 		require.Error(t, err, "%v", bad)
 	}
 }

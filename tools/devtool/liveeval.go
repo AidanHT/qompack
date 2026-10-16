@@ -135,6 +135,10 @@ type liveOptions struct {
 	resume string
 	// describe prints the run's description and starts nothing (W6 item 10).
 	describe bool
+	// pacingGiven names the pacing flags given on the command line; pacingOverride lets them differ
+	// from the values a run directory stored (review I3).
+	pacingGiven    map[string]bool
+	pacingOverride bool
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -190,6 +194,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"cleanly outside it (default: no window)")
 	fs.StringVar(&o.resume, "resume", "", "continue the run in this directory from its plan.json: verify its hashes and host, "+
 		"skip every slot that holds a scored trial, run the rest, and decide over every session's trials")
+	fs.BoolVar(&o.pacingOverride, "pacing-override", false, "let the pacing flags change the values a resumed run "+
+		"stored at its first session")
 	fs.BoolVar(&o.describe, "describe", false, "print, as Markdown, what the run would do (tasks, checks, arms, bundles, "+
 		"host pin, trial order, model, flags and pacing); start nothing")
 	if err := fs.Parse(args); err != nil {
@@ -207,12 +213,22 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 				strings.Join(conflicts, ", "))
 		}
 	}
+	o.pacingGiven = map[string]bool{}
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "five-hour-gate", "seven-day-ceiling", "night-window":
+			o.pacingGiven[f.Name] = true
+		}
+	})
 	if *night != "" {
 		n, err := parseNightWindow(*night)
 		if err != nil {
 			return o, err
 		}
 		o.night = n
+	} else if !o.dryRun && !o.describe && o.resume == "" {
+		return o, errors.New("live-eval: a run that starts trials names its night window: --night-window HH:MM-HH:MM, " +
+			"or --night-window none to run at any hour (D100 runs at night)")
 	}
 	for _, v := range []struct {
 		name string
@@ -490,7 +506,7 @@ func executeLivePlan(ctx context.Context, o liveOptions, env *liveEnv, w io.Writ
 	for _, s := range plan.ArmStates {
 		states[s.Arm] = s
 	}
-	pacer, err := newLivePacer(o, o.out)
+	pacer, err := newLivePacer(o, o.out, env.now())
 	if err != nil {
 		return err
 	}

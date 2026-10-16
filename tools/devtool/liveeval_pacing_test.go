@@ -80,13 +80,13 @@ func slotDir(out string, arm string, trial int) string {
 }
 
 func TestParseLiveFlags_Pacing(t *testing.T) {
-	o, err := parseLiveFlags(nil)
+	o, err := parseLiveTest(nil)
 	require.NoError(t, err)
 	require.InDelta(t, eval.LiveFiveHourGate, o.fiveHourGate, 0)
 	require.InDelta(t, eval.LiveSevenDayCeiling, o.sevenDayCeiling, 0)
 	require.False(t, o.night.set, "no night window unless the operator gives one")
 
-	o, err = parseLiveFlags([]string{"--five-hour-gate", "0.8", "--seven-day-ceiling", "0.5", "--night-window", "22:00-07:00"})
+	o, err = parseLiveTest([]string{"--five-hour-gate", "0.8", "--seven-day-ceiling", "0.5", "--night-window", "22:00-07:00"})
 	require.NoError(t, err)
 	require.InDelta(t, 0.8, o.fiveHourGate, 0)
 	require.InDelta(t, 0.5, o.sevenDayCeiling, 0)
@@ -95,7 +95,7 @@ func TestParseLiveFlags_Pacing(t *testing.T) {
 		{"--five-hour-gate", "0"}, {"--five-hour-gate", "1.2"}, {"--seven-day-ceiling", "-1"},
 		{"--night-window", "22:00"}, {"--night-window", "25:00-07:00"}, {"--night-window", "07:00-07:00"},
 	} {
-		_, err := parseLiveFlags(bad)
+		_, err := parseLiveTest(bad)
 		require.Error(t, err, bad)
 	}
 }

@@ -29,7 +29,7 @@ const (
 )
 
 func TestParseLiveFlags(t *testing.T) {
-	o, err := parseLiveFlags([]string{"--arms", "classic", "--install", "marketplace", "--only", "a, b", "--trials", "3"})
+	o, err := parseLiveTest([]string{"--arms", "classic", "--install", "marketplace", "--only", "a, b", "--trials", "3"})
 	require.NoError(t, err)
 	require.Equal(t, []string{"classic"}, o.arms)
 	require.Equal(t, map[string]bool{"a": true, "b": true}, o.only)
@@ -46,7 +46,7 @@ func TestParseLiveFlags(t *testing.T) {
 		{"--known-open-defects", " , "},
 		{"--known-open-defects", "C1.12;rm"},
 	} {
-		_, err := parseLiveFlags(bad)
+		_, err := parseLiveTest(bad)
 		require.Error(t, err, "%v", bad)
 	}
 }
@@ -56,16 +56,16 @@ func TestParseLiveFlags(t *testing.T) {
 // operator states it: "none", or every known defect the bundle still carries. Not saying is
 // distinguishable from saying "none".
 func TestParseLiveFlags_KnownOpenDefects(t *testing.T) {
-	o, err := parseLiveFlags(nil)
+	o, err := parseLiveTest(nil)
 	require.NoError(t, err)
 	require.False(t, o.defectsAttested, "no flag is no attestation")
 
-	o, err = parseLiveFlags([]string{"--known-open-defects", "none"})
+	o, err = parseLiveTest([]string{"--known-open-defects", "none"})
 	require.NoError(t, err)
 	require.True(t, o.defectsAttested)
 	require.Empty(t, o.openDefects)
 
-	o, err = parseLiveFlags([]string{"--known-open-defects", "C1.12, C1.1"})
+	o, err = parseLiveTest([]string{"--known-open-defects", "C1.12, C1.1"})
 	require.NoError(t, err)
 	require.True(t, o.defectsAttested)
 	require.Equal(t, []string{"C1.12", "C1.1"}, o.openDefects)
@@ -136,7 +136,7 @@ func TestRunLiveEval_ASupersededTaskSetIsNeverPlanned(t *testing.T) {
 	require.NoError(t, runLiveEval(context.Background(), o, env, &out))
 	require.Contains(t, out.String(), "task set qompack-live-v2")
 
-	d, err := parseLiveFlags(nil)
+	d, err := parseLiveTest(nil)
 	require.NoError(t, err)
 	require.Equal(t, "testdata/eval/live/tasks-v2.json", d.tasksFile)
 	ts, _, err := eval.LoadLiveTaskSet(filepath.Join("..", "..", filepath.FromSlash(d.tasksFile)))
@@ -210,7 +210,7 @@ func TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign(t *testing.T) {
 		require.NotContains(t, out.String(), "plan: ", "%s: nothing is planned", name)
 	}
 
-	o, err := parseLiveFlags([]string{"--confirmatory"})
+	o, err := parseLiveTest([]string{"--confirmatory"})
 	require.NoError(t, err)
 	require.True(t, o.confirmatory)
 }
@@ -1375,4 +1375,21 @@ func honourStopOn(spec liveProcSpec, stream string) (string, string) {
 		}
 	}
 	return stream, ""
+}
+
+// parseLiveTest is parseLiveFlags with --night-window none added when args name no night window, so a
+// flag test fails for its own reason and not for the window every real run must name (review I3).
+func parseLiveTest(args []string) (liveOptions, error) {
+	if !slices.Contains(args, "--night-window") {
+		args = append(slices.Clone(args), "--night-window", liveNoNightWindow)
+	}
+	return parseLiveFlags(args)
+}
+
+// parseLiveCheckTest is parseLiveCheckFlags with --night-window none added the same way.
+func parseLiveCheckTest(args []string) (liveCheckOptions, error) {
+	if !slices.Contains(args, "--night-window") {
+		args = append(slices.Clone(args), "--night-window", liveNoNightWindow)
+	}
+	return parseLiveCheckFlags(args)
 }

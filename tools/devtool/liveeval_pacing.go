@@ -30,9 +30,23 @@ const livePacingFile = "pacing.json"
 
 // livePacingState is pacing.json.
 type livePacingState struct {
-	UpdatedAt string                `json:"updated_at"`
-	Snapshot  eval.LiveRateSnapshot `json:"snapshot"`
+	UpdatedAt string `json:"updated_at"`
+	// Settings is the pacing in force, written when the run's first session starts: every later
+	// session of the run paces on it unless the operator overrides it explicitly (review I3).
+	Settings *livePacingSettings   `json:"settings,omitempty"`
+	Snapshot eval.LiveRateSnapshot `json:"snapshot"`
 }
+
+// livePacingSettings is a run's pacing values.
+type livePacingSettings struct {
+	FiveHourGate    float64 `json:"five_hour_gate"`
+	SevenDayCeiling float64 `json:"seven_day_ceiling"`
+	// NightWindow is HH:MM-HH:MM, or "none".
+	NightWindow string `json:"night_window"`
+}
+
+// liveNoNightWindow is the --night-window value that deliberately runs with no window.
+const liveNoNightWindow = "none"
 
 // liveNightWindow is the --night-window: trials start only inside it, in the clock's own time zone.
 // The zero value has no window, and every time is inside it.
@@ -41,8 +55,11 @@ type liveNightWindow struct {
 	startMin, endMin int // minutes after midnight; end may be earlier than start (the window crosses midnight)
 }
 
-// parseNightWindow reads "HH:MM-HH:MM".
+// parseNightWindow reads "HH:MM-HH:MM", or "none" for no window.
 func parseNightWindow(v string) (liveNightWindow, error) {
+	if v == liveNoNightWindow {
+		return liveNightWindow{}, nil
+	}
 	var sh, sm, eh, em int
 	if _, err := fmt.Sscanf(v, "%d:%d-%d:%d", &sh, &sm, &eh, &em); err != nil || len(v) != len("00:00-00:00") {
 		return liveNightWindow{}, fmt.Errorf("live-eval: --night-window %q is not HH:MM-HH:MM", v)
@@ -59,7 +76,7 @@ func parseNightWindow(v string) (liveNightWindow, error) {
 
 func (n liveNightWindow) String() string {
 	if !n.set {
-		return "none"
+		return liveNoNightWindow
 	}
 	return fmt.Sprintf("%02d:%02d-%02d:%02d", n.startMin/60, n.startMin%60, n.endMin/60, n.endMin%60)
 }
@@ -93,28 +110,65 @@ type livePacer struct {
 	snap   eval.LiveRateSnapshot
 	// path is the run directory's pacing.json; "" keeps the snapshot in memory only.
 	path string
+	// sessionMargin is how long before the night window closes the last trial may start: a trial
+	// runs up to the session timeout (review M4).
+	sessionMargin time.Duration
 }
 
 // newLivePacer makes the session's pacer, starting from the snapshot a previous session of the run
 // left in dir (none for a new run).
-func newLivePacer(o liveOptions, dir string) (*livePacer, error) {
-	p := &livePacer{pacing: o.livePacing(), night: o.night}
+//
+// The pacing values come from the run directory when an earlier session stored them, and from the
+// flags otherwise; a flag that names a different value than the stored one is refused unless
+// o.pacingOverride says it is meant (review I3). The values in force are then stored.
+func newLivePacer(o liveOptions, dir string, now time.Time) (*livePacer, error) {
+	p := &livePacer{pacing: o.livePacing(), night: o.night, sessionMargin: o.sessionTimeout}
 	if dir == "" {
 		return p, nil
 	}
 	p.path = filepath.Join(dir, livePacingFile)
+	var st livePacingState
 	raw, err := os.ReadFile(p.path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		return p, nil
 	case err != nil:
 		return nil, fmt.Errorf("live-eval: reading %s: %w", p.path, err)
-	}
-	var st livePacingState
-	if err := json.Unmarshal(raw, &st); err != nil {
-		return nil, fmt.Errorf("live-eval: parsing %s: %w", p.path, err)
+	default:
+		if err := json.Unmarshal(raw, &st); err != nil {
+			return nil, fmt.Errorf("live-eval: parsing %s: %w", p.path, err)
+		}
 	}
 	p.snap = st.Snapshot
+	if s := st.Settings; s != nil {
+		stored, err := parseNightWindow(s.NightWindow)
+		if err != nil {
+			return nil, fmt.Errorf("live-eval: %s: %w", p.path, err)
+		}
+		for _, f := range []struct {
+			flag          string
+			given, stored string
+			apply         func()
+		}{
+			{"five-hour-gate", fmt.Sprint(p.pacing.FiveHourGate), fmt.Sprint(s.FiveHourGate), func() { p.pacing.FiveHourGate = s.FiveHourGate }},
+			{"seven-day-ceiling", fmt.Sprint(p.pacing.SevenDayCeiling), fmt.Sprint(s.SevenDayCeiling), func() { p.pacing.SevenDayCeiling = s.SevenDayCeiling }},
+			{"night-window", p.night.String(), s.NightWindow, func() { p.night = stored }},
+		} {
+			switch {
+			case !o.pacingGiven[f.flag]:
+				f.apply()
+			case f.given != f.stored && !o.pacingOverride:
+				return nil, fmt.Errorf("live-eval: --%s %s differs from the %s this run paces on (%s); pass --pacing-override "+
+					"to change it for this and later sessions", f.flag, f.given, f.stored, p.path)
+			}
+		}
+	}
+	st.Settings = &livePacingSettings{
+		FiveHourGate: p.pacing.FiveHourGate, SevenDayCeiling: p.pacing.SevenDayCeiling, NightWindow: p.night.String(),
+	}
+	st.UpdatedAt = now.UTC().Format(time.RFC3339)
+	if err := writeJSONFile(p.path, st); err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
@@ -166,7 +220,12 @@ func (p *livePacer) observe(env *liveEnv, evs []eval.HostRateLimit) error {
 	if p.path == "" {
 		return nil
 	}
-	return writeJSONFile(p.path, livePacingState{UpdatedAt: env.now().UTC().Format(time.RFC3339), Snapshot: p.snap})
+	return writeJSONFile(p.path, livePacingState{
+		UpdatedAt: env.now().UTC().Format(time.RFC3339), Snapshot: p.snap,
+		Settings: &livePacingSettings{
+			FiveHourGate: p.pacing.FiveHourGate, SevenDayCeiling: p.pacing.SevenDayCeiling, NightWindow: p.night.String(),
+		},
+	})
 }
 
 // liveOverageStop is the session driver's StopOn: the reason to stop a session at once when a
