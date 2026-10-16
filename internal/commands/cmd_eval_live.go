@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -76,6 +77,23 @@ type LiveEvalReport struct {
 	Analysis        eval.LiveAnalysis            `json:"analysis"`
 	ByVariant       map[string][]eval.ArmSummary `json:"by_variant,omitempty"`
 	TaskSigns       map[string]int               `json:"task_signs,omitempty"`
+	// ArmTrials is each arm's trials per task (W6 item 1), the counts a four-arm plan records when
+	// TrialsPerArm, one count for every arm, is 0.
+	ArmTrials map[string]int `json:"arm_trials_per_task,omitempty"`
+	// PluginMods is the --bundle-mods build of a Stage A run.
+	PluginMods *eval.LivePluginIdentity `json:"plugin_mods,omitempty"`
+	// StageA is a Stage A run's decisions (W6 item 2, amendment 4), which replace the two-arm verdict.
+	StageA *eval.LiveStageA `json:"stage_a,omitempty"`
+	// ByDomain is the outcomes per task domain (W6 item 6), reported.
+	ByDomain map[string][]eval.ArmSummary `json:"by_domain,omitempty"`
+	// Paused says why the run paused cleanly before its plan was done (W6 item 8); LimitedTrials counts
+	// each arm's trials a subscription limit cut short, set aside and run again, and LimitedSensitivity
+	// is the outcomes with them as failures; ResidentDaemonFaults counts the attempts set aside for a
+	// resident daemon of another build (ruling R42).
+	Paused               string                     `json:"paused,omitempty"`
+	LimitedTrials        map[string]int             `json:"limited_trials,omitempty"`
+	LimitedSensitivity   map[string]eval.ArmSummary `json:"limited_sensitivity,omitempty"`
+	ResidentDaemonFaults int                        `json:"resident_daemon_faults,omitempty"`
 }
 
 // buildLiveReport qualifies one run and carries its summary over.
@@ -99,6 +117,8 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 		Decision: s.Decision, Regression: s.ConstraintRegression, Failed: s.Failed,
 		Notes:         append(append([]string(nil), in.Notes...), s.Notes...),
 		RateTableDate: p.RateTableDate, Analysis: a, ByVariant: s.ByVariant, TaskSigns: s.TaskSigns,
+		ArmTrials: p.ArmTrials, PluginMods: p.PluginMods, StageA: s.StageA, ByDomain: s.ByDomain, Paused: s.Paused,
+		LimitedTrials: s.LimitedTrials, LimitedSensitivity: s.LimitedSensitivity, ResidentDaemonFaults: s.ResidentDaemonFaults,
 	}
 	if r.Qualification == "" {
 		r.Qualification = "how this run was executed is not recorded in its plan"
@@ -120,6 +140,9 @@ func buildLiveReport(in LiveEvalInput) *LiveEvalReport {
 	r.Trials.Failed = len(s.Failed)
 	if r.Trials.Failed > 0 {
 		r.FailedTreatment = liveFailedTreatment
+		if s.StageA != nil {
+			r.FailedTreatment = liveStageAFailedTreatment
+		}
 	}
 	r.NotConfirmatory = notConfirmatory(p, s, r)
 	r.Confirmatory = len(r.NotConfirmatory) == 0
@@ -140,6 +163,14 @@ const liveFailedTreatment = "each is in every denominator of the decision (inten
 	"section 8): a harness failure is scored as a failure on every outcome, any other failed trial is graded by " +
 	"its checks, and a trial whose plugin state contradicted its arm makes the decision not-applicable"
 
+// liveStageAFailedTreatment says how a Stage A run's decisions counted its failed trials. A trial whose
+// configuration contradicted its arm is no failed trial here: it was set aside in its slot and run
+// again (W6 item 4), and a trial a subscription limit cut short was set aside likewise (W6 item 8);
+// neither is scored, so neither can void the run.
+const liveStageAFailedTreatment = "each is in every denominator of the Stage A decisions (intention to treat): a harness " +
+	"failure is scored as a failure on every outcome it carries, any other failed trial is graded by its checks; a " +
+	"configuration-discarded or limit-cut attempt was set aside in its slot and run again, never scored"
+
 // notConfirmatory lists every way the run departs from a confirmatory run of its pre-registered
 // design: what its plan fixed before any trial ran (eval.LivePlanDepartures — its frozen materials
 // and install path, a set that was not superseded, its model, both arms, every task, the trials per
@@ -152,6 +183,10 @@ func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []s
 	out = append(out, modelResolutionDepartures(p, s)...)
 	if r.Trials.Skipped > 0 {
 		out = append(out, fmt.Sprintf("%d planned trial(s) did not run", r.Trials.Skipped))
+	}
+	if s.Paused != "" {
+		out = append(out, fmt.Sprintf("it paused before its plan was done (%s); `devtool live-eval --resume <run-dir>` "+
+			"continues it", s.Paused))
 	}
 	for _, arm := range liveArmOrder(s.Arms) {
 		as := s.Arms[arm]
@@ -216,6 +251,9 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 	if !r.Confirmatory {
 		notJudged = "not judged: not a confirmatory run (" + strings.Join(r.NotConfirmatory, "; ") + ")"
 	}
+	if r.StageA != nil {
+		return stageAGates(r.StageA, notJudged)
+	}
 
 	margin := "margin not recorded in this summary"
 	if r.MarginKnown {
@@ -268,14 +306,58 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 }
 
 // liveDecisionReached reports that the pre-registered rule reached a verdict on the primary outcome:
-// superior or non-inferior, which pass it, or inferior, which fails it. Inconclusive and
-// not-applicable reach none, and neither does anything else a summary might carry.
+// superior or non-inferior, which pass it, or inferior, which fails it; for a Stage A run, ship,
+// which passes it, or harm shown, which fails it. Inconclusive, not-applicable, and a Stage A run
+// whose benefit or S was not shown ("off, unmeasured", plan §9.4) reach none, and neither does
+// anything else a summary might carry.
 func liveDecisionReached(d eval.LiveDecision) bool {
 	switch d.Verdict {
-	case "superior", "non-inferior", "inferior":
+	case "superior", "non-inferior", "inferior", eval.LiveVerdictShip, eval.LiveVerdictHarm:
 		return true
 	}
 	return false
+}
+
+// stageAGates are a Stage A run's gates (W6 item 2, amendment 4), judged only on a confirmatory run
+// and only as the pre-registered rules decide: H1, H2 and S pass when shown and are left unjudged
+// otherwise ("not shown" is never "harmed"); each harm test and gated efficiency guard fails when it
+// shows harm or reads indeterminate and is never a pass, so cost and time can block a run but never
+// carry one (SP14-M7-03); H3 is judged only when the owner made it a ship condition.
+func stageAGates(s *eval.LiveStageA, notJudged string) (task, recovery []EvalGate) {
+	gate := func(id string, t eval.LiveTest) EvalGate {
+		g := EvalGate{
+			ID:     id,
+			Metric: fmt.Sprintf("%s: %s vs %s, %s (%s)", t.ID, t.Treated, t.Comparator, t.Metric, t.Statistic),
+			Detail: fmt.Sprintf("%s — %s; rule: %s", t.Label, t.Reason, t.Rule),
+		}
+		if t.Interval != nil {
+			v := t.Interval.Estimate
+			g.Value = &v
+		}
+		if notJudged != "" {
+			g.Detail = notJudged + "; " + g.Detail
+			return g
+		}
+		switch {
+		case !s.Decided && (t.ID == "H1" || t.ID == "H2" || t.ID == "S" || t.ID == "H3"):
+		case t.ID == "H1" || t.ID == "H2" || t.ID == "S" || (t.ID == "H3" && t.Gated):
+			if t.Label == eval.LiveLabelShown {
+				g.Passed = boolPtr(true)
+			}
+		case t.Gated && (t.Label == eval.LiveLabelHarmShown || t.Label == eval.LiveLabelIndeterminate):
+			g.Passed = boolPtr(false)
+		}
+		return g
+	}
+	for _, t := range s.Tests {
+		id := "LIVE-" + strings.ToUpper(t.ID)
+		if t.Metric == eval.LiveMetricRecovery {
+			recovery = append(recovery, gate(id, t))
+			continue
+		}
+		task = append(task, gate(id, t))
+	}
+	return task, recovery
 }
 
 // renderLive prints the live half of the report, the run's qualification before any of its numbers.
@@ -304,8 +386,19 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 	} else {
 		rw.printf("  confirmatory: no — %s\n", strings.Join(r.NotConfirmatory, "; "))
 	}
-	rw.printf("  sample: %d task(s) × %d trial(s) per arm; %d planned, %d ran, %d skipped, %d failed\n",
-		r.Tasks, r.TrialsPerArm, r.Trials.Planned, r.Trials.Ran, r.Trials.Skipped, r.Trials.Failed)
+	if r.PluginMods != nil {
+		rw.printf("  bundle-mods %s at commit %s (dirty=%t)\n", orUnknown(r.PluginMods.Version), orUnknown(r.PluginMods.Commit),
+			r.PluginMods.Dirty)
+	}
+	perArm := fmt.Sprintf("%d trial(s) per arm", r.TrialsPerArm)
+	if r.TrialsPerArm == 0 && len(r.ArmTrials) > 0 {
+		perArm = "per arm " + armCountsText(r.ArmTrials) + " trial(s) per task"
+	}
+	rw.printf("  sample: %d task(s) × %s; %d planned, %d ran, %d skipped, %d failed\n",
+		r.Tasks, perArm, r.Trials.Planned, r.Trials.Ran, r.Trials.Skipped, r.Trials.Failed)
+	if r.Paused != "" {
+		rw.printf("  PAUSED: %s; it reaches no verdict yet, and `devtool live-eval --resume <run-dir>` continues it\n", r.Paused)
+	}
 	level := int(r.Confidence*100 + 0.5)
 	rw.printf("  %-8s %6s  %-28s %-28s %-28s\n", "arm", "trials",
 		fmt.Sprintf("task success (%d%% CI)", level), fmt.Sprintf("constraint-clean (%d%% CI)", level),
@@ -318,6 +411,7 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 	if r.Regression != "" {
 		rw.printf("  REGRESSION (H2): %s\n", r.Regression)
 	}
+	renderLiveStageA(rw, r)
 	rw.printf("  cost — list-price-equivalent ESTIMATE from the %s rate table, beside the host's own "+
 		"total_cost_usd; the sessions ran on a subscription, which has no per-token charge\n", orUnknown(r.RateTableDate))
 	for _, as := range r.Arms {
@@ -334,6 +428,84 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 		rw.printf("  note: %s\n", n)
 	}
 	rw.printf("\n")
+}
+
+// renderLiveStageA prints a Stage A run's decisions, each arm's brief outcomes, cost and active time,
+// subscription use, and its limited and set-aside attempts.
+func renderLiveStageA(rw *errWriter, r *LiveEvalReport) {
+	if s := r.StageA; s != nil {
+		rw.printf("  Stage A decisions (paired task bootstrap, %.0f %% percentile intervals, B = %d over %d task(s), seed %d): "+
+			"%s\n", 100*s.Confidence, s.B, s.Tasks, s.Seed, s.Outcome)
+		for _, t := range s.Tests {
+			rw.printf("    %-22s %s vs %s, %s: %s — %s\n", t.ID, t.Treated, t.Comparator, t.Metric, intervalText(t.Interval), t.Label)
+		}
+		for _, t := range s.Reported {
+			rw.printf("    reported %-28s %s vs %s, %s: %s\n", t.ID, t.Treated, t.Comparator, t.Metric, intervalText(t.Interval))
+		}
+		for _, n := range s.Notes {
+			rw.printf("    note: %s\n", n)
+		}
+	}
+	for _, as := range r.Arms {
+		if e := as.Efficiency; e != nil && r.StageA != nil {
+			rw.printf("    %-8s cost C complete %d, partial %d, unknown %d (never zero), mean %.4f USD; mean active time %.1f s "+
+				"(API %.1f s); %d timed-out step(s); %d compaction(s), p50 %.0f ms\n", as.Arm, e.CostComplete, e.CostPartial,
+				e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000, e.TimedOutSteps, e.Compactions,
+				e.CompactionMS.P50)
+		}
+		if b := as.Brief; b != nil {
+			rw.printf("    %-8s briefs: %d compaction(s), unserved share %.2f, served-empty share %.2f, %d trial(s) with no "+
+				"served brief\n", as.Arm, b.Compactions, b.UnservedShare, b.ServedEmptyShare, b.NoServedTrials)
+		}
+		for _, w := range liveSortedKeys(as.RateUse) {
+			u := as.RateUse[w]
+			rw.printf("    %-8s subscription use per trial, %s: mean %.4f, max %.4f over %d trial(s)\n", as.Arm, w, u.Mean, u.Max,
+				u.Trials)
+		}
+	}
+	for _, arm := range liveSortedKeys(r.LimitedTrials) {
+		sens := r.LimitedSensitivity[arm]
+		rw.printf("    %-8s limited trials: %d, set aside and run again; with them as failures task success %s, recovery %s "+
+			"(reported, not decided)\n", arm, r.LimitedTrials[arm], proportionText(sens.TaskSuccess), proportionText(sens.Recovery))
+	}
+	if r.ResidentDaemonFaults > 0 {
+		rw.printf("    %d attempt(s) set aside for a resident daemon of another build (ruling R42): harness faults, not scored\n",
+			r.ResidentDaemonFaults)
+	}
+}
+
+// intervalText renders a Stage A interval.
+func intervalText(iv *eval.LiveInterval) string {
+	if iv == nil {
+		return "no interval"
+	}
+	return fmt.Sprintf("%.3f [%.3f, %.3f]", iv.Estimate, iv.Low, iv.High)
+}
+
+// armCountsText renders per-arm counts in the Stage A arms' order, then any other by name.
+func armCountsText(counts map[string]int) string {
+	var parts []string
+	for _, a := range eval.LiveArms {
+		if n, ok := counts[a]; ok {
+			parts = append(parts, fmt.Sprintf("%s %d", a, n))
+		}
+	}
+	for _, a := range liveSortedKeys(counts) {
+		if !slices.Contains(eval.LiveArms, a) {
+			parts = append(parts, fmt.Sprintf("%s %d", a, counts[a]))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// liveSortedKeys is a map's keys in order.
+func liveSortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // liveArmOrder is the arms in a fixed order: qompack, stock, then any other by name.

@@ -17,12 +17,13 @@ import (
 // of its task set's pre-registered design: the frozen materials and install path (preregistration
 // sections 2 and 3, amendments A1 and A7) and a set that was not superseded, the operator's
 // known-defect statement (section 9, amendment A5), the pre-registered model or its one contingency
-// alias (section 3, amendment A6), both arms (section 3), every task including the held-out ones and
-// the pre-registered trials per arm (sections 4 and 7), and bundles built from a clean tree.
-// a is the task set's analysis block, which pre-registers the trials per task of each arm. An empty
-// result is not a
+// alias (section 3, amendment A6), every arm of the design (both arms of the two-arm design, the
+// entry's arms of a Stage A one, W6 item 14), every task including the held-out ones, the
+// pre-registered trials per task of each arm (sections 4 and 7; the entry's per-arm n when it names
+// them), the pinned step timeout (amendment 4), and every bundle the design loads, built from one
+// commit and a clean tree. a is the task set's analysis block. An empty result is not a
 // confirmatory run yet: what only the trials can show — every planned trial ran, no foreign plugin
-// loaded on either arm, an alias resolved to one model — is judged from the run's summary.
+// loaded on any arm, an alias resolved to one model — is judged from the run's summary.
 func LivePlanDepartures(p LivePlan, a LiveAnalysis) []string {
 	var out []string
 	pre, ok := LivePreregistrations[p.TaskSet]
