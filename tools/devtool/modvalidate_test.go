@@ -213,7 +213,7 @@ func TestRunModValidate_PassesTheMaterialisedPlugin(t *testing.T) {
 	})
 	var out bytes.Buffer
 	require.NoError(t, runModValidate(f.claude(), testModuleRoot(t), "windows", "", &out))
-	want, err := pluginTreeFiles(modPluginVersion, "windows", true)
+	want, err := pluginTreeFiles(modPluginVersion, "windows", true, false)
 	require.NoError(t, err)
 	require.Len(t, seen, len(want), "the --mods plugin tree, with no tests: %v", seen)
 	for _, p := range seen {

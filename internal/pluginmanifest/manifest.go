@@ -132,11 +132,16 @@ type HookGroup struct {
 // Command is the executable (BinaryRef) and Args its argument vector; `args` is always present,
 // because its presence is what makes the host spawn the executable directly instead of handing
 // Command to a shell.
+//
+// Async asks the host to run the hook in the background (V7 F4). It is omitempty, and only
+// WithAsyncHooks sets it, so the default rendering carries no async key and its bytes are
+// unchanged. The host does not enforce Timeout on an async hook.
 type HookEntry struct {
 	Type    string   `json:"type"`
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
 	Timeout int      `json:"timeout"`
+	Async   bool     `json:"async,omitempty"`
 }
 
 // MCPJSON is plugin/.mcp.json.
@@ -165,17 +170,20 @@ type hookSpec struct {
 	matcher string
 	args    string
 	timeout int
+	// ackOnly marks a capture hook whose reply is a bare ACK the model never reads, so the host may
+	// run it in the background (WithAsyncHooks). It does not change the default rendering.
+	ackOnly bool
 }
 
 // hookSpecs is the §3.4 hook table. All six §7.3 hooks are covered; Stop and SubagentStop are
 // separate entries because the host delivers them as distinct events.
 var hookSpecs = []hookSpec{
-	{event: "PostToolUse", matcher: "*", args: "observe tool", timeout: 5},
+	{event: "PostToolUse", matcher: "*", args: "observe tool", timeout: 5, ackOnly: true},
 	{event: "UserPromptSubmit", args: "observe prompt", timeout: 5},
 	{event: "SessionStart", args: "session-start", timeout: 15},
 	{event: "PreCompact", args: "checkpoint", timeout: 20},
-	{event: "Stop", args: "observe stop", timeout: 5},
-	{event: "SubagentStop", args: "observe stop --subagent", timeout: 10},
+	{event: "Stop", args: "observe stop", timeout: 5, ackOnly: true},
+	{event: "SubagentStop", args: "observe stop --subagent", timeout: 10, ackOnly: true},
 	{event: "SessionEnd", args: "flush", timeout: 20},
 }
 
@@ -320,6 +328,36 @@ func ForTargetWithMods(version, goos string) (Manifest, error) {
 	m.Hooks.Modules = []string{ModuleEntry}
 	m.ModSources = src
 	return m, nil
+}
+
+// WithAsyncHooks returns m with `async: true` on the ACK-only capture hooks — PostToolUse, Stop
+// and SubagentStop — and on nothing else (V7 F4). UserPromptSubmit and SessionStart must deliver
+// their output in the same turn, PreCompact must seal before the summary, and `-p` teardown kills
+// an async SessionEnd, so those stay synchronous.
+//
+// It is a transform applied after ForTarget, off by default: Default and ForTarget never call it,
+// so the committed plugin/ tree and the release bundles are unchanged until it is switched on.
+// m is not modified; the hook table is copied before any entry is marked.
+func WithAsyncHooks(m Manifest) Manifest {
+	async := make(map[string]bool, len(hookSpecs))
+	for _, h := range hookSpecs {
+		async[h.event] = h.ackOnly
+	}
+	hooks := make(map[string][]HookGroup, len(m.Hooks.Hooks))
+	for event, groups := range m.Hooks.Hooks {
+		cp := make([]HookGroup, len(groups))
+		for i, g := range groups {
+			entries := make([]HookEntry, len(g.Hooks))
+			copy(entries, g.Hooks)
+			for j := range entries {
+				entries[j].Async = async[event]
+			}
+			cp[i] = HookGroup{Matcher: g.Matcher, Hooks: entries}
+		}
+		hooks[event] = cp
+	}
+	m.Hooks.Hooks = hooks
+	return m
 }
 
 // marshal renders v with two-space indentation and a trailing newline. Both are load-bearing:
