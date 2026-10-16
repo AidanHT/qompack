@@ -64,6 +64,12 @@
 // A caller must therefore never describe a pass here as the host's permission decision; it is the
 // part of that decision a plugin can reconstruct, applied fail-closed.
 //
+// # Settings layers
+//
+// ReadLayers is a separate, read-only view of the same sources: it lists each layer with its raw
+// bytes and decodes nothing, for a caller (doctor) that reports settings other than permissions. It
+// shares the enumeration's helpers and the bounded shared read, and none of the evaluation above.
+//
 // Rule syntax and file locations follow the official documentation as fetched on 2026-09-22:
 // https://code.claude.com/docs/en/permissions, https://code.claude.com/docs/en/settings and
 // https://code.claude.com/docs/en/managed-settings.

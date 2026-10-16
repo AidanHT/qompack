@@ -79,6 +79,9 @@ func TestHomeRoot_DoctorSaysWhy(t *testing.T) {
 	require.Equal(t, doctorDisabled, rows["store.open"].Status, "no store is opened in the home directory")
 	require.Contains(t, rows["status.primary"].Detail, "the project root is the home directory",
 		"doctor agrees with status on why")
+	require.Contains(t, rows, "context.layer.user", "the context section still reports the user layer")
+	require.NotContains(t, rows, "context.layer.project",
+		"a refused root's .claude is the user layer's, so it is not reported a second time as a project")
 
 	out.Reset()
 	require.Equal(t, ExitOK, Dispatch(context.Background(), All(), []string{"qompack", "doctor"},
