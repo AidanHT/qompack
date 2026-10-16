@@ -104,8 +104,35 @@ type LiveTrial struct {
 	// alias its pre-registration permits in that model's place (section 3's contingency).
 	PreregisteredModel bool `json:"preregistered_model"`
 	// HostModel is the model the host reported at start-up (its init line): what Model resolved to.
-	HostModel string   `json:"host_model,omitempty"`
-	Notes     []string `json:"notes,omitempty"`
+	HostModel string `json:"host_model,omitempty"`
+	// ArmState is the state the trial's arm declares, which the harness set up and checked; nil in a
+	// record of the two-arm design.
+	ArmState *LiveArmState `json:"arm_state,omitempty"`
+	// ConfigurationError says how the trial's configuration contradicted its arm (W6 item 4): the
+	// host's plugin list, the arm's bundle, the harness-set environment, the project's CLAUDE.md or
+	// store, or the pinned host version. Such a trial is a harness error, never scored: its record is
+	// set aside under another name in its slot and the slot is run again.
+	ConfigurationError string `json:"configuration_error,omitempty"`
+	// Hello is the steer arm's hello file as the session left it: a treatment outcome, counted as
+	// assigned whatever it says (intention to treat). nil on every other arm.
+	Hello *LiveHelloOutcome `json:"hello,omitempty"`
+	Notes []string          `json:"notes,omitempty"`
+}
+
+// LiveHelloOutcome is what a steer trial's project held of the mod's hello file after the session:
+// exactly one state/mod-hello-*.json, for the session the stream reported, from a host at least
+// the mod's minimum version, whose served hello said steering true. The harness reads the file with
+// the wire contract's parser and hands the values here.
+type LiveHelloOutcome struct {
+	// Files counts the state/mod-hello-*.json files found.
+	Files       int    `json:"files"`
+	SessionID   string `json:"session_id,omitempty"`
+	HostVersion string `json:"host_version,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	Steering    bool   `json:"steering"`
+	// OK is that every rule held; Problem names the first that did not.
+	OK      bool   `json:"ok"`
+	Problem string `json:"problem,omitempty"`
 }
 
 // LiveQompackEvidence is what a qompack-arm trial shows the plugin did.
@@ -405,6 +432,9 @@ type ArmSummary struct {
 	ForeignPlugins      []string `json:"foreign_plugins,omitempty"`
 	// Categories sums every trial's per-category usage, evidence counts included.
 	Categories map[UsageCategory]CategorySum `json:"categories,omitempty"`
+	// HelloProblemTrials counts the arm's trials whose hello file was missing or wrong: treatment
+	// outcomes, counted and reported, never excluded.
+	HelloProblemTrials int `json:"hello_problem_trials,omitempty"`
 }
 
 // HookLatency is one hook's host-measured durations over an arm's trials, in milliseconds, with
@@ -535,10 +565,13 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 		sum.Notes = append(sum.Notes, "trials are clustered within tasks; the pooled intervals treat them as "+
 			"independent, which overstates their precision (preregistration section 8)")
 	}
-	for _, arm := range []string{ArmQompack, ArmStock} {
-		as, ok := sum.Arms[arm]
-		if !ok {
-			continue
+	for _, arm := range slices.Sorted(maps.Keys(sum.Arms)) {
+		as := sum.Arms[arm]
+		if as.HelloProblemTrials > 0 {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"%d of %d %s trial(s) have no valid hello file (missing, for another session, from a host below "+
+					"the mod's minimum, or not steering); they are counted as assigned (intention to treat), "+
+					"never excluded, and each trial record names the problem", as.HelloProblemTrials, as.Trials, arm))
 		}
 		if as.HookProblemTrials > 0 {
 			sum.Notes = append(sum.Notes, fmt.Sprintf(
@@ -769,6 +802,9 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		}
 		if len(t.ForeignPlugins) > 0 {
 			out.ForeignPluginTrials++
+		}
+		if t.Hello != nil && !t.Hello.OK {
+			out.HelloProblemTrials++
 		}
 		for c, cs := range t.Categories {
 			if out.Categories == nil {
