@@ -14,12 +14,12 @@ const (
 )
 
 // knownOps is KnownOps' backing array, sorted once at package init rather than on every call: a
-// router calls Op.Valid on the hot path (once per request), and re-sorting a 13-element slice on
+// router calls Op.Valid on the hot path (once per request), and re-sorting the slice on
 // every call was pure waste once there is a real caller instead of just self-test.
 var knownOps = func() []Op {
 	ops := []Op{
 		OpObserveTool, OpObservePrompt, OpObserveStop, OpSessionStart,
-		OpCheckpoint, OpFlush, OpStatus, OpMCP,
+		OpCheckpoint, OpFlush, OpStatus, OpMCP, OpMod,
 		OpAdminPing, OpAdminDrain, OpAdminReload, OpAdminIdle, OpAdminShutdown,
 	}
 	sort.Slice(ops, func(i, j int) bool { return ops[i] < ops[j] })
@@ -36,8 +36,8 @@ var knownOpSet = func() map[Op]bool {
 	return set
 }()
 
-// KnownOps returns every operation this build understands — the eight §5.4 operations plus the
-// five admin.* ones above — sorted, so `self-test` and `/qompack:status` render a stable list and
+// KnownOps returns every operation this build understands — the eight §5.4 operations, OpMod and
+// the five admin.* ones above — sorted, so `self-test` and `/qompack:status` render a stable list and
 // Op.Valid has a single source of truth to check against. It returns a fresh copy every call so a
 // caller mutating the result cannot corrupt the package's own copy.
 func KnownOps() []Op {

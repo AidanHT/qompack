@@ -328,7 +328,11 @@ func (c *client) awaitACK(conn net.Conn, req Request) (Response, error) {
 // awaitReply is Send's step 8: the Reply path, which reads one full NDJSON response line within
 // the caller-supplied deadline (e.g. 10 s for session.start).
 func (c *client) awaitReply(conn net.Conn, req Request, deadline time.Duration) (Response, error) {
-	if err := conn.SetReadDeadline(time.Now().Add(deadline)); err != nil {
+	by := time.Now().Add(deadline)
+	if !c.o.ReplyBy.IsZero() && c.o.ReplyBy.Before(by) {
+		by = c.o.ReplyBy
+	}
+	if err := conn.SetReadDeadline(by); err != nil {
 		return c.fail(SendBroken, req)
 	}
 	line, err := NewLineReader(conn, c.o.MaxLine).ReadLine()
