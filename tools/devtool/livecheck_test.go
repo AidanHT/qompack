@@ -219,7 +219,11 @@ func TestLiveCheck_DryRunAndFlags(t *testing.T) {
 	require.NoError(t, err)
 	var m map[string]any
 	require.NoError(t, json.Unmarshal(raw, &m))
-	m["checks"].([]any)[1].(map[string]any)["env"] = map[string]any{"DISABLE_AUTOUPDATER": "0"}
+	checks, ok := m["checks"].([]any)
+	require.True(t, ok)
+	second, ok := checks[1].(map[string]any)
+	require.True(t, ok)
+	second["env"] = map[string]any{"DISABLE_AUTOUPDATER": "0"}
 	b, err := json.Marshal(m)
 	require.NoError(t, err)
 	dir := t.TempDir()

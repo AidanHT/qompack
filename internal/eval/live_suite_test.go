@@ -48,7 +48,21 @@ func TestParseLiveCheckSuite_Rejects(t *testing.T) {
 		require.NoError(t, err)
 		return b
 	}
-	check := func(m map[string]any, i int) map[string]any { return m["checks"].([]any)[i].(map[string]any) }
+	obj := func(v any) map[string]any {
+		o, ok := v.(map[string]any)
+		require.True(t, ok, "%T is not a JSON object", v)
+		return o
+	}
+	check := func(m map[string]any, i int) map[string]any {
+		cs, ok := m["checks"].([]any)
+		require.True(t, ok, "checks is not a JSON array")
+		return obj(cs[i])
+	}
+	firstStep := func(m map[string]any) map[string]any {
+		steps, ok := check(m, 0)["steps"].([]any)
+		require.True(t, ok, "steps is not a JSON array")
+		return obj(steps[0])
+	}
 	cases := map[string]func(m map[string]any){
 		"version":              func(m map[string]any) { m["version"] = 2 },
 		"no checks":            func(m map[string]any) { m["checks"] = []any{} },
@@ -66,7 +80,7 @@ func TestParseLiveCheckSuite_Rejects(t *testing.T) {
 		"unknown metric":          func(m map[string]any) { check(m, 0)["metric"] = "happiness" },
 		"bad env name":            func(m map[string]any) { check(m, 1)["env"] = map[string]any{"lower": "x"} },
 		"bad probe":               func(m map[string]any) { check(m, 1)["probe"] = "/abs/dir" },
-		"slash prompt":            func(m map[string]any) { check(m, 0)["steps"].([]any)[0].(map[string]any)["prompt"] = "/compact" },
+		"slash prompt":            func(m map[string]any) { firstStep(m)["prompt"] = "/compact" },
 		"unknown field":           func(m map[string]any) { check(m, 0)["passes"] = true },
 		"stream line no min": func(m map[string]any) {
 			check(m, 1)["pass"] = []any{map[string]any{"kind": "stream_lines", "line": "x"}}
