@@ -129,7 +129,7 @@ func TestRunModTest_RunsThePluginTestsOnTheMaterialisedModsPlugin(t *testing.T) 
 		require.Equal(t, []string{"plugin", "test"}, args[:2])
 		pluginDir = args[2]
 
-		want, err := pluginTreeFiles(modPluginVersion, "windows", true, false)
+		want, err := pluginTreeFiles(modPluginVersion, "windows", pluginTreeOptions{mods: true})
 		require.NoError(t, err)
 		wantTree := make([]string, 0, len(want)+len(tests))
 		for rel, b := range want {

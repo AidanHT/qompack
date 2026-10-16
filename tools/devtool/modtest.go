@@ -86,7 +86,7 @@ func newModWorkspace(goos string) (*modWorkspace, error) {
 	if err := os.MkdirAll(ws.configDir, bundleDirPerm); err != nil {
 		return nil, errors.Join(err, ws.close())
 	}
-	tree, err := pluginTreeFiles(modPluginVersion, goos, true, false)
+	tree, err := pluginTreeFiles(modPluginVersion, goos, pluginTreeOptions{mods: true})
 	if err != nil {
 		return nil, errors.Join(err, ws.close())
 	}

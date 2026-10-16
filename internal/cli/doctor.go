@@ -224,6 +224,7 @@ func collectDoctorReport(ctx context.Context, root string, env Env, clk core.Clo
 			{ID: "controls", Title: "controls", Rows: s.controlRows()},
 			{ID: "recording", Title: "recording gaps", Rows: s.recordingRows()},
 			{ID: "retrieval", Title: "retrieval gaps", Rows: s.retrievalRows()},
+			{ID: "context", Title: "context and cost settings", Rows: s.contextCostRows()},
 			{ID: "status", Title: "agreement with qompack status", Rows: s.statusRows()},
 		},
 		Exit: ExitOK,

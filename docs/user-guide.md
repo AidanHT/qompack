@@ -631,6 +631,68 @@ presented as six measurements would be six claims nobody made), and a budget not
 repository can observe at all, such as the host's own process-creation cost
 (`internal/commands/statuscollect.go`).
 
+## Context size and cost
+
+Claude Code decides when a conversation compacts. Qompack does not, and a plugin cannot: of the
+settings a plugin ships, "Only `agent` and `subagentStatusLine` take effect; other keys are dropped
+at load" ([plugins reference](https://code.claude.com/docs/en/plugins-reference)). Qompack
+checkpoints at each `PreCompact` and injects one block after each compaction, whenever the host
+compacts. The settings below are yours to set, in Claude Code. This section quotes the host
+documentation (fetched 2026-10-14) and recommends no value.
+
+Why context size bears on usage, in the host's words
+([costs](https://code.claude.com/docs/en/costs#why-usage-climbs-in-a-long-session)): "Claude Code
+sends your full conversation with every request", and "`/compact` reads the conversation it
+summarizes, so compacting a large context is itself a large request. When you want a fresh start
+instead of continuity, `/clear` costs nothing". The prompt-caching page adds: "To choose when its
+overhead happens, run `/compact` at a natural break in your work"
+([prompt caching](https://code.claude.com/docs/en/prompt-caching#compacting-the-conversation)).
+
+| Setting | Where it is set | What the host documentation says |
+|---|---|---|
+| (none set) | — | "If you don't set an auto-compact window, Claude Code compacts when the conversation reaches the model's context limit, except in these sessions", among them: models running with a native 1M window compact "at about 967K tokens by default" ([model configuration](https://code.claude.com/docs/en/model-config#default-auto-compact-thresholds)) |
+| `autoCompactWindow` | any settings file | a number of tokens "from `100000` to `1000000`"; default "unset, so Claude Code picks a window tuned for your model" ([settings](https://code.claude.com/docs/en/settings-reference#autocompactwindow)) |
+| `/autocompact` | a command, saved in your user settings under `modelSettings` | saves a window for the current model, "which takes precedence over this key in the same file for that model" |
+| `--autocompact` | a flag, for one launch | "takes precedence over this key for one session" |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | the environment that starts Claude Code, or a settings file's `env` | "takes precedence over both" |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | the environment, or a settings file's `env` | "Set the percentage (1-100) of the auto-compact window at which auto-compaction triggers. Use lower values like `50` to compact earlier; the variable can't raise the threshold, so values above the default percentage are ignored. It applies only in sessions that compact before the model's context limit. Applies to both main conversations and subagents" ([environment variables](https://code.claude.com/docs/en/env-vars)) |
+| `autoCompactEnabled` | any settings file | `false`: "Claude Code doesn't compact automatically"; "The manual `/compact` command keeps working while auto-compact is off" |
+| `idleCompaction` | any settings file | "Idle compaction is on by default for conversations that meet all of these conditions", which that page lists ([settings](https://code.claude.com/docs/en/settings-reference#idlecompaction)) |
+
+The trade-off runs both ways, and which side matters more depends on your work:
+
+- **A smaller window** keeps the conversation every request sends smaller, and makes compactions
+  more frequent.
+- **Each compaction loses detail.** "Compaction replaces your message history with a summary"
+  ([prompt caching](https://code.claude.com/docs/en/prompt-caching#compacting-the-conversation)).
+  For example, path-scoped rules and nested CLAUDE.md files load into message history, "so
+  compaction summarizes them away with everything else"
+  ([what survives compaction](https://code.claude.com/docs/en/context-window#what-survives-compaction)).
+- **Each compaction is itself a request** that is priced (the `/compact` quote above) and slow: the
+  summarization request "spends most of its time generating the summary"
+  ([prompt caching](https://code.claude.com/docs/en/prompt-caching#compacting-the-conversation)).
+- **A larger window, or none set,** means fewer compactions, and every request carries more of the
+  conversation.
+- **The percentage and the window multiply.** `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` is a percentage of
+  the window, so a low value on a small window sets a lower threshold than either sets alone. An
+  earlier Qompack acceptance run that forced both low "thrashed the host", and the override was
+  dropped from that test.
+
+**What `qompack doctor` shows.** Its *context and cost settings* section lists, for each settings
+layer (managed, registry, server-managed cache, user, project, local), the raw values of
+`autoCompactWindow`, each `modelSettings` entry's `autoCompactWindow`, `autoCompactEnabled` and
+`idleCompaction`, as written. It lists the six variables `CLAUDE_CODE_AUTO_COMPACT_WINDOW`,
+`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`, `CLAUDE_CODE_DISABLE_1M_CONTEXT`, `DISABLE_AUTO_COMPACT`,
+`DISABLE_COMPACT` and `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` as the doctor process sees them, which
+can differ from the session's environment. A settings file's `env` can set the same variables, and
+"A value here overwrites the same variable exported in your shell"
+([settings](https://code.claude.com/docs/en/settings-reference#environment-variables)), so each
+layer's row also lists any of the six that its `env` sets, as written. It never computes the window
+a session will use: it does not know the session's model, and `--autocompact`, `--settings` and the
+session's own environment are invisible to it. The server-managed cache (`remote-settings.json`)
+is reported present or absent, not decoded, so its `env` is not shown either. Rows read `ok` or
+`unknown`, and the section never changes doctor's exit code.
+
 ## Usage accounting
 
 Three different numbers get called "cost", and Qompack keeps them apart

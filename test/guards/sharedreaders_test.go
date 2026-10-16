@@ -314,6 +314,18 @@ var sharedReaders = []sharedReader{
 			"follows a final link, so no Lstat/os.SameFile identity check is left for a save to land " +
 			"inside (TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves)",
 	},
+	// V7 W-E1: doctor's "context and cost settings" section reads Claude Code's settings files
+	// through hostperm.ReadLayers, which takes its bytes from this function, as the permission
+	// policy always has. The row pins that new product read to a shared handle.
+	{
+		file:  "internal/hostperm/sources.go",
+		fn:    "read",
+		holds: "Claude Code's settings files (managed, remote, user, project and local settings.json)",
+		why: "Claude Code's own saves of those files (/config writes autoCompactEnabled to the user " +
+			"settings, and /autocompact writes a window under modelSettings), when a save replaces or " +
+			"removes the file. An ordinary handle held by a doctor run, or by the daemon's or MCP " +
+			"server's policy load, would make that save fail",
+	},
 	{
 		file:  "test/fault/fault.go",
 		fn:    "flushAndAwaitEnd",

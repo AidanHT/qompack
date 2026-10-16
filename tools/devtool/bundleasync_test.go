@@ -114,6 +114,105 @@ func TestTaskBundle_AsyncHooksFlag(t *testing.T) {
 	}
 }
 
+// renderedTreeHooksJSON is hooks.json as internal/pluginmanifest renders it for goos with the given
+// async transforms applied, WithAsyncHooks first.
+func renderedTreeHooksJSON(t *testing.T, version, goos string, asyncHooks, asyncPrompt bool) string {
+	t.Helper()
+	m := pluginmanifest.ForTarget(version, goos)
+	if asyncHooks {
+		m = pluginmanifest.WithAsyncHooks(m)
+	}
+	if asyncPrompt {
+		m = pluginmanifest.WithAsyncPrompt(m)
+	}
+	files, err := m.Files()
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	return string(files["plugin/hooks/hooks.json"])
+}
+
+// TestAssembleBundle_AsyncPrompt: with asyncPrompt the bundle ships the WithAsyncPrompt rendering
+// of hooks.json (UserPromptSubmit alone async); with asyncHooks as well, the union of the two sets.
+// Only hooks.json differs from the default bundle.
+func TestAssembleBundle_AsyncPrompt(t *testing.T) {
+	for _, tgt := range []bundleTarget{{"linux", "amd64"}, {"windows", "amd64"}} {
+		t.Run(tgt.OS, func(t *testing.T) {
+			off := testAssembly(t, t.TempDir())
+			offDir, _, err := off.assemble(tgt)
+			if err != nil {
+				t.Fatalf("assemble (off): %v", err)
+			}
+			for _, tc := range []struct {
+				name                    string
+				asyncHooks, asyncPrompt bool
+				wantAsync               int
+			}{
+				{"prompt", false, true, 1},
+				{"hooks and prompt", true, true, 4},
+			} {
+				asm := testAssembly(t, t.TempDir())
+				asm.asyncHooks, asm.asyncPrompt = tc.asyncHooks, tc.asyncPrompt
+				dir, _, err := asm.assemble(tgt)
+				if err != nil {
+					t.Fatalf("assemble (%s): %v", tc.name, err)
+				}
+				got := readBundleFile(t, dir, "hooks/hooks.json")
+				if want := renderedTreeHooksJSON(t, asm.version, tgt.OS, tc.asyncHooks, tc.asyncPrompt); got != want {
+					t.Errorf("%s hooks.json:\n got %s\nwant %s", tc.name, got, want)
+				}
+				if n := strings.Count(got, `"async": true`); n != tc.wantAsync {
+					t.Errorf("%s hooks.json marks %d entries async, want %d:\n%s", tc.name, n, tc.wantAsync, got)
+				}
+				for _, rel := range listBundleTree(t, offDir) {
+					if rel == "hooks/hooks.json" || rel == identityFileName || rel == checksumsFileName {
+						continue
+					}
+					if readBundleFile(t, offDir, rel) != readBundleFile(t, dir, rel) {
+						t.Errorf("%s: %s differs between the default and the async bundle", tc.name, rel)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestTaskBundle_AsyncPromptFlag drives the real flag path: `--async-prompt` renders the
+// WithAsyncPrompt hooks.json, alone and beside `--async-hooks`, and its absence leaves today's
+// bytes. The build step is the fixture builder, as in TestTaskBundle_AsyncHooksFlag.
+func TestTaskBundle_AsyncPromptFlag(t *testing.T) {
+	prevRoot, prevBuild := root, goBuildReleaseFn
+	root = testModuleRoot(t)
+	goBuildReleaseFn = func(goos, goarch, out, _ string) error {
+		return fixtureBuilder(t)(goos, goarch, out)
+	}
+	t.Cleanup(func() { root, goBuildReleaseFn = prevRoot, prevBuild })
+
+	const version = "v9.9.9-testing"
+	tgt := bundleTarget{"linux", "amd64"}
+	for _, tc := range []struct {
+		name                    string
+		extra                   []string
+		asyncHooks, asyncPrompt bool
+	}{
+		{"flag absent", nil, false, false},
+		{"async-prompt", []string{"--async-prompt"}, false, true},
+		{"both flags", []string{"--async-prompt", "--async-hooks"}, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := t.TempDir()
+			args := append([]string{"--version", version, "--target", tgt.OS + "/" + tgt.Arch, "--out", out}, tc.extra...)
+			if err := taskBundle(args); err != nil {
+				t.Fatalf("taskBundle %v: %v", args, err)
+			}
+			got := readBundleFile(t, filepath.Join(out, bundleDirName(version, tgt)), "hooks/hooks.json")
+			if want := renderedTreeHooksJSON(t, version, tgt.OS, tc.asyncHooks, tc.asyncPrompt); got != want {
+				t.Errorf("hooks.json:\n got %s\nwant %s", got, want)
+			}
+		})
+	}
+}
+
 // TestTaskBundle_ModsWithAsyncHooks: the two flags combine. `--mods --async-hooks` ships the hooks
 // module (hooks.json names ./register.ts, the mod sources sit beside it) and marks exactly
 // PostToolUse, Stop and SubagentStop async. The build step is the fixture builder.

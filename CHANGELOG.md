@@ -37,6 +37,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first eight characters of the session id as given. Entry names and the session id in those lines
   are now folded onto one line. Found by the host-ceiling property test in develop CI run 38571286711.
 
+### Changed
+
+- **Claude no longer runs the diagnostics commands on its own.** `/qompack:status`, `/qompack:recall`,
+  `/qompack:why`, `/qompack:dropped` and `/qompack:eval` now carry `disable-model-invocation: true`,
+  so Claude Code leaves them out of the model's command list and only you can run them. Each one
+  reports its output for you to read, so Claude had no use for them. `/qompack:pin` is unchanged.
+
 ### Development
 
 - **`install-check.yml` installs the published release on all six targets.** Weekly, on demand and

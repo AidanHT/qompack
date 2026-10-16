@@ -133,9 +133,9 @@ type HookGroup struct {
 // because its presence is what makes the host spawn the executable directly instead of handing
 // Command to a shell.
 //
-// Async asks the host to run the hook in the background (V7 F4). It is omitempty, and only
-// WithAsyncHooks sets it, so the default rendering carries no async key and its bytes are
-// unchanged. The host does not enforce Timeout on an async hook.
+// Async asks the host to run the hook in the background (V7 F4, F4b). It is omitempty, and only
+// WithAsyncHooks and WithAsyncPrompt set it, so the default rendering carries no async key and its
+// bytes are unchanged. The host does not enforce Timeout on an async hook.
 type HookEntry struct {
 	Type    string   `json:"type"`
 	Command string   `json:"command"`
@@ -162,6 +162,14 @@ type CommandDoc struct {
 	ArgumentHint string
 	Subcommand   string
 	AllowedTools string
+	// UserOnly renders `disable-model-invocation: true` (V7 F11, ruling R45): the host leaves the
+	// command out of the model's skill listing, and the user still runs it as /qompack:<name>. The
+	// 2.1.300 plugin-command loader reads the key (`ytn(D["disable-model-invocation"])`) and its
+	// listing predicate requires `!e.disableModelInvocation`; the host docs say the same for
+	// skills (context-window, "Skill descriptions"). Set it on a command written only for the
+	// user. Leave it off a command that model-visible text tells the model to run, as a checkpoint
+	// drop reason does for pin; test/guards' model-visible command guard holds that.
+	UserOnly bool
 }
 
 // hookSpec is the internal description of one hooks.json entry.
@@ -233,12 +241,14 @@ var commandSpecs = []CommandDoc{
 		Description:  "Qompack status — mode, contracts, store, latency",
 		ArgumentHint: "[--json]",
 		Subcommand:   "status",
+		UserOnly:     true,
 	},
 	{
 		Name:         "recall",
 		Description:  "Search stored tool output and file versions",
 		ArgumentHint: "<query> [--k N]",
 		Subcommand:   "recall",
+		UserOnly:     true,
 	},
 	{
 		Name:         "pin",
@@ -251,18 +261,21 @@ var commandSpecs = []CommandDoc{
 		Description:  "Explain a recorded decision and its evidence",
 		ArgumentHint: "<decision-id>",
 		Subcommand:   "why",
+		UserOnly:     true,
 	},
 	{
 		Name:         "dropped",
 		Description:  "Show what the last compaction dropped and how to restore it",
 		ArgumentHint: "[--json]",
 		Subcommand:   "dropped",
+		UserOnly:     true,
 	},
 	{
 		Name:         "eval",
 		Description:  "Show the latest replay and live eval results",
 		ArgumentHint: "[--corpus <path>]",
 		Subcommand:   "eval",
+		UserOnly:     true,
 	},
 }
 
@@ -335,22 +348,56 @@ func ForTargetWithMods(version, goos string) (Manifest, error) {
 // their output in the same turn, PreCompact must seal before the summary, and `-p` teardown kills
 // an async SessionEnd, so those stay synchronous.
 //
+// It only sets flags; it never clears one, so it composes with WithAsyncPrompt in either order.
+//
 // It is a transform applied after ForTarget, off by default: Default and ForTarget never call it,
 // so the committed plugin/ tree and the release bundles are unchanged until it is switched on.
 // m is not modified; the hook table is copied before any entry is marked.
 func WithAsyncHooks(m Manifest) Manifest {
 	async := make(map[string]bool, len(hookSpecs))
 	for _, h := range hookSpecs {
-		async[h.event] = h.ackOnly
+		if h.ackOnly {
+			async[h.event] = true
+		}
 	}
+	return markAsync(m, async)
+}
+
+// asyncPromptEvent is the one event WithAsyncPrompt marks.
+const asyncPromptEvent = "UserPromptSubmit"
+
+// WithAsyncPrompt returns m with `async: true` on UserPromptSubmit and on nothing else (V7 F4b).
+//
+// R12 keeps UserPromptSubmit synchronous because its output must arrive in the same turn. In this
+// build it has no output: the reply's only producer is the thrash warning, which needs the
+// observer's Grammar, and no composition root wires one, so every reply is empty. The prompt is
+// WAL-accepted before the reply wait, so capture does not depend on the host waiting. The F4b
+// ruling (R44) narrows R12 for this event only, and only while no reply producer is wired.
+// test/guards' asyncprompt guard fails if the observer's Grammar is wired or the loop-warning
+// switch gains a reader; it cannot see a new producer that needs neither, so a change to the
+// prompt reply path must re-check the ruling. SessionStart's output is the rehydration, so it
+// stays synchronous.
+//
+// Like WithAsyncHooks it only sets a flag, never clears one, and does not modify m. It is off by
+// default: Default and ForTarget never call it.
+func WithAsyncPrompt(m Manifest) Manifest {
+	return markAsync(m, map[string]bool{asyncPromptEvent: true})
+}
+
+// markAsync returns m with a copied hook table in which every entry of an event in events has
+// Async set. Entries of other events keep the flag they had: a transform owns only the events it
+// names, so the async transforms compose in any order.
+func markAsync(m Manifest, events map[string]bool) Manifest {
 	hooks := make(map[string][]HookGroup, len(m.Hooks.Hooks))
 	for event, groups := range m.Hooks.Hooks {
 		cp := make([]HookGroup, len(groups))
 		for i, g := range groups {
 			entries := make([]HookEntry, len(g.Hooks))
 			copy(entries, g.Hooks)
-			for j := range entries {
-				entries[j].Async = async[event]
+			if events[event] {
+				for j := range entries {
+					entries[j].Async = true
+				}
 			}
 			cp[i] = HookGroup{Matcher: g.Matcher, Hooks: entries}
 		}
@@ -381,6 +428,9 @@ func renderCommand(c CommandDoc) []byte {
 	fmt.Fprintf(&b, "description: %s\n", c.Description)
 	fmt.Fprintf(&b, "argument-hint: %q\n", c.ArgumentHint)
 	fmt.Fprintf(&b, "allowed-tools: %s\n", c.AllowedTools)
+	if c.UserOnly {
+		b.WriteString("disable-model-invocation: true\n")
+	}
 	b.WriteString("---\n\n")
 	b.WriteString("Run the Qompack " + c.Subcommand + " command and report its output verbatim to the user.\n\n")
 	fmt.Fprintf(&b, "!`qompack %s $ARGUMENTS`\n", c.Subcommand)
