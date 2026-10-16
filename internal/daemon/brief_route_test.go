@@ -406,11 +406,10 @@ func TestServeBrief_ASnapshotFailureServesEmpty(t *testing.T) {
 	require.Equal(t, int64(1), r.counter(counterBriefServedEmptyPrefix+briefEmptySnapshot))
 }
 
-// briefWithShortDeadline is a precompute brief whose deadline passes while its snapshot runs.
-func (r *briefRig) briefWithShortDeadline() briefCall {
-	c := r.call(modwire.TriggerPrecompute)
-	c.Deadline = time.Now().Add(100 * time.Millisecond)
-	return c
+// endedDuringSnapshot is a context the snapshot stub ends from inside, the way the deadline ends it
+// while a snapshot runs, with no clock involved: the route asks only whether its context ended.
+func endedDuringSnapshot() (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.Background())
 }
 
 // TestServeBrief_ASnapshotThatAnswersAfterTheDeadlineIsATimeout is review Minor 2: a snapshot cut
@@ -418,14 +417,17 @@ func (r *briefRig) briefWithShortDeadline() briefCall {
 // the route answers timeout, not served.
 func TestServeBrief_ASnapshotThatAnswersAfterTheDeadlineIsATimeout(t *testing.T) {
 	r := newBriefRig(t)
-	r.dd.svc.BriefSnapshot = func(ctx context.Context, _ core.SessionID) (checkpoint.Brief, error) {
-		<-ctx.Done()
+	ctx, end := endedDuringSnapshot()
+	defer end()
+	r.dd.svc.BriefSnapshot = func(sctx context.Context, _ core.SessionID) (checkpoint.Brief, error) {
+		end()
+		<-sctx.Done()
 		return checkpoint.Brief{Items: []checkpoint.BriefItem{
 			{Kind: checkpoint.BriefInvariant, ID: "inv_1", Text: "Never log access tokens."},
 		}}, nil
 	}
 
-	resp, out := r.dd.serveBrief(r.ctx(), r.briefWithShortDeadline())
+	resp, out := r.dd.serveBrief(ctx, r.call(modwire.TriggerPrecompute))
 
 	require.False(t, resp.OK)
 	require.Equal(t, modwire.ReasonTimeout, resp.Reason)
@@ -439,12 +441,15 @@ func TestServeBrief_ASnapshotThatAnswersAfterTheDeadlineIsATimeout(t *testing.T)
 // snapshot that reports its context's end is a timeout, not a served-empty brief.
 func TestServeBrief_ASnapshotThatFailsOnTheDeadlineIsATimeout(t *testing.T) {
 	r := newBriefRig(t)
-	r.dd.svc.BriefSnapshot = func(ctx context.Context, _ core.SessionID) (checkpoint.Brief, error) {
-		<-ctx.Done()
-		return checkpoint.Brief{}, ctx.Err()
+	ctx, end := endedDuringSnapshot()
+	defer end()
+	r.dd.svc.BriefSnapshot = func(sctx context.Context, _ core.SessionID) (checkpoint.Brief, error) {
+		end()
+		<-sctx.Done()
+		return checkpoint.Brief{}, sctx.Err()
 	}
 
-	resp, out := r.dd.serveBrief(r.ctx(), r.briefWithShortDeadline())
+	resp, out := r.dd.serveBrief(ctx, r.call(modwire.TriggerPrecompute))
 
 	require.False(t, resp.OK)
 	require.Equal(t, modwire.ReasonTimeout, resp.Reason)
