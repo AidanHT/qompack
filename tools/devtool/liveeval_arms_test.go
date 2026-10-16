@@ -199,6 +199,7 @@ func TestLiveSetAside(t *testing.T) {
 		for _, f := range []string{"stream.jsonl", "stderr.txt", "invocation.json"} {
 			require.NoError(t, os.WriteFile(filepath.Join(slot, f), []byte(f), 0o600))
 		}
+		require.NoError(t, os.MkdirAll(filepath.Join(slot, "harness-spool"), 0o755))
 	}
 	write()
 	p, err := liveSetAside(slot, liveSlotDiscarded, eval.LiveTrial{ConfigurationError: "first"})
@@ -220,9 +221,9 @@ func TestLiveSetAside(t *testing.T) {
 		names = append(names, e.Name())
 	}
 	require.ElementsMatch(t, []string{
-		"trial.discarded-1.json", "stream.discarded-1.jsonl", "stderr.discarded-1.txt", "invocation.discarded-1.json",
-		"trial.discarded-2.json", "stream.discarded-2.jsonl", "stderr.discarded-2.txt", "invocation.discarded-2.json",
-		"trial.limited-1.json", "stream.limited-1.jsonl", "stderr.limited-1.txt", "invocation.limited-1.json",
+		"trial.discarded-1.json", "stream.discarded-1.jsonl", "stderr.discarded-1.txt", "invocation.discarded-1.json", "harness-spool.discarded-1",
+		"trial.discarded-2.json", "stream.discarded-2.jsonl", "stderr.discarded-2.txt", "invocation.discarded-2.json", "harness-spool.discarded-2",
+		"trial.limited-1.json", "stream.limited-1.jsonl", "stderr.limited-1.txt", "invocation.limited-1.json", "harness-spool.limited-1",
 	}, names)
 	var rec eval.LiveTrial
 	readJSON(t, filepath.Join(slot, "trial.discarded-2.json"), &rec)
@@ -395,6 +396,8 @@ func TestRunLiveEval_FourArms(t *testing.T) {
 		for _, s := range byArm[arm] {
 			require.Equal(t, arm != "stock", s.store, "%s: the store exists before the session", arm)
 			require.Equal(t, liveMessages(ts.Tasks[0]), s.messages, "%s sends the task's own messages", arm)
+			require.Equal(t, "/compact Keep the code word the program printed.", s.messages[1],
+				"%s sends the same compaction instructions as every arm", arm)
 			spec, _ := eval.LiveArmSpec(arm)
 			require.Equal(t, liveSessionEnv(spec, 1800), s.env, arm)
 			if arm == "generic" {

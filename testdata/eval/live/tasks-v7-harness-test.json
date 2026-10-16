@@ -45,7 +45,8 @@
         },
         {
           "id": "compact",
-          "compact": true
+          "compact": true,
+          "compact_instructions": "Keep the code word the program printed."
         },
         {
           "id": "write",
