@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -259,4 +261,87 @@ func TestLiveCheck_StoredPacingDoesNotSilentlyReplaceFlags(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, p.pacingOverride)
 	require.True(t, p.pacingGiven["seven-day-ceiling"])
+}
+
+// TestLiveSignals: live-eval and live-check stop on an interrupt and on SIGTERM (re-review N5).
+func TestLiveSignals(t *testing.T) {
+	require.Contains(t, liveSignals, os.Interrupt)
+	require.Contains(t, liveSignals, os.Signal(syscall.SIGTERM))
+}
+
+// TestRunLiveEval_InterruptStopsWithoutScoring: an interrupt during a trial stops the run: the cut
+// trial is neither scored nor set aside, so --resume runs its slot again, and no further trial
+// starts (re-review N5).
+func TestRunLiveEval_InterruptStopsWithoutScoring(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	scripted := scriptedPilotHost(t, home)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sessions := 0
+	env.run = func(c context.Context, spec liveProcSpec) liveProcResult {
+		sessions++
+		res := scripted(c, spec)
+		cancel() // the signal arrives during the session
+		res.Err = "the session bound expired"
+		return res
+	}
+	o := stockRun(t, 2)
+	var log bytes.Buffer
+	err := runLiveEval(ctx, o, env, &log)
+	require.ErrorContains(t, err, "interrupted")
+	require.Equal(t, 1, sessions)
+	slot := slotDir(o.out, "stock", 1)
+	require.NoFileExists(t, filepath.Join(slot, "trial.json"))
+	matches, _ := filepath.Glob(filepath.Join(slot, "trial.*-*.json"))
+	require.Empty(t, matches, "nothing set aside either")
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(o.out, "summary.json"), &sum)
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "interrupted")
+	require.NoFileExists(t, filepath.Join(o.out, liveLockFile))
+}
+
+// TestLiveCheck_InterruptStopsWithoutGrading: the same for live-check: the interrupted run is not
+// graded and no further run starts (re-review N5).
+func TestLiveCheck_InterruptStopsWithoutGrading(t *testing.T) {
+	env, _, _ := pacedEnv(t)
+	var specs []liveProcSpec
+	host := recordedHost(t, &specs, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env.run = func(c context.Context, spec liveProcSpec) liveProcResult {
+		res := host(c, spec)
+		cancel()
+		res.Err = "the session bound expired"
+		return res
+	}
+	o := checkRun(t, "quick")
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveCheck(ctx, o, env, &log), "interrupted")
+	require.Len(t, specs, 1)
+	require.NoFileExists(t, filepath.Join(o.out, "checks", "compact-recall", "01", "run.json"))
+	_, r := readCheckRun(t, o.out)
+	require.Contains(t, r.Stopped, "interrupted")
+	require.Empty(t, r.Checks[0].Runs)
+}
+
+// TestLiveCheck_PacingLinesSayLiveCheck: live-check prints the pacing values in force, and its pacing
+// errors name live-check (re-review N9).
+func TestLiveCheck_PacingLinesSayLiveCheck(t *testing.T) {
+	env, _, _ := pacedEnv(t)
+	var specs []liveProcSpec
+	env.run = recordedHost(t, &specs, nil)
+	o := checkRun(t, "quick")
+	var log bytes.Buffer
+	require.NoError(t, runLiveCheck(context.Background(), o, env, &log), log.String())
+	require.Contains(t, log.String(), "live-check: pacing: five-hour gate 0.90, seven-day ceiling 0.90, night window none")
+
+	o2 := checkRun(t, "quick")
+	st := livePacingState{Settings: &livePacingSettings{FiveHourGate: 0.9, SevenDayCeiling: 0.95, NightWindow: "none"}}
+	b, err := json.Marshal(st)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(o2.out, livePacingFile), b, 0o600))
+	o2.pacingGiven = map[string]bool{"seven-day-ceiling": true}
+	err = runLiveCheck(context.Background(), o2, env, &log)
+	require.Error(t, err)
+	require.True(t, strings.HasPrefix(err.Error(), "live-check:"), err.Error())
 }
