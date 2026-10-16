@@ -82,7 +82,9 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
 - **The daemon exchange.** `hello` is answered by the CLI process alone. `brief` reaches the daemon
   as one IPC request with the op `mod`. The IPC request has no field for a verb, so its existing
   free-form field carries a small envelope, `ipc.ModCall`: the verb, the daemon's budget in
-  milliseconds (decision 6) and the mod's request, which only the daemon decodes. The envelope is
+  milliseconds (decision 6), the CLI's `runtime.mod.briefMaxChars` (the daemon renders to the
+  smaller of it and its own live value, so a layer only the CLI loaded still applies) and the mod's
+  request, which only the daemon decodes. The envelope is
   internal to the CLI and the daemon; the mod never sees it. The daemon's answer is the verb's
   `modwire` response, and the CLI passes it on unchanged once it has checked it against the
   contract.

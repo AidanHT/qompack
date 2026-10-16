@@ -45,7 +45,7 @@ func (d *daemon) handleMod(ctx context.Context, req ipc.Request) ipc.Response {
 		Req:      breq,
 		At:       req.TS,
 		Deadline: modDeadline(receipt, req.TS, call.BudgetMs),
-		MaxChars: d.currentCfg().Runtime.Mod.BriefMaxChars,
+		MaxChars: modMaxChars(d.currentCfg().Runtime.Mod.BriefMaxChars, call.MaxChars),
 	})
 	data, err := modwire.Encode(resp)
 	if err != nil {
@@ -72,6 +72,16 @@ func modDeadline(receipt time.Time, ts core.UnixMilli, budgetMs int64) time.Time
 		}
 	}
 	return deadline
+}
+
+// modMaxChars is the cap the route renders a brief to: the live runtime.mod.briefMaxChars, lowered to
+// the CLI's own value when the call carries a smaller one (ModCall.MaxChars, zero meaning none).
+// serveBrief clamps the result to modwire.BriefMaxChars and to the request's own max_chars.
+func modMaxChars(live, cli int) int {
+	if cli > 0 && (live <= 0 || cli < live) {
+		return cli
+	}
+	return live
 }
 
 // modBudget is how long the route has for a call whose CLI sent budgetMs: that many milliseconds,

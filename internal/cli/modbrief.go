@@ -109,7 +109,8 @@ func askBriefDaemon(ctx context.Context, env Env, clk core.Clock, root string, c
 		return unserved(modwire.FailureFor(err))
 	}
 	ipcReq, err := ipc.ModRequest(core.SessionID(req.SessionID), core.UnixMilli(started.UnixMilli()), ipc.ModCall{
-		Verb: string(modwire.VerbBrief), BudgetMs: budget.Milliseconds(), Req: bytes.TrimSuffix(body, []byte("\n")),
+		Verb: string(modwire.VerbBrief), BudgetMs: budget.Milliseconds(), MaxChars: configuredBriefCap(cfg),
+		Req: bytes.TrimSuffix(body, []byte("\n")),
 	})
 	if err != nil {
 		return unserved(modwire.FailureFor(err))
@@ -136,11 +137,17 @@ func askBriefDaemon(ctx context.Context, env Env, clk core.Clock, root string, c
 // keeps it within [1, modwire.BriefMaxChars]; it is clamped again here) and the request's own cap,
 // whichever is smaller.
 func briefCap(cfg config.Config, req modwire.BriefRequest) int {
+	return min(configuredBriefCap(cfg), req.EffectiveMaxChars())
+}
+
+// configuredBriefCap is runtime.mod.briefMaxChars as this process loaded it, clamped to
+// modwire.BriefMaxChars. The daemon is sent it in the call and renders to it when it is the lower.
+func configuredBriefCap(cfg config.Config) int {
 	configured := cfg.Runtime.Mod.BriefMaxChars
 	if configured <= 0 || configured > modwire.BriefMaxChars {
-		configured = modwire.BriefMaxChars
+		return modwire.BriefMaxChars
 	}
-	return min(configured, req.EffectiveMaxChars())
+	return configured
 }
 
 // appendBriefRecord appends rec as one line of <root>/.qompack/state/mod-brief-<session>.jsonl. The
