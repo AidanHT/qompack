@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"time"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/modwire"
 	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -99,11 +101,12 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 }
 
 // CloseSegmentForBrief is CloseSegmentForCompaction for the mod's brief before a compaction (V7
-// plan §5.3 step 1), and shares its body: the same binding of an unbound runtime, the same refusal
-// to close another session's segment or one the runtime holds no token account for, and the same
-// close at the highest turn observed. Its cause is "brief" and its counters are its own
-// (counterBriefCloseForeign, counterBriefCloseUnobserved, and the segment-closed counter under
-// "brief"), so no compaction counter moves on a brief. The segment itself records no cause.
+// plan §5.3 step 1), and shares its body: the same refusal to close another session's segment or
+// one the runtime holds no token account for, and the same close at the highest turn observed. Its
+// cause is "brief" and its counters are its own (counterBriefCloseForeign,
+// counterBriefCloseUnobserved, counterBriefCloseUnbound, and the segment-closed counter under
+// "brief"), so no compaction counter moves on a brief. The segment itself records no cause. Unlike
+// the compaction's close it never binds an unbound runtime: it skips the close instead.
 //
 // It reports whether it closed the segment. When it did, the compaction the brief was for usually
 // follows with nothing new observed, and its own close is then a no-op that is not counted
@@ -127,6 +130,14 @@ func (r *schedRuntime) closeOpenSegmentFor(ctx context.Context, sess core.Sessio
 	switch r.session {
 	case sess:
 	case "":
+		if cause == causeBrief {
+			// The brief route is no hook route: it touches no registry, and the mod's session id may
+			// not be the hooks' (G0.1). Binding here could bind the runtime to a session the hooks
+			// never name, and only a SessionStart rebinds a bound runtime (bindOnFirstHook). So the
+			// brief closes nothing, and the PreCompact that follows binds and closes as it always has.
+			r.count(counterBriefCloseUnbound)
+			return false, nil
+		}
 		r.bindUnboundLocked(sess, nil)
 	default:
 		r.count(foreign)
@@ -134,19 +145,30 @@ func (r *schedRuntime) closeOpenSegmentFor(ctx context.Context, sess core.Sessio
 	}
 	if r.openSegTokens == 0 {
 		if cause == causeCompact && r.briefClosed == sess {
-			// One brief excuses one compaction: the next empty one is unobserved again.
-			r.briefClosed = ""
-			r.count(counterTapCompactAfterBrief)
-			return false, nil
+			// One brief excuses one compaction, and only inside the window its own compaction falls in:
+			// a mark left by a compaction the host vetoed must not excuse a much later one.
+			fresh := r.nowMS()-r.briefClosedAt <= core.UnixMilli(briefMarkWindow().Milliseconds())
+			r.briefClosed, r.briefClosedAt = "", 0
+			if fresh {
+				r.count(counterTapCompactAfterBrief)
+				return false, nil
+			}
 		}
 		r.count(unobserved)
 		return false, nil
 	}
 	closed, err := r.closeSessionSegmentLocked(ctx, sess, r.maxTurn, scheduler.Features{}, cause)
 	if closed && cause == causeBrief {
-		r.briefClosed = sess
+		r.briefClosed, r.briefClosedAt = sess, r.nowMS()
 	}
 	return closed, err
+}
+
+// briefMarkWindow is how long a brief's mark (briefClosed) excuses the compaction it was for: the
+// mod waits at most modwire.TimeoutMs for the brief, and the host then runs the classic PreCompact,
+// whose manifest timeout bounds it in turn. A compaction later than that is not the brief's.
+func briefMarkWindow() time.Duration {
+	return time.Duration(modwire.TimeoutMs+precompactTimeoutMs()) * time.Millisecond
 }
 
 // bindUnboundLocked binds sess on a runtime bound to nothing, keeping the two accumulators a
@@ -236,7 +258,7 @@ func (r *schedRuntime) closeSessionSegmentLocked(ctx context.Context, sess core.
 		Session: sess, StartTurn: at + 1, StartTS: r.nowMS(),
 	})
 	r.openSegTokens = 0 // the successor starts empty; the tap refills it from rec.Tokens
-	r.briefClosed = ""
+	r.briefClosed, r.briefClosedAt = "", 0
 	r.dirty = true
 	r.count(counterSegmentClosedPrefix + cause)
 	return true, err

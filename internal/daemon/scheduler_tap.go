@@ -53,6 +53,9 @@ const (
 	counterBriefCloseForeign = "sched.brief.close_foreign"
 	// counterBriefCloseUnobserved is counterTapCompactUnobserved for a brief.
 	counterBriefCloseUnobserved = "sched.brief.close_unobserved"
+	// counterBriefCloseUnbound counts briefs that found the runtime bound to no session and so closed
+	// nothing: unlike a compaction's close, a brief's never binds (closeOpenSegmentFor).
+	counterBriefCloseUnbound = "sched.brief.close_unbound"
 
 	// counterTapBindFirstHook counts binds made by a session's first hook on a runtime bound to no
 	// session: a daemon restarted in the middle of the session, which gets no SessionStart for it.
