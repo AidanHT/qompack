@@ -6,8 +6,10 @@ import (
 	"go/token"
 	"go/types"
 	"io/fs"
+	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -282,15 +284,31 @@ func grammarCarriersInFile(f *ast.File, into map[string]bool) {
 
 // grammarWritesInFile returns, in source order, every keyed Grammar element of a composite literal
 // whose type is a carrier and every assignment to a selector named Grammar, with the file once in
-// the reads list for each selector named LoopWarningsEnabled.
+// the reads list for each selector named LoopWarningsEnabled. A literal with an elided type takes
+// the element type of the slice, array or map literal around it; one whose type cannot be inferred
+// that way is recorded as unknownCarrier.
 func grammarWritesInFile(f *ast.File, rel string, carriers map[string]bool) ([]grammarWrite, []string) {
+	imports := importNames(f)
 	var writes []grammarWrite
 	var reads []string
+	// elided maps a literal with no Type to the type its enclosing literal gives its elements; nil
+	// when the enclosing literal's type is not a slice, array or map spelled in place.
+	elided := map[*ast.CompositeLit]ast.Expr{}
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.CompositeLit:
-			typ := qualifiedTypeName(f, x.Type)
-			if !carriers[typ] {
+			litType := x.Type
+			if litType == nil {
+				litType = elided[x]
+			}
+			markElidedElements(x, litType, elided)
+			typ := ""
+			if litType != nil {
+				typ = qualifiedTypeName(f, imports, litType)
+			} else {
+				typ = unknownCarrier
+			}
+			if typ != unknownCarrier && !carriers[typ] {
 				return true
 			}
 			for _, elt := range x.Elts {
@@ -326,15 +344,79 @@ func grammarWritesInFile(f *ast.File, rel string, carriers map[string]bool) ([]g
 	return writes, reads
 }
 
-// qualifiedTypeName spells a composite literal's type as "pkg.Name": an imported type by its
-// selector, a local one by f's package name. Any other shape (a slice, a map, an elided type) is
-// not a carrier and returns "".
-func qualifiedTypeName(f *ast.File, expr ast.Expr) string {
+// markElidedElements records, for each element (and map key) of lit that is a literal with an
+// elided type, the element type litType gives it: a slice or array's element, a map's key or
+// value, with a leading * dropped since Go elides &T{} to {} there. litType of any other shape
+// (a named slice type, an unknown) gives nothing, so those elements stay unknown.
+func markElidedElements(lit *ast.CompositeLit, litType ast.Expr, elided map[*ast.CompositeLit]ast.Expr) {
+	var keyType, eltType ast.Expr
+	switch t := litType.(type) {
+	case *ast.ArrayType:
+		eltType = t.Elt
+	case *ast.MapType:
+		keyType, eltType = t.Key, t.Value
+	}
+	deref := func(e ast.Expr) ast.Expr {
+		if s, ok := e.(*ast.StarExpr); ok {
+			return s.X
+		}
+		return e
+	}
+	mark := func(e, typ ast.Expr) {
+		if cl, ok := e.(*ast.CompositeLit); ok && cl.Type == nil {
+			if typ != nil {
+				elided[cl] = deref(typ)
+			} else {
+				elided[cl] = nil
+			}
+		}
+	}
+	for _, elt := range lit.Elts {
+		if kv, ok := elt.(*ast.KeyValueExpr); ok {
+			mark(kv.Key, keyType)
+			mark(kv.Value, eltType)
+			continue
+		}
+		mark(elt, eltType)
+	}
+}
+
+// importNames maps each name f uses for an imported package to the last element of its import
+// path, so an aliased import (obsv ".../internal/observer") resolves to the package it names.
+// Blank and dot imports bind no qualifier and are left out.
+func importNames(f *ast.File) map[string]string {
+	names := map[string]string{}
+	for _, imp := range f.Imports {
+		p, err := strconv.Unquote(imp.Path.Value)
+		if err != nil {
+			continue
+		}
+		base := path.Base(p)
+		local := base
+		if imp.Name != nil {
+			local = imp.Name.Name
+		}
+		if local == "_" || local == "." {
+			continue
+		}
+		names[local] = base
+	}
+	return names
+}
+
+// qualifiedTypeName spells a composite literal's type as "pkg.Name": an imported type by the
+// package its qualifier names (through imports, so an alias resolves; a qualifier with no import
+// is taken as written), a local one by f's package name. Any other shape (a slice, a map) is not a
+// carrier and returns "".
+func qualifiedTypeName(f *ast.File, imports map[string]string, expr ast.Expr) string {
 	switch x := expr.(type) {
 	case *ast.Ident:
 		return f.Name.Name + "." + x.Name
 	case *ast.SelectorExpr:
 		if pkg, ok := x.X.(*ast.Ident); ok {
+			if name, ok := imports[pkg.Name]; ok {
+				return name + "." + x.Sel.Name
+			}
 			return pkg.Name + "." + x.Sel.Name
 		}
 	}
