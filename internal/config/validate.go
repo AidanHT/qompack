@@ -78,6 +78,7 @@ const ModBriefMaxCharsCeiling = 4000
 //	    compaction.automaticVeto, experiments.enabled} must be false while their gate is pending
 //	    (migration.go's MigrationGates; every gate is pending at SP-19)
 //	runtime.migration.compaction.blockManualCompact must be false   ← hardwired; manual compact is never blocked
+//	runtime.mod.briefMaxChars ∈ [1, ModBriefMaxCharsCeiling]
 //
 // Every leaf in Config not covered by a check below is intentionally unconstrained (booleans
 // with no invalid state, and a handful of ints/strings §11.3 does not bound): see
@@ -406,6 +407,12 @@ func (c Config) Validate() []Violation {
 		add("runtime.phase7.retrieval.maxQueueDepth", "must be >= 1",
 			c.Runtime.Phase7.Retrieval.MaxQueueDepth,
 			Defaults().Runtime.Phase7.Retrieval.MaxQueueDepth)
+	}
+
+	// runtime.mod.briefMaxChars ∈ [1, ModBriefMaxCharsCeiling]
+	if c.Runtime.Mod.BriefMaxChars < 1 || c.Runtime.Mod.BriefMaxChars > ModBriefMaxCharsCeiling {
+		add("runtime.mod.briefMaxChars", "out of range", c.Runtime.Mod.BriefMaxChars,
+			fmt.Sprintf("[1,%d]", ModBriefMaxCharsCeiling))
 	}
 
 	return out

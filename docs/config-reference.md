@@ -92,6 +92,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.migration.reinjection.sessionStartCompact` | boolean | `true` | — | Qompack.md v1.5 §8.6 / 00-ARCH §12.1 | reinject the rehydration payload through SessionStart source=compact additionalContext, the one tested injection adapter; false disables injection without touching recording |
 | `runtime.migration.replacement.newResult` | boolean | `false` | — | Qompack.md v1.5 §8.7 / SP-21 | replace newly delivered tool results with Qompack handles (SP-21 M4); refused until the M4 gate passes |
 | `runtime.migration.settingsVersion` | integer | `1` | [1,1] | Qompack.md v1.5 Appendix C / SP-19 M0 | version of the runtime.migration block; a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
+| `runtime.mod.briefMaxChars` | integer | `4000` | [1,4000] | ADR 0015 | the most characters (UTF-16 code units) a brief's instructions may hold; the default is the mod wire contract's ceiling, and a larger value is clamped to it |
 | `runtime.mod.enabled` | boolean | `false` | — | ADR 0015 | let the Claude Code mod reach Qompack; while false every qompack mod verb answers refused and writes nothing |
 | `runtime.mod.steering` | boolean | `false` | — | ADR 0015 | let the Claude Code mod steer compactions with a brief; while false a hello answers steering false and every brief is refused |
 | `runtime.mode` | string | `"auto"` | one of `auto`, `full`, `passive`, `off` | 00-ARCH §12 | overall operating mode |
@@ -293,6 +294,7 @@ Every reader in the running daemon reads these keys at its next use. The reload 
 | `runtime.hotPath.spoolOnBreach` | the hot-path handler (currentCfg) and state.bin |
 | `runtime.mcp` | MCP tools (ToolDeps.CfgFn) |
 | `runtime.migration.reinjection.sessionStartCompact` | rehydrate service (RehydrateOptions.CfgFn) |
+| `runtime.mod.briefMaxChars` | the mod route (handleMod), which reads the live configuration for each brief; `qompack mod brief` loads it too, to check the daemon's answer |
 | `runtime.redact` | capture admission (currentCfg), the store's, the retrieval tools' and the rehydrator's inline redactors (NewLiveRedactor) |
 | `runtime.rehydrate` | rehydrate service (RehydrateOptions.CfgFn) |
 | `runtime.selection.submodularEnabled` | rehydrate service (RehydrateOptions.CfgFn) |
