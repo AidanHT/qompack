@@ -226,3 +226,36 @@ func TestRunLiveEval_ResumeRefusesAChangedRun(t *testing.T) {
 	require.NoError(t, err, "pacing and the host path may change between sessions")
 	require.Equal(t, o.out, r.resume)
 }
+
+// TestRunLiveEval_ConfigurationErrorsCountAcrossSessions: R27's three configuration errors are "in
+// one run", and a paced run is many sessions. Two discards in the first session and one in the
+// resumed one stop the run; the stop leaves a marker, and resuming after it is the operator's
+// "investigated", which starts the count again (review I4).
+func TestRunLiveEval_ConfigurationErrorsCountAcrossSessions(t *testing.T) {
+	env, clk, home := pacedEnv(t)
+	week := fakeNow.Add(30 * time.Hour)
+	env.run = perSession(t, home, func(n int, _ liveProcSpec) pilotHostOpts {
+		switch n {
+		case 1, 2, 4:
+			return pilotHostOpts{source: "qompack@someone-else"}
+		case 3:
+			return pilotHostOpts{streamExtra: []string{rateLine("allowed", 0.1, 0.65, fakeNow.Add(time.Hour), week, false)}}
+		}
+		return pilotHostOpts{}
+	})
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic"}, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1800, trials: 2, defectsAttested: true,
+	}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), "two discards, then a seven-day pause\n"+log.String())
+	require.FileExists(t, filepath.Join(slotDir(o.out, "classic", 1), "trial.discarded-2.json"))
+
+	clk.t = week.Add(time.Minute)
+	err := runLiveEval(context.Background(), resumeRun(t, o.out), env, &log)
+	require.ErrorContains(t, err, "three configuration errors", "the first session's two count in the run")
+	require.FileExists(t, filepath.Join(o.out, liveConfigStopFile))
+
+	require.NoError(t, runLiveEval(context.Background(), resumeRun(t, o.out), env, &log), log.String())
+	require.FileExists(t, filepath.Join(slotDir(o.out, "classic", 2), "trial.json"), "after the stop the count starts again")
+}
