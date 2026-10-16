@@ -299,3 +299,27 @@ func TestSummarizeLive_RecordsTheModelsTheHostsReported(t *testing.T) {
 	sum := eval.SummarizeLive("r", liveAnalysis(), append(s, q...))
 	require.Equal(t, []string{"claude-a", "claude-b"}, sum.HostModels)
 }
+
+// TestSummarizeLive_HelloIsATreatmentOutcome: a steer trial whose hello file is missing or wrong is
+// a treatment outcome (plan W6 item 4, intention to treat): it stays in every denominator, graded by
+// its checks, and the summary counts and reports it per arm, for every Stage A arm alike.
+func TestSummarizeLive_HelloIsATreatmentOutcome(t *testing.T) {
+	steer := trials(eval.ArmSteer, 4, 4)
+	steer[0].Hello = &eval.LiveHelloOutcome{OK: true, Files: 1, Steering: true}
+	steer[1].Hello = &eval.LiveHelloOutcome{Files: 0, Problem: "no state/mod-hello-*.json after the session"}
+	steer[2].Hello = &eval.LiveHelloOutcome{Files: 1, Problem: "steering false"}
+	steer[3].Hello = &eval.LiveHelloOutcome{OK: true, Files: 1, Steering: true}
+	classic := trials(eval.ArmClassic, 4, 2)
+	classic[0].HookProblems = []eval.HostHookProblem{{Event: "PreCompact", Kind: eval.HookProblemOutputRejected}}
+
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(classic, steer...))
+	st := sum.Arms[eval.ArmSteer]
+	require.Equal(t, 4, st.Trials)
+	require.Equal(t, 2, st.HelloProblemTrials)
+	require.Equal(t, [2]int{4, 4}, [2]int{st.TaskSuccess.K, st.TaskSuccess.N}, "graded by its checks, never excluded")
+	require.Zero(t, sum.Arms[eval.ArmClassic].HelloProblemTrials)
+	notes := strings.Join(sum.Notes, "\n")
+	require.Contains(t, notes, "2 of 4 steer trial(s) have no valid hello file")
+	require.Contains(t, notes, "intention to treat")
+	require.Contains(t, notes, "1 of 4 classic trial(s) ran with a hook failure", "notes cover every arm, not only qompack and stock")
+}
