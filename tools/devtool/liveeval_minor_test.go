@@ -175,3 +175,88 @@ func TestRunLiveEval_OneSessionPerRunDirectory(t *testing.T) {
 	require.NoError(t, runLiveEval(context.Background(), resumeRun(t, o.out), env, &log), "a dead holder's lock is taken over\n"+log.String())
 	require.FileExists(t, filepath.Join(slotDir(o.out, "stock", 2), "trial.json"))
 }
+
+// TestRunLiveEval_FreshStartTakesTheLockBeforeThePlan: a fresh start whose --out a live session holds
+// is refused before it writes plan.json, so it cannot overwrite the running run's plan (re-review M8).
+func TestRunLiveEval_FreshStartTakesTheLockBeforeThePlan(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	env.run = scriptedPilotHost(t, home)
+	o := stockRun(t, 1)
+	b, err := json.Marshal(liveLock{PID: os.Getpid(), StartedAt: "x"})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(o.out, liveLockFile), b, 0o600))
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &log), "another session")
+	require.NoFileExists(t, filepath.Join(o.out, "plan.json"))
+}
+
+// TestRunLiveEval_DriverStopIsTheOverageStop: the run stops on the driver's own record that it
+// stopped the session for overage, even when the cut stream does not parse, and the overage marker is
+// written even when the guard also failed (re-review N1).
+func TestRunLiveEval_DriverStopIsTheOverageStop(t *testing.T) {
+	over := rateLine("allowed", 0.1, 0.1, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), true)
+
+	env, _, home := pacedEnv(t)
+	env.run = scriptedPilotHostWith(t, home, pilotHostOpts{streamExtra: []string{"{not json", over}})
+	o := stockRun(t, 2)
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &log), "overage")
+	require.FileExists(t, filepath.Join(o.out, liveOverageStopFile))
+	require.NoDirExists(t, slotDir(o.out, "stock", 2))
+
+	env2, _, home2 := pacedEnv(t)
+	inner := scriptedPilotHostWith(t, home2, pilotHostOpts{streamExtra: []string{over}})
+	env2.run = func(ctx context.Context, spec liveProcSpec) liveProcResult {
+		require.NoError(t, os.MkdirAll(filepath.Join(home2, "plugins"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(home2, "plugins", "installed_plugins.json"), []byte(`{}`), 0o600))
+		return inner(ctx, spec)
+	}
+	o2 := stockRun(t, 2)
+	err := runLiveEval(context.Background(), o2, env2, &log)
+	require.ErrorContains(t, err, "configuration changed")
+	require.FileExists(t, filepath.Join(o2.out, liveOverageStopFile), "the guard failing does not skip the marker")
+}
+
+// TestRunLiveEval_ResumeNeedsStoredPacing: a resume whose pacing.json holds no stored settings is
+// refused rather than run with no night window, unless the operator names one (re-review N2).
+func TestRunLiveEval_ResumeNeedsStoredPacing(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	env.run = scriptedPilotHost(t, home)
+	o := stockRun(t, 2)
+	killAtVersionCall(env, 3)
+	runKilled(t, o, env)
+	env.cli = pinnedCLI(fakeLiveEnv(t, nil).cli)
+	require.NoError(t, os.Remove(filepath.Join(o.out, livePacingFile)))
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveEval(context.Background(), resumeRun(t, o.out), env, &log), "--night-window")
+	require.NoDirExists(t, slotDir(o.out, "stock", 2))
+
+	r := resumeRun(t, o.out)
+	r.pacingGiven = map[string]bool{"night-window": true}
+	require.NoError(t, runLiveEval(context.Background(), r, env, &log), log.String())
+	require.FileExists(t, filepath.Join(slotDir(o.out, "stock", 2), "trial.json"))
+}
+
+// TestLiveCheck_StoredPacingDoesNotSilentlyReplaceFlags: a live-check whose --out already stores other
+// pacing values refuses the flags it would replace unless --pacing-override is given (re-review N3).
+func TestLiveCheck_StoredPacingDoesNotSilentlyReplaceFlags(t *testing.T) {
+	env, _, _ := pacedEnv(t)
+	var specs []liveProcSpec
+	env.run = recordedHost(t, &specs, nil)
+	o := checkRun(t, "quick")
+	st := livePacingState{Settings: &livePacingSettings{FiveHourGate: 0.9, SevenDayCeiling: 0.95, NightWindow: "none"}}
+	b, err := json.Marshal(st)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(o.out, livePacingFile), b, 0o600))
+	o.pacingGiven = map[string]bool{"seven-day-ceiling": true}
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveCheck(context.Background(), o, env, &log), "--pacing-override")
+	require.Empty(t, specs)
+	o.pacingOverride = true
+	require.NoError(t, runLiveCheck(context.Background(), o, env, &log), log.String())
+	require.Contains(t, log.String(), "replaces the stored")
+	p, err := parseLiveCheckFlags([]string{"--suite", "s.json", "--night-window", "none", "--seven-day-ceiling", "0.7", "--pacing-override"})
+	require.NoError(t, err)
+	require.True(t, p.pacingOverride)
+	require.True(t, p.pacingGiven["seven-day-ceiling"])
+}

@@ -308,7 +308,12 @@ func TestRunLiveEval_APanicLeavesNoScoredRecord(t *testing.T) {
 		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1800, trials: 1, defectsAttested: true,
 	}
 	func() {
-		defer func() { require.Equal(t, "boom", recover()) }()
+		defer func() {
+			r := fmt.Sprint(recover())
+			require.True(t, strings.HasPrefix(r, "boom\n"), r)
+			require.Contains(t, r, "goroutine", "the re-panic keeps the original stack (re-review N4)")
+			require.Contains(t, r, "TestRunLiveEval_APanicLeavesNoScoredRecord", "the stack reaches the panic's own site")
+		}()
 		var log bytes.Buffer
 		_ = runLiveEval(context.Background(), o, env, &log)
 	}()
