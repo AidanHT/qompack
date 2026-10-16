@@ -128,6 +128,12 @@ type ClientOptions struct {
 	// Send's own contract is unchanged: every failure still spools and returns (Response{OK:false},
 	// nil). It exists for a caller that has to tell the causes apart, which Send's result cannot.
 	OnFailure func(SendFailure)
+	// ReplyBy, when set, is the latest instant a Reply request waits for its answer, however long
+	// the dial and the write took: the wait ends at whichever comes first, ReplyBy or the Send
+	// deadline counted from the end of the write. It is for a caller whose own deadline is absolute
+	// (a `qompack mod` verb, which must answer before the mod gives up on it). Zero leaves the Send
+	// deadline alone.
+	ReplyBy time.Time
 }
 
 // SendFailure names the step at which Client.Send gave up on a request.

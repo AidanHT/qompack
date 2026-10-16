@@ -10,19 +10,19 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 )
 
-// wantOps is every op KnownOps must report: the eight §5.4 operations plus the five admin.*
-// operations this commit adds.
+// wantOps is every op KnownOps must report: the eight §5.4 operations, the `qompack mod` op and the
+// five admin.* operations.
 var wantOps = []ipc.Op{
 	ipc.OpObserveTool, ipc.OpObservePrompt, ipc.OpObserveStop, ipc.OpSessionStart,
-	ipc.OpCheckpoint, ipc.OpFlush, ipc.OpStatus, ipc.OpMCP,
+	ipc.OpCheckpoint, ipc.OpFlush, ipc.OpStatus, ipc.OpMCP, ipc.OpMod,
 	ipc.OpAdminPing, ipc.OpAdminDrain, ipc.OpAdminReload, ipc.OpAdminIdle, ipc.OpAdminShutdown,
 }
 
-// TestKnownOps_ListsAllThirteenSorted asserts KnownOps is the complete, sorted vocabulary — the set
+// TestKnownOps_ListsAllFourteenSorted asserts KnownOps is the complete, sorted vocabulary — the set
 // self-test and status render against.
-func TestKnownOps_ListsAllThirteenSorted(t *testing.T) {
+func TestKnownOps_ListsAllFourteenSorted(t *testing.T) {
 	ops := ipc.KnownOps()
-	require.Len(t, ops, 13)
+	require.Len(t, ops, 14)
 	require.True(t, sort.SliceIsSorted(ops, func(i, j int) bool { return ops[i] < ops[j] }))
 	for _, o := range wantOps {
 		require.Contains(t, ops, o)
@@ -60,6 +60,13 @@ func TestOp_Valid(t *testing.T) {
 	require.False(t, ipc.Op("bogus").Valid())
 	require.False(t, ipc.Op("").Valid())
 	require.False(t, ipc.Op(ipc.OpAdminPrefix).Valid(), "the bare prefix is not itself an op")
+}
+
+// TestOpMod_Spelling pins the `qompack mod` op's wire spelling and keeps it off the hot path.
+func TestOpMod_Spelling(t *testing.T) {
+	require.Equal(t, ipc.Op("mod"), ipc.OpMod)
+	require.True(t, ipc.OpMod.Valid())
+	require.False(t, ipc.OpMod.HotPath())
 }
 
 // TestOp_HotPath pins §8.1's three hot-path ops — the ones that flow through the spool submode —
