@@ -43,6 +43,24 @@ type LivePreregistration struct {
 	SupersededBy string
 	// SupersededWhy says why, and where the replacement was recorded.
 	SupersededWhy string
+	// Arms is the design's arms, every one of which a confirmatory run plans; nil for the two-arm
+	// design of qompack-live-v1 and -v2 (stock and qompack). A Stage A entry names the four LiveArms.
+	Arms []string
+	// ArmTrialsPerTask is the design's trials per task of each arm (W6 item 14); nil when the task
+	// set's one trials_per_arm is the design's.
+	ArmTrialsPerTask map[string]int
+	// Bundles names the bundles the design loads, by the live-eval flag that supplies each
+	// (LiveBundleClassic, LiveBundleMods); nil means the one --bundle of the two-arm design. A
+	// confirmatory plan records every one, built from one commit and a clean tree.
+	Bundles []string
+}
+
+// DesignArms is the arms a confirmatory run of p's design plans: p.Arms, or the two-arm design's.
+func (p LivePreregistration) DesignArms() []string {
+	if p.Arms != nil {
+		return p.Arms
+	}
+	return []string{ArmStock, ArmQompack}
 }
 
 // LivePreregistrations maps each pre-registered task set's id to what its pre-registration froze.

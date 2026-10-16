@@ -14,7 +14,7 @@ Written by `devtool live-eval --describe` from the files and settings a run with
 - Daemon idle exit: 1800 s; step timeout 10m0s; session timeout 45m0s; max sessions no cap.
 - Rate table for the list-price estimate: 2026-09-22.
 - Known open defects in the bundles: none (the operator's statement, not machine-checked).
-- Pre-registered confirmatory design: not met (its task set qompack-live-v7-harness-test has no pre-registration; it did not run both arms (arms: stock, classic, generic, steer); it excluded the held-out tasks).
+- Pre-registered confirmatory design: not met (its task set qompack-live-v7-harness-test has no pre-registration; it excluded the held-out tasks).
 
 ## Pacing
 

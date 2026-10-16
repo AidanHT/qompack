@@ -36,9 +36,7 @@ func LivePlanDepartures(p LivePlan, a LiveAnalysis) []string {
 		out = append(out, fmt.Sprintf("it ran on %s, not the pre-registered model %s",
 			orUnknownText(p.Model), orUnknownText(p.PreregisteredModel)))
 	}
-	if !(containsText(p.Arms, ArmStock) && containsText(p.Arms, ArmQompack)) {
-		out = append(out, fmt.Sprintf("it did not run both arms (arms: %s)", orUnknownText(strings.Join(p.Arms, ", "))))
-	}
+	out = append(out, armDepartures(p, a, pre, ok)...)
 	if !p.HeldOutIncluded {
 		out = append(out, "it excluded the held-out tasks")
 	}
@@ -52,6 +50,9 @@ func LivePlanDepartures(p LivePlan, a LiveAnalysis) []string {
 	case len(tasks) != p.TaskSetTasks:
 		out = append(out, fmt.Sprintf("it planned %d of the task set's %d tasks", len(tasks), p.TaskSetTasks))
 	}
+	if pre.ArmTrialsPerTask != nil {
+		a.TrialsPerArm, a.ArmTrialsPerTask = 0, pre.ArmTrialsPerTask
+	}
 	out = append(out, trialDepartures(p, a)...)
 	switch {
 	case p.Plugin == nil && p.PluginMods == nil:
@@ -61,6 +62,49 @@ func LivePlanDepartures(p LivePlan, a LiveAnalysis) []string {
 	}
 	if p.PluginMods != nil && p.PluginMods.Dirty {
 		out = append(out, "its --bundle-mods was assembled from a worktree with uncommitted changes, not a frozen candidate")
+	}
+	return append(out, bundleDepartures(p, pre)...)
+}
+
+// armDepartures names how the plan's arms fall short of its design's: the pre-registration's arms
+// when it names them, the four Stage A arms for a four-arm task set with no pre-registration, and the
+// two-arm design's stock and qompack otherwise.
+func armDepartures(p LivePlan, a LiveAnalysis, pre LivePreregistration, registered bool) []string {
+	want := pre.DesignArms()
+	if !registered && a.fourArm() {
+		want = LiveArms
+	}
+	var missing []string
+	for _, arm := range want {
+		if !containsText(p.Arms, arm) {
+			missing = append(missing, arm)
+		}
+	}
+	switch {
+	case len(missing) == 0:
+		return nil
+	case len(want) == 2:
+		return []string{fmt.Sprintf("it did not run both arms (arms: %s)", orUnknownText(strings.Join(p.Arms, ", ")))}
+	}
+	return []string{fmt.Sprintf("it did not run every arm of the design (%s; arms: %s, missing %s)",
+		strings.Join(want, ", "), orUnknownText(strings.Join(p.Arms, ", ")), strings.Join(missing, ", "))}
+}
+
+// bundleDepartures names every bundle the pre-registered design loads that the plan does not record,
+// and a pair of bundles built from different commits (W6 item 14).
+func bundleDepartures(p LivePlan, pre LivePreregistration) []string {
+	var out []string
+	for _, b := range pre.Bundles {
+		switch {
+		case b == LiveBundleClassic && p.Plugin == nil:
+			out = append(out, "its plan names no --bundle, which the pre-registered design's classic arms load")
+		case b == LiveBundleMods && p.PluginMods == nil:
+			out = append(out, "its plan names no --bundle-mods, which the pre-registered design's steer arm loads")
+		}
+	}
+	if c, m := p.Plugin, p.PluginMods; c != nil && m != nil && (c.Commit != m.Commit || c.Version != m.Version) {
+		out = append(out, fmt.Sprintf("its --bundle (%s at %s) and --bundle-mods (%s at %s) are not built from one commit",
+			c.Version, c.Commit, m.Version, m.Commit))
 	}
 	return out
 }
