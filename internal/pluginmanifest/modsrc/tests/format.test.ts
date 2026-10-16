@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import {
   binaryPath,
+  briefLogLine,
   decodeBrief,
   decodeHello,
   encodeRequest,
@@ -227,5 +228,17 @@ describe('helloLogLine', () => {
     expect(helloLogLine(decodeHello(0, helloBelowMin))).toBe('qompack mod hello: served, not enabled for this host')
     expect(helloLogLine(decodeHello(0, helloRefused))).toBe('qompack mod hello: refused')
     expect(helloLogLine(unservedHello('cold', 'starting'))).toBe('qompack mod hello: cold (starting)')
+  })
+})
+
+describe('briefLogLine', () => {
+  test('says what the brief came to, never its text', async () => {
+    const served = decodeBrief(0, briefServed, BRIEF_MAX_CHARS)
+    const line = briefLogLine(served)
+    expect(line).toBe('qompack mod brief: served, ' + served.instructions.length + ' chars, 2 fact ids')
+    expect(line).not.toContain('TestLedgerReplay')
+    expect(briefLogLine({ v: 1, ok: true, instructions: '', fact_ids: [] })).toBe('qompack mod brief: served empty')
+    expect(briefLogLine(decodeBrief(0, briefCold, BRIEF_MAX_CHARS))).toBe('qompack mod brief: cold')
+    expect(briefLogLine(unservedBrief('error', 'exit 1'))).toBe('qompack mod brief: error (exit 1)')
   })
 })
