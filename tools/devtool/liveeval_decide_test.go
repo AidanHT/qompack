@@ -10,11 +10,14 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/eval"
+	"github.com/qompack/qompack/internal/modwire"
 )
 
 // registerStageATestEntry adds a test-only four-arm pre-registration of the test task set for the
@@ -131,4 +134,137 @@ func TestRunLiveEval_RecordsTheTaskDomain(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(md), "## By domain")
 	require.Contains(t, string(md), "| harness-validation | steer | 2 |")
+}
+
+// sessionIDOf is the --session-id a host command line carries.
+func sessionIDOf(spec liveProcSpec) string {
+	for i, a := range spec.Args {
+		if a == "--session-id" && i+1 < len(spec.Args) {
+			return spec.Args[i+1]
+		}
+	}
+	return ""
+}
+
+// withBriefLog wraps a scripted host so each steer session leaves the given brief-outcome log lines
+// in its project, as the mod's `qompack mod brief` calls would.
+func withBriefLog(t *testing.T, run func(context.Context, liveProcSpec) liveProcResult, lines ...string) func(context.Context, liveProcSpec) liveProcResult {
+	t.Helper()
+	return func(ctx context.Context, spec liveProcSpec) liveProcResult {
+		res := run(ctx, spec)
+		if !slices.Contains(spec.Env, liveEnvModSteering+"=true") || len(lines) == 0 {
+			return res
+		}
+		name, err := modwire.BriefRecordName(sessionIDOf(spec))
+		require.NoError(t, err)
+		dir := filepath.Join(spec.Dir, liveStoreDir, modwire.StateDir)
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(strings.Join(lines, "\n")+"\n"), 0o600))
+		return res
+	}
+}
+
+// TestRunLiveEval_SteerBriefOutcomes: a steer trial records each compaction's brief outcome from its
+// session's brief-outcome log, read with the wire contract's parser; the summary gives the steer
+// arm's shares and summary.md shows them. A steer session that left no log has every compaction
+// "missing" and is flagged as having no served brief, counted as assigned (W6 item 5).
+func TestRunLiveEval_SteerBriefOutcomes(t *testing.T) {
+	served := `{"v":1,"ts":1,"trigger":"manual","outcome":"served","chars":1234,"ms":80}`
+	out := runFourArmPilot(t, pilotHostOpts{}, func(env *liveEnv) {
+		env.run = withBriefLog(t, env.run, `{"v":1,"ts":0,"trigger":"precompute","outcome":"cold","chars":0,"ms":3}`,
+			served, `not json`)
+	})
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "steer", "01", "trial.json"), &rec)
+	require.NotNil(t, rec.Brief)
+	require.Equal(t, []eval.LiveBriefCompaction{{Trigger: "manual", Outcome: "served", Chars: 1234, MS: 80}}, rec.Brief.Compactions)
+	require.Equal(t, 2, rec.Brief.Records)
+	require.Equal(t, 1, rec.Brief.Unmatched)
+	require.Equal(t, 1, rec.Brief.Malformed)
+	require.False(t, rec.Brief.NoServedBrief)
+	var classic eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "trial.json"), &classic)
+	require.Nil(t, classic.Brief, "only the steer arm briefs")
+
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	b := sum.Arms[eval.ArmSteer].Brief
+	require.NotNil(t, b)
+	require.Equal(t, map[string]int{"served": 2}, b.Outcomes)
+	require.Zero(t, b.UnservedShare)
+	md, err := os.ReadFile(filepath.Join(out, "summary.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(md), "## Brief outcomes")
+	require.Contains(t, string(md), "| steer | 2 | 2 | 0.00 | 0.00 | 0 |")
+
+	out = runFourArmPilot(t, pilotHostOpts{}, nil)
+	var rec2 eval.LiveTrial
+	var sum2 eval.LiveSummary
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "steer", "02", "trial.json"), &rec2)
+	require.Equal(t, []eval.LiveBriefCompaction{{Trigger: "manual", Outcome: "missing"}}, rec2.Brief.Compactions)
+	require.True(t, rec2.Brief.NoServedBrief)
+	readJSON(t, filepath.Join(out, "summary.json"), &sum2)
+	require.InDelta(t, 1.0, sum2.Arms[eval.ArmSteer].Brief.UnservedShare, 1e-12, "missing counts as unserved")
+	require.Equal(t, 2, sum2.Arms[eval.ArmSteer].Trials, "a trial with no brief is still scored (intention to treat)")
+	require.Contains(t, strings.Join(sum2.Notes, "\n"), "2 of 2 steer trial(s) had no non-empty served brief")
+}
+
+// TestRunLiveEval_ResidentDaemonOfAnotherBuildIsAHarnessFault (ruling R42, review M4): a daemon.lock
+// already in a Qompack arm's fresh project before its session, recording a build other than the
+// arm's bundle, is positive evidence of a daemon that may predate W1a and answer every brief
+// "unknown op: mod"; the attempt is a configuration error, set aside and run again, and counted. A
+// lock of the arm's own build is recorded and is no fault.
+func TestRunLiveEval_ResidentDaemonOfAnotherBuildIsAHarnessFault(t *testing.T) {
+	plantLock := func(version string, times int) func(*liveEnv) {
+		return func(env *liveEnv) {
+			planted := 0
+			env.git = func(ctx context.Context, dir string, args ...string) error {
+				if err := runLiveGit(ctx, dir, args...); err != nil {
+					return err
+				}
+				if _, err := os.Stat(filepath.Join(dir, liveStoreDir)); err == nil && planted < times && slices.Contains(args, "commit") {
+					planted++
+					lock := filepath.Join(dir, liveStoreDir, "run", "daemon.lock")
+					require.NoError(t, os.MkdirAll(filepath.Dir(lock), 0o755))
+					require.NoError(t, os.WriteFile(lock, []byte(`{"pid":4242,"started":1,"addr":"x","version":"`+version+`"}`), 0o600))
+				}
+				return nil
+			}
+		}
+	}
+	out := runFourArmPilot(t, pilotHostOpts{}, plantLock("v0.3.2", 1))
+	discarded, err := filepath.Glob(filepath.Join(out, "trials", "pilot-codeword", "*", "*", "trial.discarded-1.json"))
+	require.NoError(t, err)
+	require.Len(t, discarded, 1, "the first Qompack attempt found the stale daemon")
+	var d eval.LiveTrial
+	readJSON(t, discarded[0], &d)
+	require.Contains(t, d.ConfigurationError, "unknown op: mod")
+	require.Contains(t, d.ConfigurationError, "ruling R42")
+	require.Equal(t, &eval.LiveResidentDaemon{PID: 4242, Version: "v0.3.2", BundleVersion: "9.9.9-test", Fault: true}, d.ResidentDaemon)
+	require.FileExists(t, filepath.Join(filepath.Dir(discarded[0]), "trial.json"), "the slot ran again and was scored")
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	require.Equal(t, 1, sum.ResidentDaemonFaults)
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "harness faults, not scored outcomes (ruling R42)")
+
+	out = runFourArmPilot(t, pilotHostOpts{}, plantLock("9.9.9-test", 1))
+	discarded, err = filepath.Glob(filepath.Join(out, "trials", "pilot-codeword", "*", "*", "trial.discarded-*.json"))
+	require.NoError(t, err)
+	require.Empty(t, discarded, "a daemon of the arm's own build is no fault")
+	var own eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &own)
+	require.Zero(t, own.ResidentDaemonFaults)
+	scored, err := filepath.Glob(filepath.Join(out, "trials", "pilot-codeword", "*", "*", "trial.json"))
+	require.NoError(t, err)
+	recorded := 0
+	for _, f := range scored {
+		var r eval.LiveTrial
+		readJSON(t, f, &r)
+		if r.ResidentDaemon != nil {
+			recorded++
+			require.False(t, r.ResidentDaemon.Fault)
+			require.Equal(t, "9.9.9-test", r.ResidentDaemon.Version)
+		}
+	}
+	require.Equal(t, 1, recorded, "the own-build daemon is recorded on the trial it was found for")
 }
