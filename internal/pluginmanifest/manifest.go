@@ -322,9 +322,11 @@ const asyncPromptEvent = "UserPromptSubmit"
 // build it has no output: the reply's only producer is the thrash warning, which needs the
 // observer's Grammar, and no composition root wires one, so every reply is empty. The prompt is
 // WAL-accepted before the reply wait, so capture does not depend on the host waiting. The F4b
-// ruling narrows R12 for this event only, and only while no reply producer is wired; test/guards'
-// asyncprompt guard fails the moment one is. SessionStart's output is the rehydration, so it stays
-// synchronous.
+// ruling (R44) narrows R12 for this event only, and only while no reply producer is wired.
+// test/guards' asyncprompt guard fails if the observer's Grammar is wired or the loop-warning
+// switch gains a reader; it cannot see a new producer that needs neither, so a change to the
+// prompt reply path must re-check the ruling. SessionStart's output is the rehydration, so it
+// stays synchronous.
 //
 // Like WithAsyncHooks it only sets a flag, never clears one, and does not modify m. It is off by
 // default: Default and ForTarget never call it.

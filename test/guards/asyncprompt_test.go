@@ -21,10 +21,11 @@ import (
 )
 
 // V7 F4b: pluginmanifest.WithAsyncPrompt renders UserPromptSubmit async. R12 kept that hook
-// synchronous because its output must reach the model in the same turn; the F4b ruling narrows R12
-// for UserPromptSubmit only, and only while no reply producer is wired. In this build the reply's
-// one producer is the thrash warning: observer.collectThrash returns at once while the observer's
-// Grammar is nil, and the loop-warning switch that would govern a second producer has no reader.
+// synchronous because its output must reach the model in the same turn; the F4b ruling (R44)
+// narrows R12 for UserPromptSubmit only, and only while no reply producer is wired. In this build
+// the reply's one producer is the thrash warning: observer.collectThrash returns at once while the
+// observer's Grammar is nil, and the loop-warning switch that would govern a second producer has
+// no reader.
 // Once either changes, an async prompt hook would deliver that output a turn late, silently.
 //
 // This guard holds the "no reply producer is wired" half of the ruling. It compiles only while
