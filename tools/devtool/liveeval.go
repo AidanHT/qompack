@@ -155,8 +155,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"required for the classic and generic arms")
 	fs.StringVar(&o.bundleMods, "bundle-mods", "", "assembled bundle with the mod (from `devtool bundle --mods`), built from "+
 		"the same commit as --bundle; required for the steer arm")
-	fs.Int64Var(&o.orderSeed, "order-seed", 0, "seed of the shuffle within each block of rounds "+
-		"(default: derived from the run id; plan.json records it)")
+	fs.Int64Var(&o.orderSeed, "order-seed", 0, "seed of the shuffle within each block of rounds; 0, the default, derives it from the run id "+
+		"(plan.json records the seed used either way)")
 	fs.StringVar(&o.claude, "claude", "", "Claude Code CLI, the pinned install (default: `claude` on PATH)")
 	fs.StringVar(&o.rates, "rates", liveDefaultRates, "dated rate table for the list-price estimate")
 	only := fs.String("only", "", "comma-separated task IDs to run (default: every non-held-out task)")
@@ -748,7 +748,10 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 	}
 	sessionEnv := liveSessionEnv(state, o.idleExit)
 	if cfgErr := lt.checkConfiguration(project, fixture, sessionEnv); cfgErr != nil {
+		// No host starts, so nothing the guard watches could change: the record carries no guard
+		// verdict rather than an unfinished one.
 		rec.ConfigurationError = cfgErr.Error()
+		rec.HomeGuard = nil
 		return rec, nil
 	}
 

@@ -50,11 +50,12 @@ const (
 	liveScoredRecord  = "trial.json"
 )
 
-// liveAttemptFiles are the files a trial attempt writes into its slot beside its record. An attempt
-// that is set aside takes them with it under its numbered name, so the re-run cannot overwrite them.
+// liveAttemptFiles are the files a trial attempt writes into its slot beside its record, and the
+// harness spool directory its daemon stop used. An attempt that is set aside takes them with it under
+// its numbered name, so the re-run neither overwrites nor reuses them.
 var liveAttemptFiles = []string{
 	"stream.jsonl", "stderr.txt", "invocation.json", "ledger.json", "estimate.json", "transcript-facts.json",
-	"transcript.raw.jsonl",
+	"transcript.raw.jsonl", "harness-spool",
 }
 
 // planLiveTrials orders the trials in balanced blocks of rounds (W6 item 1). The run has as many
