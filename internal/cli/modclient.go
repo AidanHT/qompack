@@ -83,8 +83,9 @@ func modUnservedDetail(f ipc.SendFailure) string {
 // A mod request is never spooled: its client gets nopSpool, because an answer replayed later has no
 // caller to reach. The client's own lazy spawn is off, so only a cold exchange spawns.
 func sendModRequest(ctx context.Context, env Env, root string, st ipc.State, req ipc.Request,
-	replyDeadline time.Duration,
+	replyBy time.Time,
 ) (ipc.Response, modwire.Status) {
+	replyDeadline := time.Until(replyBy)
 	addr, err := ipc.Resolve(root)
 	if err != nil {
 		return ipc.Response{}, modwire.FailureFor(err)

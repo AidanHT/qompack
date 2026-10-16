@@ -96,6 +96,8 @@ func askBriefDaemon(ctx context.Context, env Env, clk core.Clock, root string, c
 
 	replyWait := time.Duration(modwire.TimeoutMs-modwire.RecordMarginMs)*time.Millisecond - clk.Since(started)
 	budget := replyWait - modwire.DaemonReplyMarginMs*time.Millisecond
+	// The CLI stops waiting at this instant, whatever the steps below and the dial cost.
+	replyBy := time.Now().Add(replyWait)
 	if budget.Milliseconds() <= 0 {
 		return unserved(modwire.Failure(modwire.ReasonTimeout, "no time was left to ask the daemon"))
 	}
@@ -111,7 +113,7 @@ func askBriefDaemon(ctx context.Context, env Env, clk core.Clock, root string, c
 		return unserved(modwire.FailureFor(err))
 	}
 
-	answer, st := sendModRequest(ctx, env, root, daemonClientState(root, cfg), ipcReq, replyWait)
+	answer, st := sendModRequest(ctx, env, root, daemonClientState(root, cfg), ipcReq, replyBy)
 	if !st.OK {
 		return unserved(st)
 	}

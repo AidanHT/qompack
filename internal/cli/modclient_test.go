@@ -127,7 +127,7 @@ func TestSendModRequest_Answered(t *testing.T) {
 
 			env := p.env("", nil)
 			env.Self = "qompack-under-test"
-			resp, st := sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), modAnswerWait)
+			resp, st := sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), time.Now().Add(modAnswerWait))
 			require.Equal(t, modwire.Served(), st)
 			require.Equal(t, answer.OK, resp.OK)
 			require.Equal(t, answer.Err, resp.Err)
@@ -145,7 +145,7 @@ func TestSendModRequest_ColdStartsTheDaemonAndReturns(t *testing.T) {
 	env := p.env("", nil)
 	env.Self = "qompack-under-test"
 
-	_, st := sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), modAnswerWait)
+	_, st := sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), time.Now().Add(modAnswerWait))
 	require.False(t, st.OK)
 	require.Equal(t, modwire.ReasonCold, st.Reason)
 	require.Equal(t, []string{p.root}, spawns.roots, "one detached spawn for the project")
@@ -153,7 +153,7 @@ func TestSendModRequest_ColdStartsTheDaemonAndReturns(t *testing.T) {
 
 	// The claim is the one every spawner shares, so a second cold call inside its freshness window
 	// leaves the spawn already underway alone.
-	_, st = sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), modAnswerWait)
+	_, st = sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), time.Now().Add(modAnswerWait))
 	require.Equal(t, modwire.ReasonCold, st.Reason)
 	require.Equal(t, 1, spawns.count())
 	require.NoDirExists(t, paths.Of(p.root).Spool, "a mod request is never spooled")
@@ -166,7 +166,7 @@ func TestSendModRequest_ColdWithoutSelfSpawnsNothing(t *testing.T) {
 	spawns := &modSpawns{}
 	spawns.install(t)
 
-	_, st := sendModRequest(context.Background(), p.env("", nil), p.root, modTestState(), modTestRequest(), modAnswerWait)
+	_, st := sendModRequest(context.Background(), p.env("", nil), p.root, modTestState(), modTestRequest(), time.Now().Add(modAnswerWait))
 	require.Equal(t, modwire.ReasonCold, st.Reason)
 	require.Zero(t, spawns.count())
 }
@@ -189,7 +189,7 @@ func TestSendModRequest_TimeoutWhenAcceptedButUnanswered(t *testing.T) {
 	env := p.env("", nil)
 	env.Self = "qompack-under-test"
 
-	_, st := sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), 50*time.Millisecond)
+	_, st := sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(), time.Now().Add(50*time.Millisecond))
 	require.False(t, st.OK)
 	require.Equal(t, modwire.ReasonTimeout, st.Reason)
 	require.Zero(t, spawns.count())
@@ -207,10 +207,27 @@ func TestSendModRequest_DisabledDaemonIsAnError(t *testing.T) {
 	env := p.env("", nil)
 	env.Self = "qompack-under-test"
 
-	_, got := sendModRequest(context.Background(), env, p.root, st, modTestRequest(), modAnswerWait)
+	_, got := sendModRequest(context.Background(), env, p.root, st, modTestRequest(), time.Now().Add(modAnswerWait))
 	require.False(t, got.OK)
 	require.Equal(t, modwire.ReasonError, got.Reason)
 	require.NotEmpty(t, got.Detail)
 	require.Zero(t, spawns.count())
 	require.NoDirExists(t, paths.Of(p.root).Spool)
+}
+
+// TestSendModRequest_NoTimeLeftDialsNothing: a reply instant already past leaves nothing to wait
+// for, so the exchange is a timeout without a dial; a dial would have found nothing listening and
+// reported cold, and started a daemon.
+func TestSendModRequest_NoTimeLeftDialsNothing(t *testing.T) {
+	p := newModProject(t, true)
+	spawns := &modSpawns{}
+	spawns.install(t)
+	env := p.env("", nil)
+	env.Self = "qompack-under-test"
+
+	_, st := sendModRequest(context.Background(), env, p.root, modTestState(), modTestRequest(),
+		time.Now().Add(-time.Millisecond))
+	require.False(t, st.OK)
+	require.Equal(t, modwire.ReasonTimeout, st.Reason)
+	require.Zero(t, spawns.count(), "nothing was dialled, so nothing was found cold")
 }
