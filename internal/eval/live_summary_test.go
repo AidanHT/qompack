@@ -323,3 +323,30 @@ func TestSummarizeLive_HelloIsATreatmentOutcome(t *testing.T) {
 	require.Contains(t, notes, "intention to treat")
 	require.Contains(t, notes, "1 of 4 classic trial(s) ran with a hook failure", "notes cover every arm, not only qompack and stock")
 }
+
+// TestSummarizeLive_ByDomain: the summary breaks each arm's outcomes down by the task's domain, the
+// way it does by variant (W6 item 6): reported, not decided. Trials of tasks with no domain (the
+// two-arm sets) make no breakdown.
+func TestSummarizeLive_ByDomain(t *testing.T) {
+	var ts []eval.LiveTrial
+	for i, domain := range []string{"exact-detail", "exact-detail", "constraint"} {
+		for _, arm := range []string{eval.ArmClassic, eval.ArmSteer} {
+			ts = append(ts, eval.LiveTrial{
+				TaskID: fmt.Sprintf("t%d", i), Arm: arm, Trial: 1, Domain: domain, Completed: true,
+				TaskSuccess: arm == eval.ArmSteer || i == 0, PreregisteredModel: true,
+			})
+		}
+	}
+	sum := eval.SummarizeLive("r", liveAnalysis(), ts)
+	require.Len(t, sum.ByDomain, 2)
+	exact := sum.ByDomain["exact-detail"]
+	require.Len(t, exact, 2)
+	require.Equal(t, eval.ArmClassic, exact[0].Arm)
+	require.Equal(t, 2, exact[0].Trials)
+	require.Equal(t, 1, exact[0].TaskSuccess.K)
+	require.Equal(t, 2, exact[1].TaskSuccess.K)
+	require.Equal(t, 0, sum.ByDomain["constraint"][0].TaskSuccess.K)
+
+	legacy := eval.SummarizeLive("r", liveAnalysis(), trials(eval.ArmStock, 4, 2))
+	require.Nil(t, legacy.ByDomain)
+}

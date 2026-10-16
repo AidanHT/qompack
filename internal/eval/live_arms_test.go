@@ -54,6 +54,7 @@ func TestLiveTaskSet_V7ShapeCarriesPerArmTrialsAndTextG(t *testing.T) {
 	require.Equal(t, 1, ts.Analysis.TrialsFor(eval.ArmStock))
 	require.Zero(t, ts.Analysis.TrialsFor("nope"))
 	require.Contains(t, ts.Analysis.GenericCompactInstructions, "When compacting, reproduce verbatim")
+	require.Equal(t, "harness-validation", ts.Tasks[0].Domain, "every task of a four-arm set names its domain (W6 item 6)")
 
 	v2, _, err := eval.LoadLiveTaskSet(liveTaskFile(liveTasksV2))
 	require.NoError(t, err)
@@ -96,6 +97,8 @@ func TestLiveTaskSet_V7ShapeValidation(t *testing.T) {
 		"both counts":  {func(m map[string]any) { analysis(m)["trials_per_arm"] = 2 }, "not both"},
 		"no text G":    {func(m map[string]any) { delete(analysis(m), "generic_compact_instructions") }, "generic_compact_instructions"},
 		"blank text G": {func(m map[string]any) { analysis(m)["generic_compact_instructions"] = "  " }, "generic_compact_instructions"},
+		"no domain":    {func(m map[string]any) { delete(task(m), "domain") }, "declares no domain"},
+		"bad domain":   {func(m map[string]any) { task(m)["domain"] = "two words" }, "domain"},
 		"no recovery check": {func(m map[string]any) {
 			var kept []any
 			for _, c := range arr(task(m)["checks"]) {

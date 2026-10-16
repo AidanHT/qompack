@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -92,4 +93,42 @@ func TestRunLiveEval_StageAConfirmatoryPath(t *testing.T) {
 		require.ErrorContains(t, err, c.want, name)
 		require.NotContains(t, out.String(), "plan: ", "%s: nothing is planned", name)
 	}
+}
+
+// runFourArmPilot runs the test task set's six trials in all four arms against the scripted pilot
+// host, with opts varying what the host does, and returns the run directory.
+func runFourArmPilot(t *testing.T, opts pilotHostOpts, mutate func(*liveEnv)) string {
+	t.Helper()
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	env.run = scriptedPilotHostWith(t, home, opts)
+	if mutate != nil {
+		mutate(env)
+	}
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{
+		tasksFile: liveTestTasksV7, rates: liveTestRates, arms: eval.LiveArms, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), bundleMods: fakeModsBundle(t, "deadbeef"),
+		idleExit: 1800, defectsAttested: true, stepTimeout: liveDefaultStepTimeout,
+	}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+	return o.out
+}
+
+// TestRunLiveEval_RecordsTheTaskDomain: each trial records its task's domain and summary.md breaks
+// the outcomes down by it (W6 item 6).
+func TestRunLiveEval_RecordsTheTaskDomain(t *testing.T) {
+	out := runFourArmPilot(t, pilotHostOpts{}, nil)
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "steer", "01", "trial.json"), &rec)
+	require.Equal(t, "harness-validation", rec.Domain)
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	require.Len(t, sum.ByDomain["harness-validation"], 4)
+	md, err := os.ReadFile(filepath.Join(out, "summary.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(md), "## By domain")
+	require.Contains(t, string(md), "| harness-validation | steer | 2 |")
 }
