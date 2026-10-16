@@ -8,7 +8,7 @@ import (
 // LayerKind names which settings layer a Layer is.
 type LayerKind string
 
-// The settings layers, in the host's precedence order (managed first), as sources lists them.
+// The settings layers, in the order sources lists them; this is not the host's precedence order.
 const (
 	LayerRegistry       LayerKind = "registry"        // a Windows registry policy value
 	LayerManaged        LayerKind = "managed"         // managed-settings.json in a managed directory
