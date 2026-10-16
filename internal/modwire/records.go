@@ -2,6 +2,7 @@ package modwire
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/qompack/qompack/internal/core"
@@ -103,14 +104,20 @@ func ParseBriefRecord(line []byte) (BriefRecord, error) {
 }
 
 // HelloFile is a session's hello file: the proof a mod session started and reached the binary,
-// and the host version it reported. The hello verb writes it for every served hello, including
-// one answered enabled false because the host is too old, and never for a refused one. Checks
-// that need to know whether the mod loaded read it. It carries "v": Version like a message.
+// the host version it reported, and what the hello answered (enabled, steering). The hello verb
+// writes it for every served hello, including one answered enabled false because the host is too
+// old, and never for a refused one. Checks that need to know whether the mod loaded, and whether
+// it was told it may steer, read it. It carries "v": Version like a message, and a file that lacks
+// enabled or steering is refused, so an absent answer is never read as false.
 type HelloFile struct {
 	V         int    `json:"v"`
 	SessionID string `json:"session_id"`
 	// HostVersion is the host's full version string, as the hello request carried it.
 	HostVersion string `json:"host_version"`
+	// Enabled is the served hello's HelloResponse.Enabled.
+	Enabled bool `json:"enabled"`
+	// Steering is the served hello's HelloResponse.Steering; true implies Enabled true.
+	Steering bool `json:"steering"`
 	// TS is when the hello was served.
 	TS core.UnixMilli `json:"ts"`
 }
@@ -125,6 +132,9 @@ func (h HelloFile) validate() error {
 	if h.HostVersion == "" || len(h.HostVersion) > MaxHostVersionBytes {
 		return fmt.Errorf("%w: host_version must be 1-%d bytes", ErrInvalid, MaxHostVersionBytes)
 	}
+	if h.Steering && !h.Enabled {
+		return fmt.Errorf("%w: a hello that steers is enabled", ErrInvalid)
+	}
 	return nil
 }
 
@@ -137,11 +147,22 @@ func (h HelloFile) Encode() ([]byte, error) {
 }
 
 // ParseHelloFile reads a hello file. It refuses an absent or other "v" before anything else, as a
-// message decode does; unknown fields are ignored.
+// message decode does, then a file whose enabled or steering is absent or null; unknown fields are
+// ignored.
 func ParseHelloFile(data []byte) (HelloFile, error) {
 	var h HelloFile
 	if err := decode(bytes.NewReader(data), &h); err != nil {
 		return HelloFile{}, err
+	}
+	var present struct {
+		Enabled  *bool `json:"enabled"`
+		Steering *bool `json:"steering"`
+	}
+	if err := json.Unmarshal(data, &present); err != nil {
+		return HelloFile{}, fmt.Errorf("%w: %w", ErrMalformed, err)
+	}
+	if present.Enabled == nil || present.Steering == nil {
+		return HelloFile{}, fmt.Errorf("%w: a hello file needs enabled and steering", ErrInvalid)
 	}
 	if err := h.validate(); err != nil {
 		return HelloFile{}, err

@@ -72,6 +72,8 @@ var (
 		V:           modwire.Version,
 		SessionID:   "3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b",
 		HostVersion: "2.1.300",
+		Enabled:     true,
+		Steering:    true,
 		TS:          1_760_400_000_000,
 	}
 )

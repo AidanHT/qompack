@@ -136,8 +136,9 @@ func TestModHello_ServedWritesTheHelloFile(t *testing.T) {
 	h, err := modwire.ParseHelloFile(b)
 	require.NoError(t, err)
 	require.Equal(t, modwire.HelloFile{
-		V: modwire.Version, SessionID: "sess-1", HostVersion: "2.1.300", TS: core.UnixMilli(modTestNow.UnixMilli()),
-	}, h)
+		V: modwire.Version, SessionID: "sess-1", HostVersion: "2.1.300", Enabled: true, Steering: false,
+		TS: core.UnixMilli(modTestNow.UnixMilli()),
+	}, h, "the hello file records what the hello answered: enabled, steering off by default")
 }
 
 func TestModHello_BelowTheMinimumIsServedButNotEnabled(t *testing.T) {
@@ -155,6 +156,8 @@ func TestModHello_BelowTheMinimumIsServedButNotEnabled(t *testing.T) {
 			h, err := modwire.ParseHelloFile(b)
 			require.NoError(t, err)
 			require.Equal(t, version, h.HostVersion)
+			require.False(t, h.Enabled, "a host below the minimum is recorded as not enabled")
+			require.False(t, h.Steering, "a host below the minimum is recorded as not steering")
 		})
 	}
 }
@@ -189,7 +192,12 @@ func TestModHello_SteeringFollowsItsSwitchAndTheHost(t *testing.T) {
 			code, stdout, stderr := runMod(t, p.env(helloRequest(t, p.root, tc.version), nil), tc.args...)
 			require.Equal(t, ExitOK, code, stderr)
 			require.Equal(t, tc.want, decodeHelloOut(t, stdout))
-			require.FileExists(t, p.helloFilePath())
+			b, err := os.ReadFile(p.helloFilePath())
+			require.NoError(t, err)
+			h, err := modwire.ParseHelloFile(b)
+			require.NoError(t, err)
+			require.Equal(t, tc.want.Enabled, h.Enabled, "the hello file records the answered enabled")
+			require.Equal(t, tc.want.Steering, h.Steering, "the hello file records the answered steering")
 		})
 	}
 

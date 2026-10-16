@@ -146,9 +146,11 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
   brief call in `.qompack/state/mod-brief-<session>.jsonl`, with the closed field set
   `{v, ts, trigger, outcome, chars, ms}`, where `outcome` is `served` or the reason, and no
   content. A refused call gets no record, and no store is created for it. The **hello file**
-  `.qompack/state/mod-hello-<session>.json` holds `{v, session_id, host_version, ts}`, the proof a
-  mod session reached the binary; it is written for every served hello, including one answered
-  `enabled: false`, and never for a refused one. The `state` directory is the store layout's own
+  `.qompack/state/mod-hello-<session>.json` holds `{v, session_id, host_version, enabled,
+  steering, ts}`, the proof a mod session reached the binary and the `enabled` and `steering` its
+  hello answered; it is written for every served hello, including one answered `enabled: false`,
+  and never for a refused one. A hello file that lacks `enabled` or `steering` is refused on read,
+  so an absent answer is never taken for false. The `state` directory is the store layout's own
   (`paths.Layout.State`); a test pins `modwire.StateDir` to it.
 - The TypeScript half of the contract, `internal/pluginmanifest/modsrc/wire.gen.ts`, is generated
   from `modwire.Schema()` by `go run ./tools/devtool gen-mod-wire`; its `--check` mode runs in the
