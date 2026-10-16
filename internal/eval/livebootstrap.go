@@ -16,7 +16,7 @@ import (
 
 // The pre-registered bootstrap: B resamples from a fixed seed (W6 item 2).
 const (
-	LiveBootstrapB    = 10000
+	LiveBootstrapB    = 10000 //nomagic:allow the pre-registered resample count (W6 item 2, R29), not a config default
 	LiveBootstrapSeed = uint64(20261016)
 )
 

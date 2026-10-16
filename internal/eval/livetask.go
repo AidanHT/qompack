@@ -146,12 +146,12 @@ func (a LiveAnalysis) stepTimeoutMS() int64 {
 	return liveDefaultStepTimeoutMS
 }
 
-// efficiencyMargin is M, or the plan's 0.10 for reported rows when no block pins it.
+// efficiencyMargin is M, or the plan's M for reported rows when no block pins it.
 func (a LiveAnalysis) efficiencyMargin() float64 {
 	if a.Efficiency != nil && a.Efficiency.Margin > 0 {
 		return a.Efficiency.Margin
 	}
-	return 0.10
+	return liveDefaultEfficiencyMargin
 }
 
 func (e LiveEfficiency) validate() error {
@@ -607,3 +607,7 @@ func keysOfBool(m map[string]bool) []string {
 func keysOfInt(m map[string]int) []string {
 	return slices.Sorted(maps.Keys(m))
 }
+
+// liveDefaultEfficiencyMargin is the plan's margin M (amendment 4), used for the reported rows of a
+// run whose task set pins no efficiency block.
+const liveDefaultEfficiencyMargin = 0.10 //nomagic:allow amendment 4's M, not a config default

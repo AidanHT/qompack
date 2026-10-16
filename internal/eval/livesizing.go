@@ -33,7 +33,7 @@ var (
 )
 
 // LiveSizingTau is τ, the between-task spread of the log ratio the efficiency power assumes.
-const LiveSizingTau = 0.10
+const LiveSizingTau = 0.10 //nomagic:allow amendment 4 item 8's pre-registered τ, not a config default
 
 // LiveSizingNightHours is the planning night window when the run names none (plan §9.5).
 const LiveSizingNightHours = 9.0
@@ -271,7 +271,7 @@ func efficiencyPower(a LiveAnalysis, k int, armN map[string]int, pilot LiveSumma
 		limit := math.Log(1 + m)
 		out = append(out, LiveEfficiencyPower{
 			Metric: metric, SigmaW: sigma, SE: se,
-			HarmAt125:    normalCDF((math.Log(1.25)-limit)/se - liveZAlpha),
+			HarmAt125:    normalCDF((math.Log(liveHarmPowerRatio)-limit)/se - liveZAlpha),
 			FalseHarmAt1: normalCDF(-limit/se - liveZAlpha),
 			NIAt1:        normalCDF(limit/se - liveZAlpha),
 		})
@@ -284,3 +284,7 @@ func efficiencyPower(a LiveAnalysis, k int, armN map[string]int, pilot LiveSumma
 
 // normalCDF is the standard normal distribution function.
 func normalCDF(x float64) float64 { return 0.5 * math.Erfc(-x/math.Sqrt2) }
+
+// liveHarmPowerRatio is the true ratio at which the sizing reports the guards' power to catch harm:
+// a +25 % increase (plan §9.5).
+const liveHarmPowerRatio = 1.25 //nomagic:allow the plan's reported +25 % harm, not a config default
