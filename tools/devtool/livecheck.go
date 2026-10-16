@@ -37,13 +37,15 @@ const liveCheckPrecomputeUnread = "not read"
 
 // liveCheckOptions is one live-check invocation's settled flags.
 type liveCheckOptions struct {
-	suite, tier, out, claude, bundle, bundleMods, model, precompute string
-	idleExit                                                       int
-	stepTimeout, sessionTimeout                                    time.Duration
-	dryRun                                                         bool
-	compare                                                        []string
-	fiveHourGate, sevenDayCeiling                                  float64
-	night                                                          liveNightWindow
+	suite, tier, out, claude, model string
+	bundle, bundleMods              string
+	precompute                      string
+	idleExit                        int
+	stepTimeout, sessionTimeout     time.Duration
+	dryRun                          bool
+	compare                         []string
+	fiveHourGate, sevenDayCeiling   float64
+	night                           liveNightWindow
 }
 
 func taskLiveCheck(args []string) error {
