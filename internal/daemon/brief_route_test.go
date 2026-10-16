@@ -584,4 +584,3 @@ func TestBindCheckpoint_ArmsTheSourcesBeforeTheBriefSnapshot(t *testing.T) {
 	require.True(t, b.NewDraft)
 	require.Equal(t, []core.SegmentID{1}, draftEncodedAt(t, f.root, cpSession))
 }
-
