@@ -32,7 +32,9 @@ import (
 //   - copies the items under the draft's own lock;
 //   - on ErrDraftSealed (a cadence seal, or a PreCompact after the caller gave up, between taking
 //     the draft and advancing it) takes the successor the seal opened and retries once, as the
-//     frontier advancer does;
+//     frontier advancer does. When the retry finds the same draft, its seal is still writing (the
+//     successor is opened only after the artifact and manifest writes), and the brief is that sealed
+//     draft's items, with the pins read again: its content is the checkpoint being sealed;
 //   - starts no new step once its context has ended, so an abandoned brief does not compete with a
 //     seal for the draft.
 //
@@ -45,7 +47,11 @@ import (
 // ids), the user's intent verbatim (fixed ids, BriefIDIntentOriginal and BriefIDIntentEvolutionPrefix
 // plus a 1-based position), the active eliminations only (elim_ ids), the decisions (dec_ ids), and
 // the current work (BriefIDCurrentWork). A decision that only restates an elimination or a pin the
-// brief already lists is left out, so the summarizer is not told the same fact twice. No pointer and
+// brief already lists is left out, so the summarizer is not told the same fact twice. That filter
+// keys on the pins and eliminations the brief lists now: a decision the draft carried from an
+// earlier checkpoint whose pin has since been removed, or whose elimination the draft no longer
+// holds, is still briefed as a dec_ item, exactly as the checkpoint sealed from this draft carries
+// it (carryDecisionsLocked). No pointer and
 // no tool result is ever an item: the draft holds none of a result's text (ToolPointer.Summary is
 // never the result itself), and pointers are what the host's Read rules screen in a rehydration.
 // The ids are the stored ones, unchecked: whether an id fits the caller's wire alphabet is the
@@ -97,6 +103,9 @@ type Brief struct {
 	// PinsReread is true when the pins were read again for this brief; false when the read failed
 	// or the context ended first, and the invariants are then the ones the draft holds.
 	PinsReread bool
+	// Sealed is true when the retry found the same draft still being sealed (its successor not yet
+	// open) and the items are that sealed draft's.
+	Sealed bool
 }
 
 // The brief's instruments.
@@ -104,6 +113,7 @@ const (
 	metricBrief            = "checkpoint.brief"
 	metricBriefCold        = "checkpoint.brief.cold"
 	metricBriefSealedRetry = "checkpoint.brief.sealed_retry"
+	metricBriefSealedDraft = "checkpoint.brief.sealed_draft"
 	metricBriefPinsUnread  = "checkpoint.brief.pins_unread"
 )
 
@@ -123,11 +133,20 @@ func (w *FileWriter) BriefSnapshot(ctx context.Context, s core.SessionID) (b Bri
 
 func (w *FileWriter) briefSnapshot(ctx context.Context, s core.SessionID) (Brief, error) {
 	var b Brief
+	var sealed *Draft // the draft the first attempt found sealed
 	for attempt := 0; ; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return Brief{}, err
 		}
 		d := w.liveDraft(s)
+		if d != nil && d == sealed && d.isSealed() {
+			// The seal is still writing: the successor is opened only after its artifact and manifest
+			// writes (afterSeal). Brief what it is sealing rather than fail.
+			b.Items, b.PinsReread = w.briefSealed(ctx, d, s)
+			b.Sealed = true
+			w.m.Counter(metricBriefSealedDraft).Add(1)
+			return b, nil
+		}
 		if d == nil {
 			var err error
 			if d, err = w.Begin(ctx, s, 0, w.coldSources()); err != nil {
@@ -138,6 +157,7 @@ func (w *FileWriter) briefSnapshot(ctx context.Context, s core.SessionID) (Brief
 		}
 		items, reread, err := w.briefFrom(ctx, d, s)
 		if errors.Is(err, ErrDraftSealed) && attempt == 0 {
+			sealed = d
 			b.Retried = true
 			w.m.Counter(metricBriefSealedRetry).Add(1)
 			continue
@@ -168,19 +188,40 @@ func (w *FileWriter) briefFrom(ctx context.Context, d *Draft, s core.SessionID) 
 	if ctx.Err() == nil {
 		d.RefreshIntent(ctx)
 	}
-	var pinned []Invariant
-	reread := false
-	if ctx.Err() == nil {
-		got, err := d.sources().Pins.All(ctx)
-		if err == nil {
-			pinned, reread = got, true
-		} else {
-			w.m.Counter(metricBriefPinsUnread).Add(1)
-			w.log.Warn("checkpoint: brief could not re-read the pins; briefing the draft's invariants",
-				"session", string(s), "err", err.Error())
-		}
-	}
+	pinned, reread := w.rereadPins(ctx, d, s)
 	return d.briefItems(pinned, reread), reread, nil
+}
+
+// briefSealed copies the items of a draft whose seal is still in flight: Finalize sealed it and has
+// not yet opened its successor. Its content is the checkpoint being sealed, so there is nothing to
+// catch up or refresh (Advance refuses it, and the refreshes are no-ops on it); only the pins are
+// read again, which writes nothing.
+func (w *FileWriter) briefSealed(ctx context.Context, d *Draft, s core.SessionID) ([]BriefItem, bool) {
+	pinned, reread := w.rereadPins(ctx, d, s)
+	return d.briefItems(pinned, reread), reread
+}
+
+// rereadPins reads the pin set again while ctx lasts, as Finalize does (sealInvariants). reread is
+// false when the read failed or did not start; the brief then lists the draft's own invariants.
+func (w *FileWriter) rereadPins(ctx context.Context, d *Draft, s core.SessionID) ([]Invariant, bool) {
+	if ctx.Err() != nil {
+		return nil, false
+	}
+	got, err := d.sources().Pins.All(ctx)
+	if err != nil {
+		w.m.Counter(metricBriefPinsUnread).Add(1)
+		w.log.Warn("checkpoint: brief could not re-read the pins; briefing the draft's invariants",
+			"session", string(s), "err", err.Error())
+		return nil, false
+	}
+	return got, true
+}
+
+// isSealed reports whether d is closed to further content.
+func (d *Draft) isSealed() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.sealed
 }
 
 // catchUpForBrief encodes s's closed, unencoded segments into d, oldest first, in one Advance bounded
