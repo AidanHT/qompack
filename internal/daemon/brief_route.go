@@ -173,6 +173,11 @@ func (d *daemon) serveBrief(ctx context.Context, c briefCall) (modwire.BriefResp
 			"session", string(sess), "err", err.Error())
 		return d.briefServedEmpty(out, briefEmptySnapshot)
 	}
+	if ctx.Err() != nil {
+		// The snapshot stops starting steps once the deadline passes and answers what the draft had,
+		// which is not a full brief: it is not served as one.
+		return d.briefTimeout(out, "the daemon's deadline passed while the snapshot ran")
+	}
 
 	r := renderBrief(b.Items, limit)
 	out.Items, out.InvalidIDs, out.OverCap = len(r.ids), r.invalid, r.over
