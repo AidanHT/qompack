@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -31,6 +32,17 @@ type liveProcPin struct {
 	h        syscall.Handle
 	pinned   bool // the handle is open
 	released bool // Wait has returned: the pid is no longer the harness's
+	// walkErr is a failed or partial tree walk, kept for the caller to report after Wait: exec's Wait
+	// drops Cancel's error once the killed process exits non-zero, which it always does after a kill
+	// (re-review 4, F2).
+	walkErr error
+}
+
+// killError is the recorded walk failure, or nil.
+func (p *liveProcPin) killError() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.walkErr
 }
 
 // synchronizeRight is SYNCHRONIZE: the pin waits on the handle to learn whether the process exited.
@@ -62,19 +74,26 @@ func (p *liveProcPin) release() {
 	p.released = true
 }
 
-// exited reports that the pinned process has exited, by waiting on its handle with no timeout: an
+// exited reports that the pinned process has exited, by waiting on its handle with a zero timeout: an
 // exit code of 259 is STILL_ACTIVE's value and would read as running (re-review F4). Unpinned, it
 // says no, unless Wait has returned.
-func (p *liveProcPin) exited() bool {
+func (p *liveProcPin) exited() bool { return p.exitedWithin(0) }
+
+// exitedWithin is exited, waiting up to ms milliseconds: a process taskkill or TerminateProcess has
+// just ended may take a moment to be signalled.
+func (p *liveProcPin) exitedWithin(ms uint32) bool {
 	if p.released {
 		return true
 	}
 	if !p.pinned {
 		return false
 	}
-	ev, err := syscall.WaitForSingleObject(p.h, 0)
+	ev, err := syscall.WaitForSingleObject(p.h, ms)
 	return err == nil && ev == syscall.WAIT_OBJECT_0
 }
+
+// liveWalkSettle is how long, after a failed walk, the pin waits for the root to be signalled.
+const liveWalkSettle = 2000
 
 // liveTaskkillPath is taskkill's absolute path in the system directory: %SystemRoot%\System32 when
 // SystemRoot is an absolute path, else the system directory Windows reports, else %windir%\System32.
@@ -94,6 +113,24 @@ func liveTaskkillPath() (string, error) {
 		"taskkill.exe cannot be named")
 }
 
+// liveTaskkillNotFound is taskkill's exit code when no process has the pid, an exited one whose
+// handle is still held included: established on Windows 11 by running taskkill /T /F /PID on a pid no
+// process has and on an exited child whose handle the prober held, both "ERROR: The process "<pid>"
+// not found." with exit 128 (fix round 5; TestLiveTaskkill_NotFoundExit pins it). A walk that ended
+// the root but not a descendant exits 255 (re-review 4's demonstration).
+const liveTaskkillNotFound = 128
+
+// liveTaskkillError is a taskkill run that exited non-zero.
+type liveTaskkillError struct {
+	PID    int
+	Code   int
+	Output string
+}
+
+func (e *liveTaskkillError) Error() string {
+	return fmt.Sprintf("taskkill /T /F /PID %d: exit %d: %s", e.PID, e.Code, strings.TrimSpace(e.Output))
+}
+
 // liveTaskkill ends the tree under pid with taskkill /T /F. A variable so a test can watch whether it
 // runs.
 var liveTaskkill = func(pid int) error {
@@ -102,10 +139,15 @@ var liveTaskkill = func(pid int) error {
 		return err
 	}
 	out, err := exec.Command(bin, "/T", "/F", "/PID", strconv.Itoa(pid)).CombinedOutput()
-	if err != nil {
+	var exitErr *exec.ExitError
+	switch {
+	case err == nil:
+		return nil
+	case errors.As(err, &exitErr):
+		return &liveTaskkillError{PID: pid, Code: exitErr.ExitCode(), Output: string(out)}
+	default:
 		return fmt.Errorf("taskkill /T /F /PID %d: %w: %s", pid, err, out)
 	}
-	return nil
 }
 
 // liveKillTree ends the process the harness started and every process it started in turn: the
@@ -131,14 +173,29 @@ func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 	if walkErr == nil {
 		return nil
 	}
-	if pin.exited() {
-		// The root exited between the check and the walk (re-review F4).
+	var tk *liveTaskkillError
+	notFound := errors.As(walkErr, &tk) && tk.Code == liveTaskkillNotFound
+	rootGone := pin.exitedWithin(liveWalkSettle)
+	if notFound && rootGone {
+		// The root exited between the check and the walk, so taskkill found nothing (re-review F4).
 		return os.ErrProcessDone
 	}
-	degraded := fmt.Errorf("the process tree could not be ended, so only the direct child was killed: %w", walkErr)
-	if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return errors.Join(degraded, err)
+	if rootGone {
+		// taskkill ended the root but failed on a descendant (exit 255): the root being gone does not
+		// make the failure an exit, and a descendant may still run (re-review 4, F2).
+		pin.walkErr = fmt.Errorf("the process tree was only partly ended, so a descendant may still run: %w", walkErr)
+		return pin.walkErr
 	}
+	degraded := fmt.Errorf("the process tree could not be ended, so only the direct child was killed: %w", walkErr)
+	if err := cmd.Process.Kill(); err != nil {
+		if notFound && errors.Is(err, os.ErrProcessDone) {
+			return os.ErrProcessDone // unpinned, and it had exited
+		}
+		if !errors.Is(err, os.ErrProcessDone) {
+			degraded = errors.Join(degraded, err)
+		}
+	}
+	pin.walkErr = degraded
 	return degraded
 }
 

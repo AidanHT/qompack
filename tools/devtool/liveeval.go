@@ -473,6 +473,9 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 
 	// The host is pinned (W6 item 12): the plan records the version, and no trial starts on another.
 	plan.ClaudeCLI, plan.ClaudeCLIVersion = env.claudeBin, env.cliVersion(ctx)
+	if err := liveInterrupted(ctx, "live-eval", ""); err != nil {
+		return err // the interrupt cut the version read; nothing is planned (re-review 4, G6)
+	}
 	if plan.ClaudeCLIVersion == liveUnknownVersion {
 		return fmt.Errorf("live-eval: could not read the host version from %s --version; a run pins its host "+
 			"version, so nothing is planned", env.claudeBin)
@@ -599,7 +602,8 @@ slots:
 			if over != "" {
 				markLiveOverageStop(o.out, env, over)
 			}
-			if err := liveInterrupted(ctx, "live-eval", liveCutAttempt); err != nil {
+			_, scoredErr := os.Stat(filepath.Join(liveSlotDir(o.out, p), liveScoredRecord))
+			if err := liveInterrupted(ctx, "live-eval", liveCutNote(scoredErr == nil, len(rec.Checks) > 0)); err != nil {
 				// The interrupted attempt was set aside (lt.run), so its slot runs again on --resume.
 				if over != "" {
 					err = fmt.Errorf("%w; before it, %s", err, over)

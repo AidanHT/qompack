@@ -7,8 +7,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 )
 
@@ -20,16 +22,27 @@ func liveSetProcessGroup(cmd *exec.Cmd) {
 
 // liveProcPin keeps nothing on Unix: the group is killed by its id, and a group that is gone answers
 // ESRCH.
-type liveProcPin struct{}
+type liveProcPin struct {
+	mu      sync.Mutex
+	walkErr error
+}
 
 func (*liveProcPin) pin(*exec.Cmd) {}
 
 func (*liveProcPin) release() {}
 
+// killError is the error of a kill that failed, for the caller to report after Wait, which drops
+// Cancel's error once the killed process exits non-zero (re-review 4, F2).
+func (p *liveProcPin) killError() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.walkErr
+}
+
 // liveKillTree ends the process group of the process the harness started: the host and everything
 // it started that stayed in its group. A group that is already gone reports os.ErrProcessDone, so exec
 // does not report a cancellation for a process that had exited (re-review N6).
-func liveKillTree(cmd *exec.Cmd, _ *liveProcPin) error {
+func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 	if cmd.Process == nil {
 		return nil
 	}
@@ -37,7 +50,10 @@ func liveKillTree(cmd *exec.Cmd, _ *liveProcPin) error {
 		if errors.Is(err, syscall.ESRCH) {
 			return os.ErrProcessDone
 		}
-		return err
+		pin.mu.Lock()
+		pin.walkErr = fmt.Errorf("the process group %d could not be killed: %w", cmd.Process.Pid, err)
+		pin.mu.Unlock()
+		return pin.walkErr
 	}
 	return nil
 }

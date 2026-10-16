@@ -183,6 +183,9 @@ func runLiveCheck(ctx context.Context, o liveCheckOptions, env *liveEnv, w io.Wr
 			"to validate", liveEvalGateEnv)
 	}
 	r.manifest.ClaudeCodeVersion = env.cliVersion(ctx)
+	if err := liveInterrupted(ctx, "live-check", ""); err != nil {
+		return err // the interrupt cut the version read; nothing ran (re-review 4, G6)
+	}
 	if r.manifest.ClaudeCodeVersion == liveUnknownVersion {
 		return fmt.Errorf("live-check: could not read the host version from %s --version; a run records and pins it", env.claudeBin)
 	}
@@ -252,7 +255,9 @@ checks:
 				if over == "" {
 					over = liveOverage(evs)
 				}
-				if err := liveInterrupted(ctx, "live-check", liveCutAttempt); err != nil {
+				_, keptErr := os.Stat(filepath.Join(r.o.out, "checks", c.ID, fmt.Sprintf("%02d", n), "run.json"))
+				graded := !strings.Contains(run.HarnessError, "interrupted")
+				if err := liveInterrupted(ctx, "live-check", liveCutNote(keptErr == nil, graded)); err != nil {
 					if over != "" {
 						err = fmt.Errorf("%w; before it, %s", err, over)
 					}
@@ -489,6 +494,13 @@ func (r *liveCheckRun) runOnce(ctx context.Context, c eval.LiveSuiteCheck, n int
 	model := ""
 	if stream.Init != nil {
 		model = stream.Init.Model
+	}
+	if ctx.Err() != nil {
+		// Interrupted with no project made, or while grading: never a run.json (re-review 4, G4).
+		if _, err := liveSetAsideRecord(dir, liveSlotInterrupted, "run.json", liveCheckAttemptFiles, run); err != nil && guardErr == nil {
+			guardErr = err
+		}
+		return run, stream.RateLimits, model, guardErr
 	}
 	if run.Limited != "" {
 		if _, err := liveSetAsideRecord(dir, liveSlotLimited, "run.json", liveCheckAttemptFiles, run); err != nil && guardErr == nil {

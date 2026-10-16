@@ -139,7 +139,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	cmd.Dir = spec.Dir
 	cmd.Env = liveProcessEnv(os.Environ(), spec)
 	cmd.WaitDelay = liveExitGrace
-	pinned, unpin := liveTreeCancel(cmd)
+	pinned, unpin, killErr := liveTreeCancel(cmd)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdin, err := cmd.StdinPipe()
@@ -241,6 +241,9 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	grace.Stop()
 	werr := cmd.Wait()
 	unpin()
+	if kerr := killErr(); kerr != nil {
+		res.Err = joinErr(res.Err, kerr.Error()) // Wait dropped it (re-review 4, F2)
+	}
 	var exitErr *exec.ExitError
 	switch {
 	case werr == nil:
@@ -255,7 +258,8 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	res.Stopped = stopped
 	mu.Unlock()
 	if res.Stopped != "" {
-		res.Err = "stopped by the driver: " + res.Stopped
+		// Joined, not replaced: a failed walk or the grace message stays in the record.
+		res.Err = joinErr("stopped by the driver: "+res.Stopped, res.Err)
 	}
 	res.Stderr = stderr.Bytes()
 	res.EndedAt = time.Now()
@@ -269,23 +273,26 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 // started must be called right after a successful Start, and done after Wait returns: between them
 // the process the harness started is pinned, so the kill never names a pid the harness no longer owns
 // and a kill that races a normal exit reports os.ErrProcessDone instead of an error (re-review N6).
-func liveTreeCancel(cmd *exec.Cmd) (started, done func()) {
+//
+// killErr is a failed or partial tree kill, to be reported after Wait: exec's Wait drops Cancel's
+// error once the killed process exits non-zero, which it always does after a kill (re-review 4, F2).
+func liveTreeCancel(cmd *exec.Cmd) (started, done func(), killErr func() error) {
 	liveSetProcessGroup(cmd)
 	pin := &liveProcPin{}
 	cmd.Cancel = func() error { return liveKillTree(cmd, pin) }
-	return func() { pin.pin(cmd) }, pin.release
+	return func() { pin.pin(cmd) }, pin.release, pin.killError
 }
 
 // liveRunPinned is cmd.Run with the tree kill and its pin (liveTreeCancel).
 func liveRunPinned(cmd *exec.Cmd) error {
-	started, done := liveTreeCancel(cmd)
+	started, done, killErr := liveTreeCancel(cmd)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	started()
 	err := cmd.Wait()
 	done()
-	return err
+	return errors.Join(err, killErr())
 }
 
 // liveInheritedPrefix is the prefix of the environment variables Qompack reads its configuration

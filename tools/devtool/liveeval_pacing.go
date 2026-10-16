@@ -428,11 +428,11 @@ func (o liveOptions) livePacing() eval.LivePacing {
 	return p
 }
 
-// liveSignalContext is the run's context, cancelled by any of liveSignals (liveeval_signals_*.go):
+// liveSignalContext is the run's context, cancelled by any of liveSignalList (liveeval_signals_*.go):
 // each cancels the run's context, the running host's tree is killed through its Cancel, and the run
 // stops without scoring the cut attempt (re-review N5).
 func liveSignalContext() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), liveSignals...)
+	return signal.NotifyContext(context.Background(), liveSignalList()...)
 }
 
 // liveInterrupted is the stop an interrupt makes, or nil while ctx runs. after says what became of
@@ -445,8 +445,17 @@ func liveInterrupted(ctx context.Context, tool, after string) error {
 	return fmt.Errorf("%s: interrupted (%v)%s; the run stopped and continues with --resume", tool, context.Cause(ctx), after)
 }
 
-// liveCutAttempt is liveInterrupted's note for an attempt the interrupt cut.
-const liveCutAttempt = "; the cut attempt was stopped, not graded, and set aside as interrupted"
+// liveCutNote is liveInterrupted's note for the attempt an interrupt cut, saying what became of it
+// (re-review 4, G6): scored before the interrupt, or set aside as interrupted, graded or not.
+func liveCutNote(scored, graded bool) string {
+	switch {
+	case scored:
+		return "; the attempt was scored before the interrupt and is kept"
+	case graded:
+		return "; the cut attempt was graded before the interrupt, not scored, and set aside as interrupted"
+	}
+	return "; the cut attempt was not graded and was set aside as interrupted"
+}
 
 // sleepContext waits d or until ctx ends.
 func sleepContext(ctx context.Context, d time.Duration) error {
