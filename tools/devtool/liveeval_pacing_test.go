@@ -264,3 +264,31 @@ func TestRunLiveEval_NightWindow(t *testing.T) {
 	require.Contains(t, sum.Paused, "five_hour")
 	require.Contains(t, sum.Paused, "after the night window")
 }
+
+// TestRenderLiveSummary_ShowsSubscriptionUseAndLimited: summary.md reports each arm's per-trial
+// utilization deltas, the limited trials with their sensitivity analysis, and a pause.
+func TestRenderLiveSummary_ShowsSubscriptionUseAndLimited(t *testing.T) {
+	a := eval.LiveAnalysis{Model: "m", Confidence: 0.95, NonInferiorityMargin: 0.1, TrialsPerArm: 2}
+	d := func(v float64) eval.LiveRateDelta { return eval.LiveRateDelta{Delta: &v, Basis: eval.RateBasisPrevious} }
+	ok := true
+	ts := []eval.LiveTrial{
+		{TaskID: "t", Arm: "steer", Trial: 1, Completed: true, TaskSuccess: true, Recovered: &ok, PreregisteredModel: true,
+			RateUse: map[string]eval.LiveRateDelta{"five_hour": d(0.02), "seven_day": d(0.004)}},
+		{TaskID: "t", Arm: "steer", Trial: 2, Completed: true, TaskSuccess: true, Recovered: &ok, PreregisteredModel: true,
+			RateUse: map[string]eval.LiveRateDelta{"five_hour": d(0.04)}},
+	}
+	sum := eval.SummarizeLive("r", a, ts)
+	sum.AddLimited(a, ts, []eval.LiveTrial{{TaskID: "t", Arm: "steer", Trial: 2, Limited: "rejected", Recovered: &ok}})
+	sum.Pause(2, 4, "the seven_day window is at 0.62")
+	md := renderLiveSummary(eval.LivePlan{RunID: "r"}, sum)
+	for _, want := range []string{
+		"## Subscription use per trial",
+		"| steer | five_hour | 2 | 0.0300 | 0.0400 |",
+		"| steer | seven_day | 1 | 0.0040 | 0.0040 |",
+		"## Limited trials",
+		"| steer | 1 | 2/3",
+		"**Paused:** the seven_day window is at 0.62",
+	} {
+		require.Contains(t, md, want)
+	}
+}
