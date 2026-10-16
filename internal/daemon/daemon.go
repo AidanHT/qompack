@@ -98,10 +98,15 @@ type daemon struct {
 	lastCfgMTime time.Time
 	lastCfgSize  int64
 
-	svc      *Services
-	registry *SessionRegistry
-	idle     *idleController
-	monitor  contract.Monitor
+	svc *Services
+	// briefSettleCap, when positive, replaces briefSettleMax as the brief's settle bound
+	// (briefSettleBound). Production never sets it; a row that asserts what the settle waits for,
+	// not how long, gives it a bound no co-loaded host can exhaust, as settleTestDaemon does for the
+	// PreCompact settle through its configured B-E.
+	briefSettleCap time.Duration
+	registry       *SessionRegistry
+	idle           *idleController
+	monitor        contract.Monitor
 
 	// The compiled capture policies the daemon-side admission gate uses, cached against the
 	// redact configuration they were compiled from (handlers.go, capturePolicies).

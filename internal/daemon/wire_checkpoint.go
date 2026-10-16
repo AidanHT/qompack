@@ -200,6 +200,21 @@ func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src
 			// and nothing it could say survives the host's PreCompact contract (C1.18).
 			return hookio.Empty(), err
 		}
+		// The brief's snapshot (V7 plan §5.3 steps 2-3): arm the sources exactly as the PreCompact
+		// seam does, so a brief before the first idle tick, or before the ledger was ever opened,
+		// still has live seams to open a draft from, then read the must-keep items. A panic is the
+		// same L4 failure the PreCompact seam reports, and the route serves the brief empty.
+		s.BriefSnapshot = func(ctx context.Context, sess core.SessionID) (b checkpoint.Brief, err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Loud("checkpoint: brief snapshot panicked; the brief is served empty",
+						"session", string(sess), "recover", r)
+					b, err = checkpoint.Brief{}, fmt.Errorf("checkpoint: brief snapshot panicked: %v", r)
+				}
+			}()
+			armSources(o, w, resolve, log)
+			return w.BriefSnapshot(ctx, sess)
+		}
 	})
 }
 
