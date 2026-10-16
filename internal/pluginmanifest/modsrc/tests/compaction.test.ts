@@ -478,6 +478,27 @@ describe('the compaction hook on a surface without the process noun', () => {
     expect(passed).toEqual([e])
   })
 
+  test('session values that cannot be read pass the event on and leave a debug line', async () => {
+    const logs: string[] = []
+    const host = {
+      ...standIn(undefined, logs, 'standin-no-session'),
+      session: {
+        id: async () => {
+          throw new Error('no session')
+        },
+        root: async () => ROOT,
+        version: async () => ({ version: VERSION }),
+      },
+    }
+    const { passed, next } = standInNext()
+    const e = compaction({ instructions: 'mine' })
+
+    expect(await steerCompaction(host as never, e, next as never)).toEqual(COMPACTED)
+
+    expect(passed).toEqual([e])
+    expect(logs).toEqual(['qompack mod brief: error (session: no session)'])
+  })
+
   test('a debug log that throws loses only its lines: a served brief still joins the instructions', async () => {
     const tried: string[] = []
     const answers: Record<string, string> = { hello: helloSteering, brief: briefOut(BRIEF) }
