@@ -1,0 +1,105 @@
+package pluginmanifest_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"sort"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/pluginmanifest"
+)
+
+// wantAsyncEvents is the V7 F4 set: the three ACK-only capture hooks, whose replies carry nothing
+// the model reads. Every other event must stay synchronous: UserPromptSubmit and SessionStart
+// deliver their output in the same turn, PreCompact must seal before the summary, and `-p`
+// teardown kills an async SessionEnd.
+var wantAsyncEvents = map[string]bool{"PostToolUse": true, "Stop": true, "SubagentStop": true}
+
+const hooksJSONPath = "plugin/hooks/hooks.json"
+
+// decodeHookEntries returns event -> the raw keys of its single hook entry.
+func decodeHookEntries(t *testing.T, raw []byte) map[string]map[string]json.RawMessage {
+	t.Helper()
+	var doc struct {
+		Hooks map[string][]struct {
+			Hooks []map[string]json.RawMessage `json:"hooks"`
+		} `json:"hooks"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &doc))
+	out := make(map[string]map[string]json.RawMessage, len(doc.Hooks))
+	for event, groups := range doc.Hooks {
+		require.Len(t, groups, 1, event)
+		require.Len(t, groups[0].Hooks, 1, event)
+		out[event] = groups[0].Hooks[0]
+	}
+	return out
+}
+
+// TestManifest_DefaultRenderingHasNoAsyncKey: the field is omitempty and the option is off by
+// default, so the shipped bytes (and the golden, and the committed plugin/) carry no `async` key.
+func TestManifest_DefaultRenderingHasNoAsyncKey(t *testing.T) {
+	for _, goos := range manifestTargets {
+		files, err := pluginmanifest.ForTarget(testVersion, goos).Files()
+		require.NoError(t, err)
+		require.NotContains(t, string(files[hooksJSONPath]), `"async"`, goos)
+	}
+	files, err := pluginmanifest.Default(testVersion).Files()
+	require.NoError(t, err)
+	require.NotContains(t, string(files[hooksJSONPath]), `"async"`)
+}
+
+// TestWithAsyncHooks_MarksExactlyTheACKOnlyCaptureHooks pins the option-on rendering: exactly
+// PostToolUse, Stop and SubagentStop carry "async": true, every other event carries no async key,
+// and with the async keys removed every file equals the default rendering byte for byte.
+func TestWithAsyncHooks_MarksExactlyTheACKOnlyCaptureHooks(t *testing.T) {
+	for _, goos := range manifestTargets {
+		def, err := pluginmanifest.ForTarget(testVersion, goos).Files()
+		require.NoError(t, err)
+		on, err := pluginmanifest.WithAsyncHooks(pluginmanifest.ForTarget(testVersion, goos)).Files()
+		require.NoError(t, err)
+
+		require.Len(t, on, len(def), goos)
+		for rel, b := range def {
+			if rel == hooksJSONPath {
+				continue
+			}
+			require.Equal(t, string(b), string(on[rel]), "%s/%s: only hooks.json may change", goos, rel)
+		}
+
+		entries := decodeHookEntries(t, on[hooksJSONPath])
+		require.Len(t, entries, 7, goos)
+		var gotAsync []string
+		for event, keys := range entries {
+			v, has := keys["async"]
+			if !wantAsyncEvents[event] {
+				require.False(t, has, "%s/%s must stay synchronous and carry no async key", goos, event)
+				continue
+			}
+			require.True(t, has, "%s/%s must carry async", goos, event)
+			require.Equal(t, "true", string(v), "%s/%s", goos, event)
+			gotAsync = append(gotAsync, event)
+		}
+		sort.Strings(gotAsync)
+		require.Equal(t, []string{"PostToolUse", "Stop", "SubagentStop"}, gotAsync, goos)
+
+		// Removing exactly the three `,\n "async": true` members must give the default bytes, so
+		// the key sits after timeout and nothing else in the file moved.
+		stripped := bytes.ReplaceAll(on[hooksJSONPath], []byte(",\n          \"async\": true"), nil)
+		require.Equal(t, 3, (len(on[hooksJSONPath])-len(stripped))/len(",\n          \"async\": true"), goos)
+		require.Equal(t, string(def[hooksJSONPath]), string(stripped), goos)
+	}
+}
+
+// TestWithAsyncHooks_DoesNotMutateItsInput: the transform returns a new manifest; the value it was
+// given (and so any caller still holding the default rendering) keeps rendering today's bytes.
+func TestWithAsyncHooks_DoesNotMutateItsInput(t *testing.T) {
+	m := pluginmanifest.Default(testVersion)
+	before, err := m.Files()
+	require.NoError(t, err)
+	_ = pluginmanifest.WithAsyncHooks(m)
+	after, err := m.Files()
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+}
