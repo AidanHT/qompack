@@ -684,6 +684,12 @@ func summarizeLiveRun(o liveOptions, w io.Writer, plan eval.LivePlan, ts eval.Li
 		sum.Notes = append(sum.Notes, fmt.Sprintf("%d configuration-discarded attempt(s) were set aside in their slots "+
 			"as trial.discarded-<n>.json and the slots run again: harness errors, never scored", recs.discarded))
 	}
+	if n := recs.residentDaemonFaults; n > 0 {
+		sum.ResidentDaemonFaults = n
+		sum.Notes = append(sum.Notes, fmt.Sprintf("%d of them found a daemon of another build resident for the trial's "+
+			"project before the session, which may predate W1a and answer every brief error (\"unknown op: mod\"): "+
+			"harness faults, not scored outcomes (ruling R42)", n))
+	}
 	switch {
 	case abort != nil:
 		sum.StopEarly(len(recs.scored), len(plan.Trials), abort.Error())
@@ -740,6 +746,9 @@ func liveConfigErrorCount(out string, plan eval.LivePlan) (base, count int, err 
 type liveRecords struct {
 	scored, limited []eval.LiveTrial
 	discarded       int
+	// residentDaemonFaults counts the discarded attempts whose project had a daemon of another build
+	// resident before the session (ruling R42).
+	residentDaemonFaults int
 }
 
 // collectLiveRecords reads every planned slot's records, in plan order: its scored trial.json, its
@@ -774,6 +783,13 @@ func collectLiveRecords(out string, plan eval.LivePlan) (liveRecords, error) {
 		}
 		discarded, _ := filepath.Glob(filepath.Join(slot, "trial."+liveSlotDiscarded+"-*.json"))
 		r.discarded += len(discarded)
+		for _, f := range discarded {
+			var d eval.LiveTrial
+			if raw, err := os.ReadFile(f); err == nil && json.Unmarshal(raw, &d) == nil && d.ResidentDaemon != nil &&
+				d.ResidentDaemon.Fault {
+				r.residentDaemonFaults++
+			}
+		}
 	}
 	return r, nil
 }
@@ -1090,6 +1106,13 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		rec.HomeGuard = nil
 		return rec, nil
 	}
+	rd, rdErr := checkLiveResidentDaemon(project, lt.plugin())
+	rec.ResidentDaemon = rd
+	if rdErr != nil {
+		rec.ConfigurationError = rdErr.Error()
+		rec.HomeGuard = nil
+		return rec, nil
+	}
 
 	var cleanup []func() []string
 	extraArgs := []string{}
@@ -1266,6 +1289,7 @@ func (lt liveTrialRun) assemble(ctx context.Context, rec *eval.LiveTrial, proc l
 			sid = sessionID
 		}
 		rec.Hello = judgeLiveHello(project, sid)
+		rec.Brief = liveBriefOutcomes(project, sid, rec.Compactions)
 	}
 	if lt.state.Plugin {
 		q := &eval.LiveQompackEvidence{MCPToolCalls: eval.MCPToolCalls(stream, liveMCPToolPrefix)}
@@ -1730,6 +1754,7 @@ func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 	}
 	renderHostHookTable(&b, s.Arms)
 	renderLiveSubscription(&b, s)
+	renderLiveStageA(&b, s)
 	if len(s.ByVariant) > 0 {
 		b.WriteString("\n## By variant\n\nReported, not decided (preregistration section 8).\n\n")
 		b.WriteString("| variant | arm | trials | task success (95% CI) | constraint-clean (95% CI) | recovery (95% CI) |\n")

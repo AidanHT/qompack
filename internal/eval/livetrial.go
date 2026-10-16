@@ -118,6 +118,12 @@ type LiveTrial struct {
 	// Hello is the steer arm's hello file as the session left it: a treatment outcome, counted as
 	// assigned whatever it says (intention to treat). nil on every other arm.
 	Hello *LiveHelloOutcome `json:"hello,omitempty"`
+	// Brief is the steer arm's brief outcome for each compaction (W6 item 5): a treatment outcome,
+	// counted as assigned whatever it says. nil on every other arm.
+	Brief *LiveBriefOutcomes `json:"brief,omitempty"`
+	// ResidentDaemon is the daemon the harness found already resident for the trial's project before
+	// its session (ruling R42); nil when none was, the expected state of a fresh project.
+	ResidentDaemon *LiveResidentDaemon `json:"resident_daemon,omitempty"`
 	// RateLimits is every rate_limit_event the session's stream carried, and RateUse each window's
 	// utilization delta over the trial (W6 item 8): what the trial spent of the subscription.
 	RateLimits []HostRateLimit          `json:"rate_limits,omitempty"`
@@ -458,6 +464,8 @@ type ArmSummary struct {
 	// RateUse is, by window, the arm's per-trial utilization deltas: how much of the subscription's
 	// five-hour and seven-day windows one trial uses (W6 item 8; R2's calendar estimate reads it).
 	RateUse map[string]LiveRateUseStats `json:"rate_use,omitempty"`
+	// Brief is the arm's brief outcomes over its compactions (W6 item 5); nil on an arm with no brief.
+	Brief *LiveBriefStats `json:"brief,omitempty"`
 }
 
 // LiveRateUseStats summarizes one window's per-trial utilization deltas over the trials that had one.
@@ -521,6 +529,10 @@ type LiveSummary struct {
 	// and never decided.
 	LimitedTrials      map[string]int        `json:"limited_trials,omitempty"`
 	LimitedSensitivity map[string]ArmSummary `json:"limited_sensitivity,omitempty"`
+	// ResidentDaemonFaults counts the attempts set aside because a daemon of another build than the
+	// arm's bundle was resident for the trial's project before its session (ruling R42): harness
+	// faults, discarded and run again, never scored.
+	ResidentDaemonFaults int `json:"resident_daemon_faults,omitempty"`
 	// Paused says why the run paused cleanly before its plan was done (a limit or the night window's
 	// end, W6 item 8); `devtool live-eval --resume` continues it. Empty for a run that finished or
 	// stopped.
@@ -622,6 +634,11 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 				"%d of %d %s trial(s) have no valid hello file (missing, for another session, from a host below "+
 					"the mod's minimum, or not steering); they are counted as assigned (intention to treat), "+
 					"never excluded, and each trial record names the problem", as.HelloProblemTrials, as.Trials, arm))
+		}
+		if b := as.Brief; b != nil && b.NoServedTrials > 0 {
+			sum.Notes = append(sum.Notes, fmt.Sprintf(
+				"%d of %d %s trial(s) had no non-empty served brief (every compaction unserved or served-empty); "+
+					"they are counted as assigned (intention to treat), never excluded", b.NoServedTrials, b.Trials, arm))
 		}
 		if as.HookProblemTrials > 0 {
 			sum.Notes = append(sum.Notes, fmt.Sprintf(
@@ -978,6 +995,7 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 	if out.ForeignPluginTrials > 0 {
 		out.ForeignPlugins = foreignPlugins(ts, arm)
 	}
+	out.Brief = liveBriefStats(ts)
 	if len(hooks) > 0 {
 		sort.Float64s(hooks)
 		out.HookP50MS = percentile(hooks, 50)
