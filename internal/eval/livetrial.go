@@ -70,9 +70,12 @@ type LiveTrial struct {
 	// ConstraintViolations counts failed constraint checks.
 	ConstraintViolations int `json:"constraint_violations"`
 	// Recovered is every recovery check passing; nil when the task declares none.
-	Recovered   *bool            `json:"recovered"`
-	Compactions []HostCompaction `json:"compactions"`
-	Account     SessionAccount   `json:"account"`
+	Recovered *bool `json:"recovered"`
+	// ConstraintClean is every constraint check passing; nil when the task declares none. The Stage A
+	// constraint-clean rate is over these trials only (plan §9.4, revision 4 C-m7).
+	ConstraintClean *bool            `json:"constraint_clean,omitempty"`
+	Compactions     []HostCompaction `json:"compactions"`
+	Account         SessionAccount   `json:"account"`
 	// HostCostUSD is the host's own client-side list-price estimate for this session.
 	HostCostUSD float64 `json:"host_cost_usd"`
 	// Estimate is this repository's estimate from the dated rate table in force; nil when no rate
@@ -273,6 +276,80 @@ type LiveStepRecord struct {
 	PermissionDenials int      `json:"permission_denials"`
 	Answer            string   `json:"answer,omitempty"`
 	LocalOutput       []string `json:"local_output,omitempty"`
+	// HasResult says the host printed the result line that closed the step's turn; DurationMS and
+	// DurationAPIMS are that line's duration_ms and duration_api_ms (amendment 4: active time T is
+	// recomputable from the stream, unlike the pipe-measured WallMS).
+	HasResult     bool  `json:"has_result,omitempty"`
+	DurationMS    int64 `json:"duration_ms,omitempty"`
+	DurationAPIMS int64 `json:"duration_api_ms,omitempty"`
+}
+
+// result reports that the step's turn ended in a result line. A record written before HasResult
+// existed says so by its subtype.
+func (r LiveStepRecord) result() bool { return r.HasResult || r.ResultSubtype != "" }
+
+// The status of a trial's cost C (amendment 4): complete when every step ended in a result line, a
+// lower bound when the last step the trial reached has none, unknown when no step has one. Missing
+// usage is unknown, never zero (Qompack.md).
+const (
+	LiveCostComplete = "complete"
+	LiveCostPartial  = "partial"
+	LiveCostUnknown  = "unknown"
+)
+
+// Cost is the trial's cost C — the host's own list-price estimate, HostCostUSD — and its status.
+// The driver sends a step only after the previous step's result, so the steps a trial reached are
+// those with a result and, when one lacks it, that first step without one.
+func (t LiveTrial) Cost() (float64, string) {
+	results := 0
+	for _, s := range t.Steps {
+		if s.result() {
+			results++
+		}
+	}
+	switch {
+	case results == 0:
+		return 0, LiveCostUnknown
+	case results < len(t.Steps):
+		return t.HostCostUSD, LiveCostPartial
+	}
+	return t.HostCostUSD, LiveCostComplete
+}
+
+// ActiveMS is the trial's active time T (amendment 4): over the steps it reached, the host's
+// duration_ms of each step's result, and capMS — the pinned step timeout — for a reached step with no
+// result. Steps never reached count 0.
+func (t LiveTrial) ActiveMS(capMS int64) int64 {
+	var total int64
+	for _, s := range t.Steps {
+		if !s.result() {
+			return total + capMS
+		}
+		total += s.DurationMS
+	}
+	return total
+}
+
+// APIMS is the API share of the trial's active time: the reached steps' duration_api_ms.
+func (t LiveTrial) APIMS() int64 {
+	var total int64
+	for _, s := range t.Steps {
+		if !s.result() {
+			break
+		}
+		total += s.DurationAPIMS
+	}
+	return total
+}
+
+// TimedOutSteps counts the reached steps that ended with no result line: at most one per trial.
+func (t LiveTrial) TimedOutSteps() int {
+	for _, s := range t.Steps {
+		if !s.result() {
+			return 1
+		}
+	}
+	return 0
 }
 
 // LiveStoreStats is the size of a trial's .qompack/ after the session.
@@ -310,6 +387,8 @@ func StepRecords(task LiveTask, s HostStream) ([]LiveStepRecord, bool) {
 				rec.WallMS = t.LastRecvMS - t.FirstRecvMS
 			}
 			if t.Result != nil {
+				rec.HasResult = true
+				rec.DurationMS, rec.DurationAPIMS = t.Result.DurationMS, t.Result.DurationAPIMS
 				rec.ResultSubtype = t.Result.Subtype
 				rec.IsError = t.Result.IsError
 				rec.NumTurns = t.Result.NumTurns
@@ -346,7 +425,7 @@ const compactLocalCommand = "compact"
 func (t *LiveTrial) ApplyGrades(results []LiveCheckResult) {
 	t.Checks = results
 	task, rec := true, true
-	haveTask, haveRec := false, false
+	haveTask, haveRec, haveConstraint := false, false, false
 	t.ConstraintViolations = 0
 	for _, r := range results {
 		switch r.Outcome {
@@ -357,6 +436,7 @@ func (t *LiveTrial) ApplyGrades(results []LiveCheckResult) {
 			haveRec = true
 			rec = rec && r.Passed
 		case OutcomeConstraint:
+			haveConstraint = true
 			if !r.Passed {
 				t.ConstraintViolations++
 			}
@@ -365,6 +445,10 @@ func (t *LiveTrial) ApplyGrades(results []LiveCheckResult) {
 	t.TaskSuccess = haveTask && task
 	if haveRec {
 		t.Recovered = &rec
+	}
+	if haveConstraint {
+		clean := t.ConstraintViolations == 0
+		t.ConstraintClean = &clean
 	}
 }
 
@@ -381,10 +465,12 @@ func (t *LiveTrial) ApplyHarnessFailure(task LiveTask) {
 	t.TaskSuccess = false
 	t.Completed = false
 	for _, c := range task.Checks {
-		if c.Outcome == OutcomeRecovery {
-			failed := false
+		failed := false
+		switch c.Outcome {
+		case OutcomeRecovery:
 			t.Recovered = &failed
-			break
+		case OutcomeConstraint:
+			t.ConstraintClean = &failed
 		}
 	}
 }
@@ -430,9 +516,14 @@ type ArmSummary struct {
 	// Recovery is over trials whose task declares recovery checks.
 	Recovery Proportion `json:"recovery"`
 	// MeanUsage is the per-trial mean of every model's Total, summed across models.
-	MeanUsage      UsageTotals `json:"mean_usage"`
-	MeanHostCost   float64     `json:"mean_host_cost_usd"`
-	MeanEstimateMc int64       `json:"mean_estimate_micros"`
+	MeanUsage UsageTotals `json:"mean_usage"`
+	// MeanHostCost is the mean cost C over the trials whose cost is known; CostPartial counts those of
+	// them whose C is a lower bound, and CostUnknown the trials with no result line, left out of the
+	// mean rather than added as zero (amendment 4).
+	MeanHostCost   float64 `json:"mean_host_cost_usd"`
+	CostPartial    int     `json:"cost_partial,omitempty"`
+	CostUnknown    int     `json:"cost_unknown,omitempty"`
+	MeanEstimateMc int64   `json:"mean_estimate_micros"`
 	// EstimateIncomplete counts trials whose estimate is a lower bound.
 	EstimateIncomplete int   `json:"estimate_incomplete"`
 	MeanWallMS         int64 `json:"mean_wall_ms"`
@@ -466,6 +557,9 @@ type ArmSummary struct {
 	RateUse map[string]LiveRateUseStats `json:"rate_use,omitempty"`
 	// Brief is the arm's brief outcomes over its compactions (W6 item 5); nil on an arm with no brief.
 	Brief *LiveBriefStats `json:"brief,omitempty"`
+	// Efficiency is the arm's cost C and active time T (amendment 4) and its compactions; reported here,
+	// decided between arms by DecideStageA.
+	Efficiency *LiveArmEfficiency `json:"efficiency,omitempty"`
 }
 
 // LiveRateUseStats summarizes one window's per-trial utilization deltas over the trials that had one.
@@ -529,6 +623,9 @@ type LiveSummary struct {
 	// and never decided.
 	LimitedTrials      map[string]int        `json:"limited_trials,omitempty"`
 	LimitedSensitivity map[string]ArmSummary `json:"limited_sensitivity,omitempty"`
+	// StageA is the Stage A decisions (W6 item 2, amendment 4): every pre-registered test with its
+	// paired-bootstrap interval and §9.4 label, and the reported rows; nil for a two-arm run.
+	StageA *LiveStageA `json:"stage_a,omitempty"`
 	// ResidentDaemonFaults counts the attempts set aside because a daemon of another build than the
 	// arm's bundle was resident for the trial's project before its session (ruling R42): harness
 	// faults, discarded and run again, never scored.
@@ -551,8 +648,48 @@ type LiveDecision struct {
 
 // SummarizeLive aggregates trials. Every trial counts, complete or not: dropping the failures is
 // how an evaluation flatters itself.
+//
+// A run of the Stage A arms (no trial of the two-arm design's qompack arm, and some of classic,
+// generic or steer) is decided by the Stage A rules (DecideStageA: the paired task bootstrap, the
+// fixed-sequence chain, S, the harm tests and amendment 4's efficiency guards), which replace the
+// two-arm DecideLive; a recorded two-arm run is still decided by DecideLive.
 func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary {
-	z := normalQuantile(1 - (1-a.Confidence)/2)
+	sum := summarizeLive(runID, a, trials)
+	if stageATrials(trials) {
+		sum.StageA = DecideStageA(a, trials, nil)
+		sum.Decision = sum.StageA.Decision
+	}
+	return sum
+}
+
+// stageATrials reports that the trials are a run of the Stage A arms.
+func stageATrials(trials []LiveTrial) bool {
+	stageA := false
+	for _, t := range trials {
+		switch t.Arm {
+		case ArmQompack:
+			return false
+		case ArmClassic, ArmGeneric, ArmSteer:
+			stageA = true
+		}
+	}
+	return stageA
+}
+
+// armRules is how summarizeArm counts: the interval's z, whether constraint-clean is over the trials
+// whose task declares a constraint check (Stage A, revision 4 C-m7) or over every trial (the two-arm
+// design), and the step timeout a reached step with no result counts as in active time.
+type armRules struct {
+	z                  float64
+	declaredConstraint bool
+	capMS              int64
+}
+
+// summarizeLive is SummarizeLive without the Stage A decision.
+func summarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary {
+	rules := armRules{
+		z: normalQuantile(1 - (1-a.Confidence)/2), declaredConstraint: stageATrials(trials), capMS: a.stepTimeoutMS(),
+	}
 	sum := LiveSummary{
 		Schema:     LiveSummarySchema,
 		RunID:      runID,
@@ -590,14 +727,14 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 		}
 	}
 	for arm, ts := range byArm {
-		sum.Arms[arm] = summarizeArm(arm, ts, z)
+		sum.Arms[arm] = summarizeArm(arm, ts, rules)
 	}
-	sum.ByTask = summarizeGroups(byTaskArm, z)
+	sum.ByTask = summarizeGroups(byTaskArm, rules)
 	if len(byVariantArm) > 0 {
-		sum.ByVariant = summarizeGroups(byVariantArm, z)
+		sum.ByVariant = summarizeGroups(byVariantArm, rules)
 	}
 	if len(byDomainArm) > 0 {
-		sum.ByDomain = summarizeGroups(byDomainArm, z)
+		sum.ByDomain = summarizeGroups(byDomainArm, rules)
 	}
 	for id, arms := range sum.ByTask {
 		if sign, ok := taskSign(arms); ok {
@@ -728,9 +865,19 @@ func (s *LiveSummary) AddLimited(a LiveAnalysis, scored, limited []LiveTrial) {
 			failed := false
 			t.Recovered = &failed
 		}
+		if t.ConstraintClean != nil {
+			failed := false
+			t.ConstraintClean = &failed
+		}
 		with = append(with, t)
 	}
-	s.LimitedSensitivity = SummarizeLive(s.RunID, a, with).Arms
+	s.LimitedSensitivity = summarizeLive(s.RunID, a, with).Arms
+	if s.StageA != nil {
+		// Amendment 4's limited sensitivity adds each limited trial's partial C and T to its slot's re-run;
+		// a gated efficiency guard it flips reads "indeterminate".
+		s.StageA = DecideStageA(a, scored, limited)
+		s.Decision = s.StageA.Decision
+	}
 	var parts []string
 	for _, arm := range slices.Sorted(maps.Keys(s.LimitedTrials)) {
 		sens := s.LimitedSensitivity[arm]
@@ -822,7 +969,7 @@ func foreignPlugins(trials []LiveTrial, arm string) []string {
 }
 
 // summarizeGroups summarizes each group's arms, arms in name order.
-func summarizeGroups(g map[string]map[string][]LiveTrial, z float64) map[string][]ArmSummary {
+func summarizeGroups(g map[string]map[string][]LiveTrial, rules armRules) map[string][]ArmSummary {
 	out := make(map[string][]ArmSummary, len(g))
 	for key, byArm := range g {
 		arms := make([]string, 0, len(byArm))
@@ -831,7 +978,7 @@ func summarizeGroups(g map[string]map[string][]LiveTrial, z float64) map[string]
 		}
 		sort.Strings(arms)
 		for _, arm := range arms {
-			out[key] = append(out[key], summarizeArm(arm, byArm[arm], z))
+			out[key] = append(out[key], summarizeArm(arm, byArm[arm], rules))
 		}
 	}
 	return out
@@ -867,13 +1014,17 @@ func taskSign(arms []ArmSummary) (int, bool) {
 // failure on every outcome (preregistration §8): it never counts as a task success or as
 // constraint-clean, and it counts as not recovered wherever it carries a recovery verdict, whatever
 // state it left behind.
-func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
+//
+// Its cost mean is over the trials whose cost C is known, a lower bound included and counted: a trial
+// with no result line has no cost to add, and adding it as zero would understate the arm (amendment 4).
+func summarizeArm(arm string, ts []LiveTrial, rules armRules) ArmSummary {
+	z := rules.z
 	out := ArmSummary{Arm: arm, Trials: len(ts)}
-	var taskK, cleanK, recK, recN int
+	var taskK, cleanK, cleanN, recK, recN int
 	var usage UsageTotals
 	var cost float64
 	var est, wall, store int64
-	var storeN int
+	var storeN, costN int
 	var hooks []float64
 	hostHooks := map[string][]int64{}
 	rateUse := map[string][]float64{}
@@ -894,8 +1045,17 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		if t.TaskSuccess && !harness {
 			taskK++
 		}
-		if t.ConstraintViolations == 0 && !harness {
-			cleanK++
+		switch {
+		case !rules.declaredConstraint:
+			cleanN++
+			if t.ConstraintViolations == 0 && !harness {
+				cleanK++
+			}
+		case t.ConstraintClean != nil:
+			cleanN++
+			if *t.ConstraintClean && !harness {
+				cleanK++
+			}
 		}
 		out.ConstraintViolations += t.ConstraintViolations
 		if t.Recovered != nil {
@@ -907,7 +1067,17 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		for _, u := range t.Account.Total {
 			usage = usage.add(stripSplit(u))
 		}
-		cost += t.HostCostUSD
+		switch c, status := t.Cost(); status {
+		case LiveCostUnknown:
+			out.CostUnknown++
+		case LiveCostPartial:
+			out.CostPartial++
+			cost += c
+			costN++
+		default:
+			cost += c
+			costN++
+		}
 		if t.Estimate != nil {
 			est += t.Estimate.Micros
 		}
@@ -978,17 +1148,20 @@ func summarizeArm(arm string, ts []LiveTrial, z float64) ArmSummary {
 		out.RateUse[w] = st
 	}
 	out.TaskSuccess = wilson(taskK, len(ts), z)
-	out.ConstraintClean = wilson(cleanK, len(ts), z)
+	out.ConstraintClean = wilson(cleanK, cleanN, z)
 	out.Recovery = wilson(recK, recN, z)
 	if n := int64(len(ts)); n > 0 {
 		out.MeanUsage = UsageTotals{
 			Input: usage.Input / n, Output: usage.Output / n,
 			CacheRead: usage.CacheRead / n, CacheWrite: usage.CacheWrite / n,
 		}
-		out.MeanHostCost = cost / float64(n)
 		out.MeanEstimateMc = est / n
 		out.MeanWallMS = wall / n
 	}
+	if costN > 0 {
+		out.MeanHostCost = cost / float64(costN)
+	}
+	out.Efficiency = armEfficiency(ts, rules.capMS)
 	if storeN > 0 {
 		out.MeanStoreBytes = store / int64(storeN)
 	}

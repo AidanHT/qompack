@@ -6,7 +6,7 @@ Written by `devtool live-eval --describe` from the files and settings a run with
 
 ## Run
 
-- Task set: `../../testdata/eval/live/tasks-v7-harness-test.json` (sha256 `97c26c765fbb05afee191acf0fb59a4c16cd856ff4f94059fe550873ba363c21`), 1 task(s) declared, 1 selected; held-out tasks left out.
+- Task set: `../../testdata/eval/live/tasks-v7-harness-test.json` (sha256 `f952d96c63e9f4177f4bc3ac8f63412e70169faa1c25e7ae094c2160909a0d28`), 1 task(s) declared, 1 selected; held-out tasks left out.
 - Fixture tree [fixtures hidden], manifest sha256 `30cf769d243776645506eb43b7e0b336d2fed9a6e2ea29b4fb70a1f2b4054276`.
 - Model: `claude-opus-5-5` (pre-registered `claude-opus-5-5`).
 - Host: Claude Code 2.1.280 at `claude-fake`, pinned: before every trial the host's version is compared with this one and a difference stops the run; every session and every `claude` command runs with `DISABLE_AUTOUPDATER=1`.

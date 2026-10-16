@@ -27,7 +27,32 @@
       "generic": 1,
       "steer": 2
     },
-    "generic_compact_instructions": "When compacting, reproduce verbatim every identifier, file path, number, error message and every rule or constraint the user stated; list the approaches that were tried and failed, with the reason; keep the user's latest request word for word."
+    "generic_compact_instructions": "When compacting, reproduce verbatim every identifier, file path, number, error message and every rule or constraint the user stated; list the approaches that were tried and failed, with the reason; keep the user's latest request word for word.",
+    "delta_h1": 0.25,
+    "delta_h2": 0.15,
+    "icc_int": 0.1,
+    "efficiency": {
+      "margin": 0.1,
+      "metrics": [
+        "cost",
+        "active_time"
+      ],
+      "guards": [
+        {
+          "treated": "steer",
+          "comparator": "classic",
+          "gated": true
+        },
+        {
+          "treated": "classic",
+          "comparator": "stock",
+          "gated": false
+        }
+      ],
+      "h3_ship_condition": false,
+      "step_timeout_ms": 600000,
+      "pilot_redesign_ratio": 1.25
+    }
   },
   "tasks": [
     {
