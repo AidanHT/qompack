@@ -156,7 +156,8 @@ func modServedProject(env Env, cwd string, steering bool) (root string, cfg conf
 // modHello is `qompack mod hello`. A served hello writes the session's hello file and answers
 // whether the mod's features are on for this host (modwire.MeetsMinHostVersion) and, when they
 // are, whether runtime.mod.steering lets the mod steer compactions; a host below the minimum is
-// still served, so its version is on record. A refused hello writes nothing. Hello does not steer,
+// still served, so its version is on record. The hello file records the answer: enabled and
+// steering as the response carries them. A refused hello writes nothing. Hello does not steer,
 // so runtime.mod.steering off does not refuse it. Hello needs no daemon: the file is written from
 // this process.
 func modHello(_ context.Context, env Env, stdin io.Reader) any {
@@ -178,17 +179,19 @@ func modHello(_ context.Context, env Env, stdin io.Reader) any {
 	if clk == nil {
 		clk = core.SystemClock()
 	}
-	if err := writeHelloFile(root, modwire.HelloFile{
-		V: modwire.Version, SessionID: req.SessionID, HostVersion: req.HostVersion, TS: core.NowMilli(clk),
-	}); err != nil {
-		return unserved(modFailure(fmt.Errorf("hello file: %w", err), root, homeDir(env)))
-	}
 	enabled := modwire.MeetsMinHostVersion(req.HostVersion)
 	resp := modwire.HelloResponse{
 		Status: modwire.Served(), Enabled: enabled, Steering: enabled && cfg.Runtime.Mod.Steering,
 	}
 	if err := resp.Validate(); err != nil {
 		return unserved(modwire.FailureFor(err))
+	}
+	// The file records the answer being served, so it is written only once that answer is final.
+	if err := writeHelloFile(root, modwire.HelloFile{
+		V: modwire.Version, SessionID: req.SessionID, HostVersion: req.HostVersion,
+		Enabled: resp.Enabled, Steering: resp.Steering, TS: core.NowMilli(clk),
+	}); err != nil {
+		return unserved(modFailure(fmt.Errorf("hello file: %w", err), root, homeDir(env)))
 	}
 	return resp
 }
