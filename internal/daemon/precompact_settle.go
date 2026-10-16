@@ -237,14 +237,45 @@ func captureOf(req ipc.Request) pendingCapture {
 // failed to read, is counted in the summary as not read.
 func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) *sealReport {
 	cfg := d.currentCfg()
-	bound := precompactSettleBound(cfg)
+	return d.settleWithin(ctx, sess, at, cfg, precompactSettle(precompactSettleBound(cfg)))
+}
+
+// settleSpec is what one caller of the settle names: how long it may take, the counters it reports
+// through and the line it logs when it leaves captures unreplayed. The PreCompact seal is one caller
+// (precompactSettle); the mod's brief before a compaction is the other (briefSettle, brief_route.go).
+type settleSpec struct {
+	bound time.Duration
+	// started, unreplayed and spoolReads are the counters of counterPrecompactSettle,
+	// counterPrecompactUnreplayed and counterPrecompactSpoolReads's kinds, under the caller's names.
+	started, unreplayed, spoolReads string
+	// leftMsg is the Warn logged when the settle leaves some of the session's captures unreplayed.
+	leftMsg string
+}
+
+// msgPrecompactSettleLeft is the PreCompact settle's leftMsg.
+const msgPrecompactSettleLeft = "daemon: PreCompact sealed before some of the session's captures were replayed; " +
+	"the checkpoint's drop report counts them, and the daemon replays them next"
+
+// precompactSettle is the PreCompact seal's settle under bound.
+func precompactSettle(bound time.Duration) settleSpec {
+	return settleSpec{
+		bound: bound, started: counterPrecompactSettle, unreplayed: counterPrecompactUnreplayed,
+		spoolReads: counterPrecompactSpoolReads, leftMsg: msgPrecompactSettleLeft,
+	}
+}
+
+// settleWithin is settleBeforeSeal's body for any caller (settleSpec), under cfg.
+func (d *daemon) settleWithin(ctx context.Context, sess core.SessionID, at core.UnixMilli, cfg config.Config,
+	spec settleSpec,
+) *sealReport {
+	bound := spec.bound
 	start := time.Now()
 	sctx, cancel := context.WithDeadline(ctx, start.Add(bound))
 	defer cancel()
 	var reads int64 // the files this settle's own looks read
 	defer func() {
 		if d.m != nil {
-			d.m.Counter(counterPrecompactSpoolReads).Add(reads)
+			d.m.Counter(spec.spoolReads).Add(reads)
 		}
 	}()
 
@@ -259,7 +290,7 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 		return nil // nothing of this session's to settle
 	}
 	if d.m != nil {
-		d.m.Counter(counterPrecompactSettle).Add(1)
+		d.m.Counter(spec.started).Add(1)
 	}
 
 	// The waits and the replay run to the bound's own deadline. Nothing is held back for the last
@@ -282,7 +313,7 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 		return nil
 	}
 	if d.m != nil {
-		d.m.Counter(counterPrecompactUnreplayed).Add(int64(len(left)))
+		d.m.Counter(spec.unreplayed).Add(int64(len(left)))
 	}
 	// Why the settle stopped, so a host stall past the bound (D55's degrade) reads apart from the
 	// others: the PreCompact's own context ended, the bound expired, or the waits and the replay
@@ -295,8 +326,7 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 	case sctx.Err() != nil:
 		reason = "bound reached"
 	}
-	d.log.Warn("daemon: PreCompact sealed before some of the session's captures were replayed; "+
-		"the checkpoint's drop report counts them, and the daemon replays them next",
+	d.log.Warn(spec.leftMsg,
 		"session", string(sess), "captures", len(left), "unread_spools", len(last.unread), "bound", bound.String(),
 		"elapsed", time.Since(start).String(), "reason", reason)
 	return &sealReport{left: left, unread: len(last.unread), allowance: unreplayedNamesAllowance(cfg)}
