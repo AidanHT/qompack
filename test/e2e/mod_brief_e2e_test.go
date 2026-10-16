@@ -109,7 +109,8 @@ func TestE2E_ModBriefColdThenServed(t *testing.T) {
 	recs := p.records(t)
 	require.Len(t, recs, 1)
 	require.Equal(t, modwire.OutcomeCold, recs[0].Outcome)
-	require.Less(t, recs[0].MS, int64(modwire.TimeoutMs))
+	require.Less(t, recs[0].MS, int64(modwire.TimeoutMs-modwire.RecordMarginMs-modwire.DaemonReplyMarginMs),
+		"a cold call does not wait for the daemon: it ends well inside the daemon's own budget")
 	p.requireNoSpool(t)
 	require.NoDirExists(t, filepath.Join(p.sub, ".qompack"), "the subdirectory resolves to the repository root")
 
@@ -144,6 +145,8 @@ func TestE2E_ModBriefFromTheHomeDirectoryIsRefused(t *testing.T) {
 	r, _ := p.brief(t, bin, p.home)
 	require.False(t, r.OK)
 	require.Equal(t, modwire.ReasonRefused, r.Reason)
+	// internal/cli's modRefusedHomeRoot, repeated here because e2e cannot import an unexported name.
+	require.Equal(t, "the project root is the home directory", r.Detail, "refused for the home root, not another reason")
 
 	require.Equal(t, before, treeSnapshot(t, p.home, p.root), "a refused brief writes nothing")
 	addr, err := ipc.Resolve(p.home)
