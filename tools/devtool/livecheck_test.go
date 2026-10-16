@@ -42,9 +42,14 @@ func recordedHost(t *testing.T, specs *[]liveProcSpec, edit func(string) string)
 		if slices.Contains(spec.Args, "--plugin-dir") {
 			s = plugin
 		}
-		return liveProcResult{
+		s, stopped := honourStopOn(spec, s)
+		res := liveProcResult{
 			Stream: []byte(s), StepsCompleted: len(spec.Messages), StartedAt: time.Unix(0, 0), EndedAt: time.Unix(2, 0),
 		}
+		if stopped != "" {
+			res.Stopped, res.Err = stopped, "stopped by the driver: "+stopped
+		}
+		return res
 	}
 }
 

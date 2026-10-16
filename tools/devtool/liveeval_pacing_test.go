@@ -41,7 +41,7 @@ var fakeNow = time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
 // rateLine is a rate_limit_event line shaped like the recorded 2.1.280 ones.
 func rateLine(status string, fiveUtil, sevenUtil float64, fiveReset, sevenReset time.Time, overage bool) string {
 	return fmt.Sprintf(`{"type":"rate_limit_event","rate_limit_info":{"status":%q,"resetsAt":%d,"rateLimitType":"five_hour",`+
-		`"overageStatus":"rejected","isUsingOverage":%t,"unifiedWindows":{"five_hour":{"utilization":%g,"resetsAt":%d},`+
+		`"overageStatus":"rejected","overageDisabledReason":"org_level_disabled","isUsingOverage":%t,"unifiedWindows":{"five_hour":{"utilization":%g,"resetsAt":%d},`+
 		`"seven_day":{"utilization":%g,"resetsAt":%d}}},"session_id":"s"}`,
 		status, fiveReset.Unix(), overage, fiveUtil, fiveReset.Unix(), sevenUtil, sevenReset.Unix())
 }
@@ -215,7 +215,7 @@ func TestRunLiveEval_PausesAtTheSevenDayCeiling(t *testing.T) {
 }
 
 // TestRunLiveEval_OverageStopsTheRun: any event that says paid overage is in use stops the run with a
-// message; the trial that reported it is kept, and no further trial starts.
+// message; the trial that reported it is cut short and set aside as limited, and no further trial starts.
 func TestRunLiveEval_OverageStopsTheRun(t *testing.T) {
 	env, _, home := pacedEnv(t)
 	env.run = perSession(t, home, func(int, liveProcSpec) pilotHostOpts {
@@ -225,7 +225,8 @@ func TestRunLiveEval_OverageStopsTheRun(t *testing.T) {
 	var log bytes.Buffer
 	err := runLiveEval(context.Background(), o, env, &log)
 	require.ErrorContains(t, err, "overage")
-	require.FileExists(t, filepath.Join(slotDir(o.out, "stock", 1), "trial.json"))
+	require.FileExists(t, filepath.Join(slotDir(o.out, "stock", 1), "trial.limited-1.json"),
+		"the session was stopped on the overage event, so the trial was cut short (review I1)")
 	require.NoDirExists(t, slotDir(o.out, "stock", 2))
 	var sum eval.LiveSummary
 	readJSON(t, filepath.Join(o.out, "summary.json"), &sum)
@@ -312,4 +313,71 @@ func TestRunLiveEval_APanicLeavesNoScoredRecord(t *testing.T) {
 		_ = runLiveEval(context.Background(), o, env, &log)
 	}()
 	require.NoFileExists(t, filepath.Join(slotDir(o.out, "classic", 1), "trial.json"))
+}
+
+// TestRunLiveEval_OverageStopsTheSessionAtOnce: the session is stopped on the first event that says
+// paid overage is in use, not at its end: the host is cancelled, the cut-short trial is set aside as
+// limited, and the run stops with the overage message (review I1).
+func TestRunLiveEval_OverageStopsTheSessionAtOnce(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	var stopped []string
+	inner := scriptedPilotHostWith(t, home, pilotHostOpts{
+		streamExtra: []string{rateLine("allowed", 0.5, 0.2, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), true)},
+	})
+	env.run = func(ctx context.Context, spec liveProcSpec) liveProcResult {
+		res := inner(ctx, spec)
+		stopped = append(stopped, res.Stopped)
+		return res
+	}
+	o := stockRun(t, 2)
+	var log bytes.Buffer
+	err := runLiveEval(context.Background(), o, env, &log)
+	require.ErrorContains(t, err, "overage")
+	require.Len(t, stopped, 1)
+	require.Contains(t, stopped[0], "overage", "the scripted host honoured the driver's stop")
+	slot := slotDir(o.out, "stock", 1)
+	require.NoFileExists(t, filepath.Join(slot, "trial.json"))
+	var lim eval.LiveTrial
+	readJSON(t, filepath.Join(slot, "trial.limited-1.json"), &lim)
+	require.Contains(t, lim.Limited, "overage")
+	require.NoDirExists(t, slotDir(o.out, "stock", 2))
+}
+
+// TestRunLiveEval_UnknownRateLimitShapeStops: an event the parser does not recognise, or events that
+// never carry an overage field, stop the run before the next trial, naming G0.16 (review I2).
+func TestRunLiveEval_UnknownRateLimitShapeStops(t *testing.T) {
+	for name, line := range map[string]string{
+		"renamed info": strings.Replace(rateLine("allowed", 0.1, 0.1, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), false),
+			"rate_limit_info", "rate_limit_details", 1),
+		"no overage field": strings.Replace(rateLine("allowed", 0.1, 0.1, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), false),
+			`"isUsingOverage":false,`, "", 1),
+	} {
+		env, _, home := pacedEnv(t)
+		env.run = scriptedPilotHostWith(t, home, pilotHostOpts{streamExtra: []string{line}})
+		o := stockRun(t, 2)
+		var log bytes.Buffer
+		err := runLiveEval(context.Background(), o, env, &log)
+		require.ErrorContains(t, err, "G0.16", name)
+		require.NoDirExists(t, slotDir(o.out, "stock", 2), name)
+	}
+}
+
+// TestRunLiveEval_RecordsTheOverageState: each trial records the account's overage status and the
+// reason it is disabled, and the summary names them (review I2).
+func TestRunLiveEval_RecordsTheOverageState(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	env.run = scriptedPilotHostWith(t, home, pilotHostOpts{
+		streamExtra: []string{rateLine("allowed", 0.1, 0.1, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), false)},
+	})
+	o := stockRun(t, 1)
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(slotDir(o.out, "stock", 1), "trial.json"), &rec)
+	require.Equal(t, "rejected", rec.OverageStatus)
+	require.Equal(t, "org_level_disabled", rec.OverageDisabledReason)
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(o.out, "summary.json"), &sum)
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "org_level_disabled")
+	require.Contains(t, log.String(), "overage rejected (org_level_disabled)")
 }

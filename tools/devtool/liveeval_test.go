@@ -786,14 +786,19 @@ func scriptedPilotHostWith(t *testing.T, home string, opts pilotHostOpts) func(c
 			lines = slices.Insert(lines, 1, opts.streamExtra...)
 			stream = strings.Join(lines, "\n") + "\n"
 		}
+		stream, stopped := honourStopOn(spec, stream)
 		recv := make([]int64, 0)
 		for i := range strings.Count(stream, "\n") {
 			recv = append(recv, int64(100*(i+1)))
 		}
-		return liveProcResult{
+		res := liveProcResult{
 			Stream: []byte(stream), RecvMS: recv, StepsCompleted: len(spec.Messages),
 			StartedAt: time.Unix(0, 0), EndedAt: time.Unix(3, 0),
 		}
+		if stopped != "" {
+			res.Stopped, res.Err = stopped, "stopped by the driver: "+stopped
+		}
+		return res
 	}
 }
 
@@ -1355,4 +1360,19 @@ func TestLiveRunsPreregisteredModel(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, liveRunsPreregisteredModel(pilot, pilot.Analysis.Model))
 	require.False(t, liveRunsPreregisteredModel(pilot, pre.ModelContingency))
+}
+
+// honourStopOn plays the driver's StopOn the way runLiveProcess does: the stream ends at the first
+// line StopOn objects to, and the reason is returned.
+func honourStopOn(spec liveProcSpec, stream string) (string, string) {
+	if spec.StopOn == nil {
+		return stream, ""
+	}
+	lines := strings.SplitAfter(stream, "\n")
+	for i, l := range lines {
+		if why := spec.StopOn([]byte(strings.TrimSpace(l))); why != "" {
+			return strings.Join(lines[:i+1], ""), why
+		}
+	}
+	return stream, ""
 }

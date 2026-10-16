@@ -48,7 +48,9 @@ func TestParseHostStream_KeepsRateLimitEvents(t *testing.T) {
 	require.Equal(t, int64(1790116800), first.ResetsAt)
 	require.Equal(t, "five_hour", first.RateLimitType)
 	require.Nil(t, first.Utilization, "the recorded line has no top-level utilization")
-	require.False(t, first.IsUsingOverage)
+	require.Equal(t, false, *first.IsUsingOverage, "the field was present and false")
+	require.Nil(t, first.OverageInUse, "absent, not false")
+	require.Equal(t, "org_level_disabled", first.OverageDisabledReason)
 	require.Equal(t, "rejected", first.OverageStatus)
 	require.Equal(t, fptr(0.21), first.Windows["five_hour"].Utilization)
 	require.Equal(t, int64(1790334000), first.Windows["seven_day"].ResetsAt)
@@ -207,4 +209,28 @@ func TestLiveRateUse_NeverPanics(t *testing.T) {
 	require.Equal(t, eval.RateBasisUnknown, use["five_hour"].Basis)
 	use = eval.LiveRateUse(before, parseLines(t, disagree).RateLimits)
 	require.Nil(t, use["five_hour"].Delta)
+}
+
+// TestLiveRateProblem: the pacing fails closed on drift (review I2). An event whose rate_limit_info
+// yields no status, no window type and no window is a shape the parser does not know; a session
+// whose events never carry an overage field cannot be guarded against paid overage. Each names
+// G0.16. No events at all is the plan's fallback, not a problem.
+func TestLiveRateProblem(t *testing.T) {
+	require.Empty(t, eval.LiveRateProblem(nil))
+	require.Empty(t, eval.LiveRateProblem(parseLines(t, rlSmoke, rlNoUtil).RateLimits), "one event carries the field")
+	renamed := strings.Replace(rlSmoke, "rate_limit_info", "rate_limit_details", 1)
+	p := eval.LiveRateProblem(parseLines(t, renamed).RateLimits)
+	require.Contains(t, p, "not recognised")
+	require.Contains(t, p, "G0.16")
+	noOverage := strings.Replace(rlSmoke, `"isUsingOverage":false,`, `"usingOverage":false,`, 1)
+	p = eval.LiveRateProblem(parseLines(t, noOverage).RateLimits)
+	require.Contains(t, p, "overage")
+	require.Contains(t, p, "G0.16")
+
+	ev, err := eval.ParseRateLimitLine([]byte(rlOverage))
+	require.NoError(t, err)
+	require.True(t, ev.Overage())
+	ev, err = eval.ParseRateLimitLine([]byte(rlSmoke))
+	require.NoError(t, err)
+	require.False(t, ev.Overage())
 }
