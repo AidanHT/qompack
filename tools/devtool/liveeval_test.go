@@ -656,6 +656,10 @@ func fakeLiveEnv(t *testing.T, cliCalls *[]string) *liveEnv {
 			return liveCLIResult{}
 		},
 		stopDaemon: func(string, string) (string, error) { return "no daemon lock after the session", nil },
+		sleep: func(context.Context, time.Duration) error {
+			t.Fatal("no pacing wait may happen in this test")
+			return nil
+		},
 		check:      runLiveCheckCommand,
 		git:        runLiveGit,
 	}
@@ -694,6 +698,12 @@ type pilotHostOpts struct {
 	extra []string
 	// noHello keeps a steering session from writing its hello file, as a mod that never ran would.
 	noHello bool
+	// streamExtra are further stream lines (rate_limit_event lines, say) the host prints right after
+	// its init line; streamTail replaces the stream's last line (the final result) when set.
+	streamExtra []string
+	streamTail  string
+	// wrongCode makes the session write a wrong code word, so the trial fails its task check.
+	wrongCode bool
 }
 
 // scriptedPilotHost plays the pilot task the way a real host would: it prints a stream shaped like
@@ -739,7 +749,11 @@ func scriptedPilotHostWith(t *testing.T, home string, opts pilotHostOpts) func(c
 		}
 		plugins = append(plugins, `{"name":"agents-md","path":"builtin","source":"agents-md@builtin"}`)
 		plugins = append(plugins, opts.extra...)
-		require.NoError(t, os.WriteFile(filepath.Join(spec.Dir, "CODE.txt"), []byte(pilotCodeWord+"\n"), 0o600))
+		code := pilotCodeWord
+		if opts.wrongCode {
+			code = "0000000000"
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(spec.Dir, "CODE.txt"), []byte(code+"\n"), 0o600))
 		if loaded && !opts.noHello && slices.Contains(spec.Env, "QOMPACK_RUNTIME__MOD__STEERING=true") {
 			// The mod's session.start hello, served with both switches on by a new-enough host.
 			writeTestHello(t, spec.Dir, modwire.HelloFile{
@@ -764,6 +778,14 @@ func scriptedPilotHostWith(t *testing.T, home string, opts pilotHostOpts) func(c
 		require.NoError(t, os.WriteFile(filepath.Join(tdir, sid+".jsonl"), transcript, 0o600))
 
 		stream := pilotStream(sid, loaded, plugins)
+		if len(opts.streamExtra) > 0 || opts.streamTail != "" {
+			lines := strings.Split(strings.TrimSuffix(stream, "\n"), "\n")
+			if opts.streamTail != "" {
+				lines[len(lines)-1] = opts.streamTail
+			}
+			lines = slices.Insert(lines, 1, opts.streamExtra...)
+			stream = strings.Join(lines, "\n") + "\n"
+		}
 		recv := make([]int64, 0)
 		for i := range strings.Count(stream, "\n") {
 			recv = append(recv, int64(100*(i+1)))
