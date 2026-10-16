@@ -213,8 +213,10 @@ Three layers, each inside the one around it:
   up on it.
 - The CLI sends the daemon a budget of that wait less `modwire.DaemonReplyMarginMs` (200 ms), in
   the `mod` IPC request. The daemon's deadline is the moment it received the request plus that
-  budget, and never more than `TimeoutMs`. A budget that is not positive is a `timeout`, which the
-  CLI records without asking the daemon.
+  budget, and never later than the CLI process's start (the request's timestamp) plus `TimeoutMs` -
+  `RecordMarginMs` - `DaemonReplyMarginMs`, so the dial and the transit come out of the daemon's
+  time rather than out of the margin its answer needs. A budget that is not positive is a
+  `timeout`, which the CLI records without asking the daemon.
 
 The budget is computed for each request because the CLI's start-up time varies, and a fixed slack
 could not express that. `hello` has no daemon exchange. Time the hook spends inside `$.process.run`

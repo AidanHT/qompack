@@ -17,8 +17,9 @@ type ModCall struct {
 	// Verb is the modwire verb ("brief").
 	Verb string `json:"verb"`
 	// BudgetMs is how long the daemon has to answer, in milliseconds, counted from when it receives
-	// the request. The CLI computes it for each request from the mod's timeout and its own start-up
-	// time; a budget that is not positive is already over.
+	// the request, and never later than the request's TS (the CLI process's start) plus the mod's
+	// timeout less the CLI's two margins. The CLI computes it for each request from the mod's timeout
+	// and its own start-up time; a budget that is not positive is already over.
 	BudgetMs int64 `json:"budget_ms"`
 	// Req is the verb's request object.
 	Req json.RawMessage `json:"req"`

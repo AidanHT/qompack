@@ -104,11 +104,12 @@ func ClosesSegment(trigger string) bool {
 // process API for every verb, and the host kills a child that outlives it. A verb that asks the
 // daemon (brief) waits for the daemon's answer for TimeoutMs, less the time since the CLI process
 // started, less RecordMarginMs, so it can still write its record and its answer before the mod gives
-// up on it. It sends the daemon a budget of that reply wait less DaemonReplyMarginMs, and the daemon
-// answers within that budget of receiving the request. The CLI's start-up time varies, so the budget
-// is computed for each request rather than fixed; a budget that is not positive is a timeout the CLI
-// records without asking the daemon. TimeoutMs is a floor: measurement on a warm daemon with a
-// realistic backlog may raise it, never lower it.
+// up on it. It sends the daemon a budget of that reply wait less DaemonReplyMarginMs. The daemon
+// answers by receipt plus the budget, and never later than the CLI process's start plus TimeoutMs -
+// RecordMarginMs - DaemonReplyMarginMs, so the dial and the transit come out of the daemon's time.
+// The CLI's start-up time varies, so the budget is computed for each request rather than fixed; a
+// budget that is not positive is a timeout the CLI records without asking the daemon. TimeoutMs is a
+// floor: measurement on a warm daemon with a realistic backlog may raise it, never lower it.
 const (
 	// TimeoutMs is how long the mod waits for one `qompack mod <verb>` child, in milliseconds.
 	TimeoutMs = 2000
