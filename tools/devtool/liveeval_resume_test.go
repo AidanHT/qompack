@@ -216,8 +216,15 @@ func TestRunLiveEval_ResumeRefusesAChangedRun(t *testing.T) {
 	require.ErrorContains(t, runLiveEval(context.Background(), resumeRun(t, t.TempDir()), env, &log), "plan.json")
 
 	for _, conflict := range [][]string{
-		{"--arms", "stock"}, {"--tasks", "x.json"}, {"--trials", "3"}, {"--model", "m"}, {"--bundle", "b"},
-		{"--order-seed", "3"}, {"--out", "o"}, {"--describe"}, {"--known-open-defects", "none"},
+		{"--arms", "stock"},
+		{"--tasks", "x.json"},
+		{"--trials", "3"},
+		{"--model", "m"},
+		{"--bundle", "b"},
+		{"--order-seed", "3"},
+		{"--out", "o"},
+		{"--describe"},
+		{"--known-open-defects", "none"},
 	} {
 		_, err := parseLiveFlags(append([]string{"--resume", o.out}, conflict...))
 		require.ErrorContains(t, err, "--resume", conflict)

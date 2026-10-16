@@ -92,8 +92,12 @@ func TestParseLiveFlags_Pacing(t *testing.T) {
 	require.InDelta(t, 0.5, o.sevenDayCeiling, 0)
 	require.Equal(t, "22:00-07:00", o.night.String())
 	for _, bad := range [][]string{
-		{"--five-hour-gate", "0"}, {"--five-hour-gate", "1.2"}, {"--seven-day-ceiling", "-1"},
-		{"--night-window", "22:00"}, {"--night-window", "25:00-07:00"}, {"--night-window", "07:00-07:00"},
+		{"--five-hour-gate", "0"},
+		{"--five-hour-gate", "1.2"},
+		{"--seven-day-ceiling", "-1"},
+		{"--night-window", "22:00"},
+		{"--night-window", "25:00-07:00"},
+		{"--night-window", "07:00-07:00"},
 	} {
 		_, err := parseLiveTest(bad)
 		require.Error(t, err, bad)
@@ -275,10 +279,14 @@ func TestRenderLiveSummary_ShowsSubscriptionUseAndLimited(t *testing.T) {
 	}
 	ok := true
 	ts := []eval.LiveTrial{
-		{TaskID: "t", Arm: "steer", Trial: 1, Completed: true, TaskSuccess: true, Recovered: &ok, PreregisteredModel: true,
-			RateUse: map[string]eval.LiveRateDelta{"five_hour": d(0.02), "seven_day": d(0.004)}},
-		{TaskID: "t", Arm: "steer", Trial: 2, Completed: true, TaskSuccess: true, Recovered: &ok, PreregisteredModel: true,
-			RateUse: map[string]eval.LiveRateDelta{"five_hour": d(0.04)}},
+		{
+			TaskID: "t", Arm: "steer", Trial: 1, Completed: true, TaskSuccess: true, Recovered: &ok, PreregisteredModel: true,
+			RateUse: map[string]eval.LiveRateDelta{"five_hour": d(0.02), "seven_day": d(0.004)},
+		},
+		{
+			TaskID: "t", Arm: "steer", Trial: 2, Completed: true, TaskSuccess: true, Recovered: &ok, PreregisteredModel: true,
+			RateUse: map[string]eval.LiveRateDelta{"five_hour": d(0.04)},
+		},
 	}
 	sum := eval.SummarizeLive("r", a, ts)
 	sum.AddLimited(a, ts, []eval.LiveTrial{{TaskID: "t", Arm: "steer", Trial: 2, Limited: "rejected", Recovered: &ok}})

@@ -47,19 +47,13 @@ func TestLiveHelperProcess(t *testing.T) {
 	case "exit259":
 		os.Exit(259) // the exit code that reads as STILL_ACTIVE
 	case "sleep":
-		deadline := time.Now().Add(2 * time.Minute)
-		for time.Now().Before(deadline) {
-			time.Sleep(100 * time.Millisecond)
-		}
+		<-time.After(2 * time.Minute) // never outlives a failed test by long
 		os.Exit(0)
 	}
 	_ = os.WriteFile(os.Getenv(liveHelperPIDFile), []byte(strconv.Itoa(os.Getpid())), 0o600)
 	fmt.Println(`{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1790116800,` +
 		`"rateLimitType":"five_hour","isUsingOverage":true}}`)
-	deadline := time.Now().Add(2 * time.Minute) // never outlives a failed test by long
-	for time.Now().Before(deadline) {
-		time.Sleep(100 * time.Millisecond)
-	}
+	<-time.After(2 * time.Minute) // never outlives a failed test by long
 	os.Exit(0)
 }
 
@@ -94,13 +88,7 @@ func TestRunLiveProcess_KillEndsTheWholeTree(t *testing.T) {
 	require.NoError(t, err)
 	pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
 	require.NoError(t, err)
-	gone := false
-	for i := 0; i < 50 && !gone; i++ {
-		gone = !liveProcessAlive(pid)
-		if !gone {
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
+	gone := waitGone(pid)
 	require.True(t, gone, "the shim's child (pid %d) outlived the kill", pid)
 }
 
@@ -134,11 +122,13 @@ func TestRunLiveProcess_InterruptEndsTheWholeTree(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
+		tick := time.NewTicker(50 * time.Millisecond)
+		defer tick.Stop()
 		for i := 0; i < 300; i++ {
 			if _, err := os.Stat(pidFile); err == nil {
 				break
 			}
-			time.Sleep(50 * time.Millisecond)
+			<-tick.C
 		}
 		cancel() // what signal.NotifyContext does on a signal
 	}()
@@ -149,13 +139,7 @@ func TestRunLiveProcess_InterruptEndsTheWholeTree(t *testing.T) {
 	require.NoError(t, err)
 	pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
 	require.NoError(t, err)
-	gone := false
-	for i := 0; i < 50 && !gone; i++ {
-		gone = !liveProcessAlive(pid)
-		if !gone {
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
+	gone := waitGone(pid)
 	require.True(t, gone, "the shim's child (pid %d) outlived the interrupt", pid)
 }
 
@@ -180,7 +164,7 @@ func TestLiveTreeCancel_AfterExitIsNotAnError(t *testing.T) {
 	require.NoError(t, err)
 
 	cmd := exec.CommandContext(context.Background(), bin, "-test.run=^$")
-	started, done := liveTreeCancel(cmd)
+	started, done, _ := liveTreeCancel(cmd)
 	require.NoError(t, cmd.Start())
 	started()
 	require.NoError(t, cmd.Wait())
@@ -191,7 +175,7 @@ func TestLiveTreeCancel_AfterExitIsNotAnError(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		cmd := exec.CommandContext(ctx, bin, "-test.run=^$")
-		started, done := liveTreeCancel(cmd)
+		started, done, _ := liveTreeCancel(cmd)
 		out, err := cmd.StdoutPipe()
 		require.NoError(t, err)
 		require.NoError(t, cmd.Start())
@@ -201,4 +185,17 @@ func TestLiveTreeCancel_AfterExitIsNotAnError(t *testing.T) {
 		require.NoError(t, cmd.Wait(), "a cancel racing a clean exit is not an error")
 		done()
 	}
+}
+
+// waitGone polls, on a ticker, for up to five seconds until pid no longer runs.
+func waitGone(pid int) bool {
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for i := 0; i < 50; i++ {
+		if !liveProcessAlive(pid) {
+			return true
+		}
+		<-tick.C
+	}
+	return !liveProcessAlive(pid)
 }

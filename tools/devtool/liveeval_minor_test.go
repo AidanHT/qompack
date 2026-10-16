@@ -265,8 +265,8 @@ func TestLiveCheck_StoredPacingDoesNotSilentlyReplaceFlags(t *testing.T) {
 
 // TestLiveSignals: live-eval and live-check stop on an interrupt and on SIGTERM (re-review N5).
 func TestLiveSignals(t *testing.T) {
-	require.Contains(t, liveSignals, os.Interrupt)
-	require.Contains(t, liveSignals, os.Signal(syscall.SIGTERM))
+	require.Contains(t, liveSignalList(), os.Interrupt)
+	require.Contains(t, liveSignalList(), os.Signal(syscall.SIGTERM))
 }
 
 // TestRunLiveEval_InterruptStopsWithoutScoring: an interrupt during a trial stops the run: the cut
@@ -447,4 +447,74 @@ func TestRunLiveEval_InterruptMessages(t *testing.T) {
 	err = runLiveEval(ctx2, stockRun(t, 2), env2, &log)
 	require.ErrorContains(t, err, "interrupted")
 	require.NotContains(t, err.Error(), "waiting for the rate-limit reset")
+}
+
+// TestRunLiveEval_InterruptDuringGrading: an interrupt that lands while the attempt is graded sets it
+// aside as interrupted, graded but never scored, and the stop says so rather than "not graded"
+// (re-review 4, G6).
+func TestRunLiveEval_InterruptDuringGrading(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	env.run = scriptedPilotHost(t, home)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env.check = func(string, []string) eval.CommandOutcome { cancel(); return eval.CommandOutcome{} }
+	o := stockRun(t, 2)
+	var log bytes.Buffer
+	err := runLiveEval(ctx, o, env, &log)
+	require.ErrorContains(t, err, "interrupted")
+	require.NotContains(t, err.Error(), "not graded")
+	require.ErrorContains(t, err, "graded")
+	var cut eval.LiveTrial
+	readJSON(t, filepath.Join(slotDir(o.out, "stock", 1), "trial.interrupted-1.json"), &cut)
+	require.NotEmpty(t, cut.Checks)
+	require.NoFileExists(t, filepath.Join(slotDir(o.out, "stock", 1), "trial.json"))
+}
+
+// TestLiveCutNote: the stop's note on the cut attempt says what really became of it (re-review 4, G6).
+func TestLiveCutNote(t *testing.T) {
+	require.Contains(t, liveCutNote(false, false), "not graded")
+	require.Contains(t, liveCutNote(false, true), "graded before the interrupt")
+	require.NotContains(t, liveCutNote(false, true), "not graded")
+	require.Contains(t, liveCutNote(true, true), "scored before the interrupt")
+	require.NotContains(t, liveCutNote(true, true), "set aside")
+}
+
+// TestPrePlanVersionReadUnderInterrupt: an interrupt during the version read before anything is
+// planned says interrupted, not that the host version could not be read (re-review 4, G6).
+func TestPrePlanVersionReadUnderInterrupt(t *testing.T) {
+	env, _, _ := pacedEnv(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env.cli = func(context.Context, string, ...string) liveCLIResult { cancel(); return liveCLIResult{Code: -1} }
+	var log bytes.Buffer
+	o := stockRun(t, 1)
+	err := runLiveEval(ctx, o, env, &log)
+	require.ErrorContains(t, err, "interrupted")
+	require.NotContains(t, err.Error(), "could not read")
+	require.NoFileExists(t, filepath.Join(o.out, "plan.json"))
+
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	env.cli = func(context.Context, string, ...string) liveCLIResult { cancel2(); return liveCLIResult{Code: -1} }
+	err = runLiveCheck(ctx2, checkRun(t, "quick"), env, &log)
+	require.ErrorContains(t, err, "interrupted")
+	require.NotContains(t, err.Error(), "could not read")
+}
+
+// TestLiveCheck_InterruptedRunWritesNoRunJSON: a run whose project could not be made, interrupted, is
+// set aside as interrupted rather than written as run.json (re-review 4, G4).
+func TestLiveCheck_InterruptedRunWritesNoRunJSON(t *testing.T) {
+	env, _, _ := pacedEnv(t)
+	env.workRoot = filepath.Join(t.TempDir(), "missing", "dir") // MkdirTemp fails
+	o := checkRun(t, "quick")
+	suite, _, err := eval.LoadLiveCheckSuite(o.suite)
+	require.NoError(t, err)
+	r := &liveCheckRun{o: o, env: env, suite: suite, probes: map[string]string{}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, _, gerr := r.runOnce(ctx, suite.Checks[0], 1)
+	require.NoError(t, gerr)
+	dir := filepath.Join(o.out, "checks", suite.Checks[0].ID, "01")
+	require.NoFileExists(t, filepath.Join(dir, "run.json"))
+	require.FileExists(t, filepath.Join(dir, "run.interrupted-1.json"))
 }

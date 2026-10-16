@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/windows"
@@ -40,7 +41,7 @@ func TestLiveKillTree_FailedTaskkillIsNeverSilent(t *testing.T) {
 	liveTaskkill = func(int) error { return errors.New("taskkill exploded") }
 	t.Cleanup(func() { liveTaskkill = old })
 	cmd := liveHelperCmd(t, "sleep")
-	started, done := liveTreeCancel(cmd)
+	started, done, _ := liveTreeCancel(cmd)
 	require.NoError(t, cmd.Start())
 	started()
 	err := cmd.Cancel()
@@ -58,7 +59,7 @@ func TestLiveKillTree_BeforePinStillWalksTheTree(t *testing.T) {
 	liveTaskkill = func(int) error { calls++; return nil }
 	t.Cleanup(func() { liveTaskkill = old })
 	cmd := liveHelperCmd(t, "sleep")
-	_, done := liveTreeCancel(cmd)
+	_, done, _ := liveTreeCancel(cmd)
 	require.NoError(t, cmd.Start())
 	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait(); done() }) // the fake taskkill killed nothing
 	require.NoError(t, cmd.Cancel())
@@ -73,7 +74,7 @@ func TestLiveKillTree_ExitCode259IsAnExit(t *testing.T) {
 	liveTaskkill = func(int) error { calls++; return nil }
 	t.Cleanup(func() { liveTaskkill = old })
 	cmd := liveHelperCmd(t, "exit259")
-	started, done := liveTreeCancel(cmd)
+	started, done, _ := liveTreeCancel(cmd)
 	require.NoError(t, cmd.Start())
 	started()
 	require.Error(t, cmd.Wait())
@@ -92,7 +93,7 @@ func TestLiveKillTree_NeverRunsTaskkillForAnExitedHost(t *testing.T) {
 	bin, err := os.Executable()
 	require.NoError(t, err)
 	cmd := exec.CommandContext(context.Background(), bin, "-test.run=^$")
-	started, done := liveTreeCancel(cmd)
+	started, done, _ := liveTreeCancel(cmd)
 	require.NoError(t, cmd.Start())
 	started()
 	require.NoError(t, cmd.Wait())
@@ -100,4 +101,93 @@ func TestLiveKillTree_NeverRunsTaskkillForAnExitedHost(t *testing.T) {
 	done()
 	require.ErrorIs(t, cmd.Cancel(), os.ErrProcessDone)
 	require.Zero(t, calls)
+}
+
+// helperSpec is a runLiveProcess spec for the helper process started directly: it prints an overage
+// event, so the driver stops it, and then keeps running until it is killed.
+func helperSpec(t *testing.T) liveProcSpec {
+	t.Helper()
+	bin, err := os.Executable()
+	require.NoError(t, err)
+	dir := t.TempDir()
+	return liveProcSpec{
+		Bin: bin, Args: []string{"-test.run=^TestLiveHelperProcess$"}, Dir: dir, Messages: []string{"hello"},
+		StepTimeout: time.Minute, SessionTimeout: 2 * time.Minute, StopOn: liveOverageStop,
+		Env: []string{liveHelperEnv + "=1", liveHelperPIDFile + "=" + filepath.Join(dir, "helper.pid")},
+	}
+}
+
+// fakeTaskkill replaces liveTaskkill for one test.
+func fakeTaskkill(t *testing.T, f func(pid int) error) {
+	t.Helper()
+	old := liveTaskkill
+	liveTaskkill = f
+	t.Cleanup(func() { liveTaskkill = old })
+}
+
+// TestRunLiveProcess_FailedWalkReachesTheRecord: a tree walk that fails outright is reported in the
+// session's own error, through Cancel, Wait and the driver's stop message, which it joins rather
+// than replaces: exec's Wait drops Cancel's error once the killed child exits non-zero (re-review 4,
+// F2 path 1).
+func TestRunLiveProcess_FailedWalkReachesTheRecord(t *testing.T) {
+	fakeTaskkill(t, func(int) error { return errors.New("taskkill exploded") })
+	res := runLiveProcess(context.Background(), helperSpec(t))
+	require.Contains(t, res.Err, "stopped by the driver")
+	require.Contains(t, res.Err, "only the direct child was killed")
+	require.Contains(t, res.Err, "taskkill exploded")
+}
+
+// TestRunLiveProcess_PartialWalkIsNotAnExit: taskkill that ends the root but fails on a descendant
+// exits 255; the root being gone afterwards does not make that "already finished", and the walk's
+// failure is reported (re-review 4, F2 path 2). Only taskkill's not-found exit (128) after the root
+// exited reads as an exit.
+func TestRunLiveProcess_PartialWalkIsNotAnExit(t *testing.T) {
+	killRoot := func(pid int) {
+		p, err := os.FindProcess(pid) // the helper this test started
+		require.NoError(t, err)
+		_ = p.Kill()
+		_ = p.Release()
+	}
+	fakeTaskkill(t, func(pid int) error {
+		killRoot(pid)
+		return &liveTaskkillError{Code: 255, Output: "ERROR: The process with PID 1 (child process of PID 2) could not be terminated."}
+	})
+	res := runLiveProcess(context.Background(), helperSpec(t))
+	require.Contains(t, res.Err, "exit 255")
+	require.Contains(t, res.Err, "could not be terminated")
+
+	fakeTaskkill(t, func(pid int) error {
+		killRoot(pid)
+		return &liveTaskkillError{Code: liveTaskkillNotFound, Output: `ERROR: The process "1" not found.`}
+	})
+	res = runLiveProcess(context.Background(), helperSpec(t))
+	require.Contains(t, res.Err, "stopped by the driver")
+	require.NotContains(t, res.Err, "not found", "the root had exited: nothing to report")
+	require.NotContains(t, res.Err, "could not be ended")
+}
+
+// TestLiveRunPinned_FailedWalkIsReturned: claude, check and git commands report a failed walk too.
+func TestLiveRunPinned_FailedWalkIsReturned(t *testing.T) {
+	fakeTaskkill(t, func(int) error { return errors.New("taskkill exploded") })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestLiveHelperProcess$")
+	cmd.Env = append(os.Environ(), liveHelperEnv+"=1", liveHelperModeEnv+"=sleep")
+	go func() {
+		tick := time.NewTimer(500 * time.Millisecond)
+		defer tick.Stop()
+		<-tick.C
+		cancel()
+	}()
+	err := liveRunPinned(cmd)
+	require.ErrorContains(t, err, "taskkill exploded")
+}
+
+// TestLiveTaskkill_NotFoundExit pins what the not-found reading rests on: taskkill exits 128 for a
+// pid no process has (established on this machine; see the report's fix round 5).
+func TestLiveTaskkill_NotFoundExit(t *testing.T) {
+	err := liveTaskkill(2147483647) // an odd pid: Windows gives out multiples of four
+	var tk *liveTaskkillError
+	require.ErrorAs(t, err, &tk)
+	require.Equal(t, liveTaskkillNotFound, tk.Code, tk.Output)
 }
