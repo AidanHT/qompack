@@ -182,8 +182,10 @@ func TestLivePlanDepartures_StageAEntry(t *testing.T) {
 		mutate func(*eval.LivePlan)
 		want   string
 	}{
-		"three arms": {func(p *eval.LivePlan) { p.Arms = []string{"stock", "classic", "steer"} },
-			"did not run every arm of the design (stock, classic, generic, steer; arms: stock, classic, steer, missing generic)"},
+		"three arms": {
+			func(p *eval.LivePlan) { p.Arms = []string{"stock", "classic", "steer"} },
+			"did not run every arm of the design (stock, classic, generic, steer; arms: stock, classic, steer, missing generic)",
+		},
 		"steer trials":   {func(p *eval.LivePlan) { p.ArmTrials["steer"] = 3 }, "ran 3 trials per task on the steer arm, not the pre-registered 2"},
 		"no mods bundle": {func(p *eval.LivePlan) { p.PluginMods = nil }, "names no --bundle-mods"},
 		"no bundle":      {func(p *eval.LivePlan) { p.Plugin = nil }, "names no --bundle,"},
