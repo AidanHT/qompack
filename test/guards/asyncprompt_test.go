@@ -54,6 +54,10 @@ type grammarWrite struct {
 	value string // the assigned expression, as types.ExprString spells it
 }
 
+// unknownCarrier is a grammarWrite's typ for a keyed Grammar element in a literal whose elided
+// element type the scan cannot infer. No allowed write has it, so such a write always fails.
+const unknownCarrier = "(elided type)"
+
 func (w grammarWrite) String() string {
 	if w.typ == "" {
 		return w.file + ": assignment .Grammar = " + w.value
@@ -128,13 +132,17 @@ func TestGuard_NoPromptReplyProducerWhileAsyncPromptExists(t *testing.T) {
 }
 
 // TestGuard_GrammarWiringScannerSeesEveryShape is the scan's own self-test: a carrier declared in
-// the file, keyed literals of a local and of an imported carrier (also behind &), an assignment, a
-// loop-warning read, and the shapes it must ignore — a non-carrier's Grammar key, and a read of a
-// Grammar field.
+// the file, keyed literals of a local and of an imported carrier (also behind &, and through an
+// aliased import), literals whose element type is elided (inferred from the enclosing slice or
+// map, else recorded as unknown), an assignment, a loop-warning read, and the shapes it must
+// ignore — a non-carrier's Grammar key, elided or not, and a read of a Grammar field.
 func TestGuard_GrammarWiringScannerSeesEveryShape(t *testing.T) {
 	const src = `package daemon
 
-import "github.com/qompack/qompack/internal/grammar"
+import (
+	"github.com/qompack/qompack/internal/grammar"
+	obsv "github.com/qompack/qompack/internal/observer"
+)
 
 type Options struct {
 	Grammar grammar.Sequitur
@@ -142,10 +150,18 @@ type Options struct {
 
 type Layout struct{ Grammar string }
 
+type Many []Options
+
 func wire(g grammar.Sequitur, cfg C) {
 	_ = Options{Grammar: g}
 	_ = &observer.Options{Grammar: grammar.New()}
+	_ = obsv.Options{Grammar: g}
+	_ = []observer.Options{{Grammar: grammar.New()}}
+	_ = map[string]*Options{"a": {Grammar: g}}
+	_ = [][]obsv.Options{{{Grammar: g}}}
+	_ = Many{{Grammar: g}}
 	_ = Layout{Grammar: "grammar"}
+	_ = []Layout{{Grammar: "grammar"}}
 	var o Options
 	o.Grammar = g
 	_ = o.Grammar
@@ -166,6 +182,11 @@ func wire(g grammar.Sequitur, cfg C) {
 	require.Equal(t, []grammarWrite{
 		{file: "sample.go", typ: "daemon.Options", value: "g"},
 		{file: "sample.go", typ: "observer.Options", value: "grammar.New()"},
+		{file: "sample.go", typ: "observer.Options", value: "g"},
+		{file: "sample.go", typ: "observer.Options", value: "grammar.New()"},
+		{file: "sample.go", typ: "daemon.Options", value: "g"},
+		{file: "sample.go", typ: "observer.Options", value: "g"},
+		{file: "sample.go", typ: unknownCarrier, value: "g"},
 		{file: "sample.go", value: "g"},
 	}, writes)
 	require.Equal(t, []string{"sample.go"}, reads)
