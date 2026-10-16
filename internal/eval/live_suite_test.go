@@ -72,6 +72,8 @@ func TestParseLiveCheckSuite_Rejects(t *testing.T) {
 			check(m, 1)["pass"] = []any{map[string]any{"kind": "stream_lines", "line": "x"}}
 		},
 	}
+	_, err = eval.ParseLiveCheckSuite(mutate(func(map[string]any) {}))
+	require.NoError(t, err, "the unmutated suite parses, so each case fails for its own reason")
 	for name, f := range cases {
 		_, err := eval.ParseLiveCheckSuite(mutate(f))
 		require.Error(t, err, name)
