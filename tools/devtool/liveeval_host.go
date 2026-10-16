@@ -79,6 +79,8 @@ type liveEnv struct {
 	stopDaemon func(project, spoolDir string) (string, error)
 	check      func(dir string, argv []string) eval.CommandOutcome
 	git        func(ctx context.Context, dir string, args ...string) error
+	// sleep is how the pacing waits for a rate-limit reset (W6 item 8).
+	sleep func(ctx context.Context, d time.Duration) error
 }
 
 func newLiveEnv(o liveOptions) (*liveEnv, error) {
@@ -102,6 +104,7 @@ func newLiveEnv(o liveOptions) (*liveEnv, error) {
 	e.stopDaemon = stopTrialDaemon
 	e.check = runLiveCheckCommand
 	e.git = runLiveGit
+	e.sleep = sleepContext
 	return e, nil
 }
 

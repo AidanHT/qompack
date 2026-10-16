@@ -127,6 +127,10 @@ type liveOptions struct {
 	// confirmatory refuses to plan a run that departs, at plan time, from its task set's
 	// pre-registered confirmatory design (eval.LivePlanDepartures).
 	confirmatory bool
+	// The pacing (W6 item 8): the five-hour gate, the seven-day ceiling and the night window.
+	fiveHourGate    float64
+	sevenDayCeiling float64
+	night           liveNightWindow
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -174,8 +178,29 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 	defects := fs.String("known-open-defects", "",
 		"the operator's statement of which known defects the bundle still carries: none, or their checklist IDs "+
 			"comma-separated (required with any Qompack arm, and covering both bundles; preregistration section 9)")
+	fs.Float64Var(&o.fiveHourGate, "five-hour-gate", eval.LiveFiveHourGate,
+		"no trial starts while the five-hour window's utilization is at or above this; the run waits for its reset")
+	fs.Float64Var(&o.sevenDayCeiling, "seven-day-ceiling", eval.LiveSevenDayCeiling,
+		"the run pauses while the seven-day window's utilization is at or above this (the owner keeps the rest)")
+	night := fs.String("night-window", "", "HH:MM-HH:MM, local time: trials start only inside it, and the run pauses "+
+		"cleanly outside it (default: no window)")
 	if err := fs.Parse(args); err != nil {
 		return o, err
+	}
+	if *night != "" {
+		n, err := parseNightWindow(*night)
+		if err != nil {
+			return o, err
+		}
+		o.night = n
+	}
+	for _, v := range []struct {
+		name string
+		val  float64
+	}{{"--five-hour-gate", o.fiveHourGate}, {"--seven-day-ceiling", o.sevenDayCeiling}} {
+		if v.val <= 0 || v.val > 1 {
+			return o, fmt.Errorf("live-eval: %s %g is not a utilization in (0, 1]", v.name, v.val)
+		}
 	}
 	if fs.NArg() > 0 {
 		return o, fmt.Errorf("live-eval: unexpected argument %q", fs.Arg(0))
@@ -291,11 +316,9 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if err != nil {
 		return err
 	}
-	states := make(map[string]eval.LiveArmState, len(o.arms))
 	stateList := make([]eval.LiveArmState, 0, len(o.arms))
 	for _, a := range o.arms {
 		s, _ := eval.LiveArmSpec(a)
-		states[a] = s
 		stateList = append(stateList, s)
 	}
 	if contains(o.arms, eval.ArmGeneric) && strings.TrimSpace(ts.Analysis.GenericCompactInstructions) == "" {
@@ -400,71 +423,190 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		return err
 	}
 
+	return executeLivePlan(ctx, o, env, w, plan, ts, rates, tasks)
+}
+
+// liveSlotDir is a planned trial's slot directory.
+func liveSlotDir(out string, p eval.LivePlannedTrial) string {
+	return filepath.Join(out, "trials", p.Task, p.Arm, fmt.Sprintf("%02d", p.Trial))
+}
+
+// executeLivePlan runs every slot of plan that does not yet hold a scored trial, one at a time, then
+// summarizes every scored trial the run directory holds: a fresh run and a resumed one (W6 item 13)
+// reach their verdict the same way, over the union of all sessions' trials, read in plan order.
+//
+// A slot runs until it holds a scored trial: an attempt whose configuration contradicted its arm is
+// set aside in the slot (trial.discarded-<n>.json) and the slot runs again, until this session's
+// third such error stops the run; an attempt a subscription limit cut short is set aside as
+// trial.limited-<n>.json and the slot runs again once the pacing allows (W6 item 8). Before every
+// attempt the host version is checked against the pin and the pacing decides: start, wait for a
+// five-hour reset, pause cleanly (a clean exit that --resume continues, not a stop), or stop on paid
+// overage.
+func executeLivePlan(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer, plan eval.LivePlan,
+	ts eval.LiveTaskSet, rates eval.LiveRateTable, tasks []eval.LiveTask,
+) error {
 	byID := map[string]eval.LiveTask{}
 	for _, t := range tasks {
 		byID[t.ID] = t
 	}
-	var trials []eval.LiveTrial
+	states := map[string]eval.LiveArmState{}
+	for _, s := range plan.ArmStates {
+		states[s.Arm] = s
+	}
+	pacer, err := newLivePacer(o, o.out)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "live-eval: pacing: five-hour gate %.2f, seven-day ceiling %.2f, night window %s\n",
+		pacer.pacing.FiveHourGate, pacer.pacing.SevenDayCeiling, pacer.night)
 	var abort error
+	paused := ""
 	configErrors := 0
+	stop := func(err error) {
+		abort = err
+		fmt.Fprintf(w, "live-eval: STOPPING: %v\n", err)
+	}
 slots:
 	for _, p := range plan.Trials {
-		// A slot runs until it holds a scored trial: an attempt whose configuration contradicted its
-		// arm is set aside in the slot and the slot runs again, until the run's third such error.
+		slot := liveSlotDir(o.out, p)
+		if _, err := os.Stat(filepath.Join(slot, liveScoredRecord)); err == nil {
+			continue // scored in an earlier session of this run
+		}
 		for {
 			if v := env.cliVersion(ctx); v != plan.ClaudeCLIVersion {
-				abort = fmt.Errorf("live-eval: the host reports Claude Code %s, not the pinned %s, before %s/%s/%d; "+
-					"no trial starts on another host version", v, plan.ClaudeCLIVersion, p.Task, p.Arm, p.Trial)
-				fmt.Fprintf(w, "live-eval: STOPPING: %v\n", abort)
+				stop(fmt.Errorf("live-eval: the host reports Claude Code %s, not the pinned %s, before %s/%s/%d; "+
+					"no trial starts on another host version", v, plan.ClaudeCLIVersion, p.Task, p.Arm, p.Trial))
+				break slots
+			}
+			why, paceErr := pacer.before(ctx, env, w)
+			if paceErr != nil {
+				stop(paceErr)
+				break slots
+			}
+			if why != "" {
+				paused = why
 				break slots
 			}
 			lt := liveTrialRun{
 				opts: o, env: env, set: ts, task: byID[p.Task], arm: p.Arm, state: states[p.Arm], trial: p.Trial,
-				runID: runID, rates: rates, plan: &plan,
+				runID: plan.RunID, rates: rates, plan: &plan, rateBefore: pacer.snap,
 			}
 			rec, guardErr := lt.run(ctx)
-			if rec.ConfigurationError != "" {
+			if err := pacer.observe(env, rec.RateLimits); err != nil && guardErr == nil {
+				guardErr = err
+			}
+			switch {
+			case rec.ConfigurationError != "":
 				configErrors++
 				fmt.Fprintf(w, "live-eval: %s/%s/%d: configuration error %d of the run: %s; set aside, the slot runs again\n",
 					p.Task, p.Arm, p.Trial, configErrors, rec.ConfigurationError)
-			} else {
-				trials = append(trials, rec)
+			case rec.Limited != "":
+				fmt.Fprintf(w, "live-eval: %s/%s/%d: limited: %s; set aside, the slot runs again from a fresh fixture\n",
+					p.Task, p.Arm, p.Trial, rec.Limited)
+			default:
 				fmt.Fprintf(w, "live-eval: %s/%s/%d: completed=%t task_success=%t violations=%d harness_error=%q\n",
 					p.Task, p.Arm, p.Trial, rec.Completed, rec.TaskSuccess, rec.ConstraintViolations, rec.HarnessError)
 			}
 			if guardErr != nil {
-				abort = guardErr
-				fmt.Fprintf(w, "live-eval: STOPPING: %v\n", guardErr)
+				stop(guardErr)
 				break slots
 			}
-			if rec.ConfigurationError == "" {
+			if over := liveOverage(rec.RateLimits); over != "" {
+				stop(fmt.Errorf("live-eval: after %s/%s/%d: %s", p.Task, p.Arm, p.Trial, over))
+				break slots
+			}
+			if rec.ConfigurationError == "" && rec.Limited == "" {
 				break
 			}
 			if configErrors >= liveConfigErrorLimit {
-				abort = fmt.Errorf("live-eval: three configuration errors in this run, the last on %s/%s/%d (%s); "+
-					"stopping for investigation", p.Task, p.Arm, p.Trial, rec.ConfigurationError)
-				fmt.Fprintf(w, "live-eval: STOPPING: %v\n", abort)
+				stop(fmt.Errorf("live-eval: three configuration errors in this run, the last on %s/%s/%d (%s); "+
+					"stopping for investigation", p.Task, p.Arm, p.Trial, rec.ConfigurationError))
+				break slots
+			}
+			if rec.Limited != "" && eval.PaceLive(pacer.snap, env.now(), pacer.pacing).Action == eval.PaceGo {
+				// Nothing says when the limit lifts: running the slot again now would meet it again.
+				paused = "a limit cut " + fmt.Sprintf("%s/%s/%d", p.Task, p.Arm, p.Trial) + " short (" + rec.Limited +
+					") and no event says when it lifts"
 				break slots
 			}
 		}
 	}
+	return summarizeLiveRun(o, w, plan, ts, abort, paused)
+}
 
-	sum := eval.SummarizeLive(runID, ts.Analysis, trials)
-	if configErrors > 0 {
-		sum.Notes = append(sum.Notes, fmt.Sprintf("%d configuration-discarded attempt(s) were set aside in their slots "+
-			"as trial.discarded-<n>.json and the slots run again: harness errors, never scored", configErrors))
+// summarizeLiveRun writes summary.json and summary.md over every scored trial in the run directory
+// and returns abort: a stop is an error, a pause a clean exit.
+func summarizeLiveRun(o liveOptions, w io.Writer, plan eval.LivePlan, ts eval.LiveTaskSet, abort error, paused string) error {
+	recs, err := collectLiveRecords(o.out, plan)
+	if err != nil {
+		return errors.Join(abort, err)
 	}
-	if abort != nil {
-		sum.StopEarly(len(trials), len(plan.Trials), abort.Error())
+	sum := eval.SummarizeLive(plan.RunID, ts.Analysis, recs.scored)
+	sum.AddLimited(ts.Analysis, recs.scored, recs.limited)
+	if recs.discarded > 0 {
+		sum.Notes = append(sum.Notes, fmt.Sprintf("%d configuration-discarded attempt(s) were set aside in their slots "+
+			"as trial.discarded-<n>.json and the slots run again: harness errors, never scored", recs.discarded))
+	}
+	switch {
+	case abort != nil:
+		sum.StopEarly(len(recs.scored), len(plan.Trials), abort.Error())
+	case paused != "":
+		sum.Pause(len(recs.scored), len(plan.Trials), paused)
 	}
 	if err := writeJSONFile(filepath.Join(o.out, "summary.json"), sum); err != nil {
-		return err
+		return errors.Join(abort, err)
 	}
 	if err := writeFileAtomic(filepath.Join(o.out, "summary.md"), []byte(renderLiveSummary(plan, sum))); err != nil {
-		return fmt.Errorf("live-eval: writing summary.md: %w", err)
+		return errors.Join(abort, fmt.Errorf("live-eval: writing summary.md: %w", err))
+	}
+	if paused != "" && abort == nil {
+		fmt.Fprintf(w, "live-eval: PAUSED: %s. %d of %d planned trial(s) are scored; continue with "+
+			"`devtool live-eval --resume %s`\n", paused, len(recs.scored), len(plan.Trials), o.out)
 	}
 	fmt.Fprintf(w, "live-eval: decision %s — %s\nlive-eval: records under %s\n", sum.Decision.Verdict, sum.Decision.Reason, o.out)
 	return abort
+}
+
+// liveRecords is what a run directory's slots hold.
+type liveRecords struct {
+	scored, limited []eval.LiveTrial
+	discarded       int
+}
+
+// collectLiveRecords reads every planned slot's records, in plan order: its scored trial.json, its
+// limited records and the count of its configuration-discarded ones. A record that cannot be read
+// fails the summary closed rather than leaving a trial out of it.
+func collectLiveRecords(out string, plan eval.LivePlan) (liveRecords, error) {
+	var r liveRecords
+	for _, p := range plan.Trials {
+		slot := liveSlotDir(out, p)
+		var rec eval.LiveTrial
+		switch raw, err := os.ReadFile(filepath.Join(slot, liveScoredRecord)); {
+		case err == nil:
+			if err := json.Unmarshal(raw, &rec); err != nil {
+				return r, fmt.Errorf("live-eval: parsing %s: %w", filepath.Join(slot, liveScoredRecord), err)
+			}
+			r.scored = append(r.scored, rec)
+		case !errors.Is(err, os.ErrNotExist):
+			return r, fmt.Errorf("live-eval: reading %s: %w", filepath.Join(slot, liveScoredRecord), err)
+		}
+		limited, _ := filepath.Glob(filepath.Join(slot, "trial."+liveSlotLimited+"-*.json"))
+		sort.Strings(limited)
+		for _, f := range limited {
+			raw, err := os.ReadFile(f)
+			if err != nil {
+				return r, fmt.Errorf("live-eval: reading %s: %w", f, err)
+			}
+			var lim eval.LiveTrial
+			if err := json.Unmarshal(raw, &lim); err != nil {
+				return r, fmt.Errorf("live-eval: parsing %s: %w", f, err)
+			}
+			r.limited = append(r.limited, lim)
+		}
+		discarded, _ := filepath.Glob(filepath.Join(slot, "trial."+liveSlotDiscarded+"-*.json"))
+		r.discarded += len(discarded)
+	}
+	return r, nil
 }
 
 // liveArmCounts is each selected arm's trials per task: --trials for every arm when given, else the
@@ -664,6 +806,9 @@ type liveTrialRun struct {
 	rates eval.LiveRateTable
 	// plan is the run's plan: the pinned host version and each arm's bundle identity.
 	plan *eval.LivePlan
+	// rateBefore is the rate-limit snapshot of every event before this attempt: the base of its
+	// utilization deltas (W6 item 8).
+	rateBefore eval.LiveRateSnapshot
 }
 
 // plugin is the bundle identity the trial's arm loads; nil for stock.
@@ -701,13 +846,19 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 	}
 	defer func() {
 		rec.ApplyHarnessFailure(task)
-		if rec.ConfigurationError == "" {
+		// A configuration error outranks a limit: the attempt was not the arm's, whatever cut it short.
+		kind := ""
+		switch {
+		case rec.ConfigurationError != "":
+			kind = liveSlotDiscarded
+		case rec.Limited != "":
+			kind = liveSlotLimited
+		default:
 			_ = writeJSONFile(filepath.Join(trialDir, liveScoredRecord), rec)
 			return
 		}
-		if _, err := liveSetAside(trialDir, liveSlotDiscarded, rec); err != nil && guardErr == nil {
-			guardErr = fmt.Errorf("live-eval: setting the configuration-discarded attempt of %s/%s/%d aside: %w",
-				task.ID, lt.arm, lt.trial, err)
+		if _, err := liveSetAside(trialDir, kind, rec); err != nil && guardErr == nil {
+			guardErr = fmt.Errorf("live-eval: setting the %s attempt of %s/%s/%d aside: %w", kind, task.ID, lt.arm, lt.trial, err)
 		}
 	}()
 
@@ -842,6 +993,11 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 	if err != nil {
 		rec.HarnessError = joinErr(rec.HarnessError, "parsing the stream: "+err.Error())
 	}
+	rec.RateLimits = stream.RateLimits
+	if use := eval.LiveRateUse(lt.rateBefore, stream.RateLimits); len(use) > 0 {
+		rec.RateUse = use
+	}
+	rec.Limited = eval.LiveUsageLimited(stream)
 	rec.HostReportedPlugins = stream.Init != nil
 	if stream.Init != nil {
 		rec.SessionID = stream.Init.SessionID

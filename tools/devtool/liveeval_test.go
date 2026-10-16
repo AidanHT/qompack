@@ -660,8 +660,8 @@ func fakeLiveEnv(t *testing.T, cliCalls *[]string) *liveEnv {
 			t.Fatal("no pacing wait may happen in this test")
 			return nil
 		},
-		check:      runLiveCheckCommand,
-		git:        runLiveGit,
+		check: runLiveCheckCommand,
+		git:   runLiveGit,
 	}
 }
 
