@@ -139,6 +139,14 @@ type CommandDoc struct {
 	ArgumentHint string
 	Subcommand   string
 	AllowedTools string
+	// UserOnly renders `disable-model-invocation: true` (V7 F11, ruling R45): the host leaves the
+	// command out of the model's skill listing, and the user still runs it as /qompack:<name>. The
+	// 2.1.300 plugin-command loader reads the key (`ytn(D["disable-model-invocation"])`) and its
+	// listing predicate requires `!e.disableModelInvocation`; the host docs say the same for
+	// skills (context-window, "Skill descriptions"). Set it on a command written only for the
+	// user. Leave it off a command that model-visible text tells the model to run, as a checkpoint
+	// drop reason does for pin; test/guards' model-visible command guard holds that.
+	UserOnly bool
 }
 
 // hookSpec is the internal description of one hooks.json entry.
@@ -210,12 +218,14 @@ var commandSpecs = []CommandDoc{
 		Description:  "Qompack status — mode, contracts, store, latency",
 		ArgumentHint: "[--json]",
 		Subcommand:   "status",
+		UserOnly:     true,
 	},
 	{
 		Name:         "recall",
 		Description:  "Search stored tool output and file versions",
 		ArgumentHint: "<query> [--k N]",
 		Subcommand:   "recall",
+		UserOnly:     true,
 	},
 	{
 		Name:         "pin",
@@ -228,18 +238,21 @@ var commandSpecs = []CommandDoc{
 		Description:  "Explain a recorded decision and its evidence",
 		ArgumentHint: "<decision-id>",
 		Subcommand:   "why",
+		UserOnly:     true,
 	},
 	{
 		Name:         "dropped",
 		Description:  "Show what the last compaction dropped and how to restore it",
 		ArgumentHint: "[--json]",
 		Subcommand:   "dropped",
+		UserOnly:     true,
 	},
 	{
 		Name:         "eval",
 		Description:  "Show the latest replay and live eval results",
 		ArgumentHint: "[--corpus <path>]",
 		Subcommand:   "eval",
+		UserOnly:     true,
 	},
 }
 
@@ -378,6 +391,9 @@ func renderCommand(c CommandDoc) []byte {
 	fmt.Fprintf(&b, "description: %s\n", c.Description)
 	fmt.Fprintf(&b, "argument-hint: %q\n", c.ArgumentHint)
 	fmt.Fprintf(&b, "allowed-tools: %s\n", c.AllowedTools)
+	if c.UserOnly {
+		b.WriteString("disable-model-invocation: true\n")
+	}
 	b.WriteString("---\n\n")
 	b.WriteString("Run the Qompack " + c.Subcommand + " command and report its output verbatim to the user.\n\n")
 	fmt.Fprintf(&b, "!`qompack %s $ARGUMENTS`\n", c.Subcommand)
