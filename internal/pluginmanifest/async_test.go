@@ -19,6 +19,10 @@ var wantAsyncEvents = map[string]bool{"PostToolUse": true, "Stop": true, "Subage
 
 const hooksJSONPath = "plugin/hooks/hooks.json"
 
+// asyncMember is the exact bytes the option adds to one hook entry: a member after timeout, at the
+// entry's 12-space indent.
+const asyncMember = ",\n            \"async\": true"
+
 // decodeHookEntries returns event -> the raw keys of its single hook entry.
 func decodeHookEntries(t *testing.T, raw []byte) map[string]map[string]json.RawMessage {
 	t.Helper()
@@ -86,8 +90,8 @@ func TestWithAsyncHooks_MarksExactlyTheACKOnlyCaptureHooks(t *testing.T) {
 
 		// Removing exactly the three `,\n "async": true` members must give the default bytes, so
 		// the key sits after timeout and nothing else in the file moved.
-		stripped := bytes.ReplaceAll(on[hooksJSONPath], []byte(",\n          \"async\": true"), nil)
-		require.Equal(t, 3, (len(on[hooksJSONPath])-len(stripped))/len(",\n          \"async\": true"), goos)
+		require.Equal(t, 3, bytes.Count(on[hooksJSONPath], []byte(asyncMember)), goos)
+		stripped := bytes.ReplaceAll(on[hooksJSONPath], []byte(asyncMember), nil)
 		require.Equal(t, string(def[hooksJSONPath]), string(stripped), goos)
 	}
 }
