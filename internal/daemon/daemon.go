@@ -505,6 +505,7 @@ func defaultRoutes(d *daemon) map[ipc.Op]ipc.Handler {
 		ipc.OpFlush:         d.handleFlush,
 		ipc.OpStatus:        d.handleStatus,
 		ipc.OpMCP:           d.handleMCP,
+		ipc.OpMod:           d.handleMod,
 		ipc.OpAdminPing:     d.handleAdminPing,
 		ipc.OpAdminDrain:    d.handleAdminDrain,
 		ipc.OpAdminReload:   d.handleAdminReload,
