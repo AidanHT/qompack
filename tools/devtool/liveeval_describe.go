@@ -54,6 +54,8 @@ func (d liveDescription) render() string {
 		fmt.Fprintf(&b, "- Pre-registered confirmatory design: not met (%s).\n", strings.Join(d.departures, "; "))
 	}
 
+	renderLiveDescribeDecisions(&b, ts.Analysis)
+
 	pace := o.livePacing()
 	b.WriteString("\n## Pacing\n\n")
 	fmt.Fprintf(&b, "- Five-hour gate %.2f: no trial starts while the newest `rate_limit_event` puts the five-hour window "+
@@ -144,6 +146,41 @@ func (d liveDescription) render() string {
 		}
 	}
 	return b.String()
+}
+
+// renderLiveDescribeDecisions writes the pre-registered decision rules a four-arm set carries (W6
+// item 2, amendment 4): the interval, S's margin, the sizing's Δs and ICC_int, and the efficiency
+// block. A set without them gets nothing.
+func renderLiveDescribeDecisions(b *strings.Builder, a eval.LiveAnalysis) {
+	if a.Efficiency == nil {
+		return
+	}
+	b.WriteString("\n## Pre-registered decisions\n\n")
+	fmt.Fprintf(b, "- Every interval is the paired task bootstrap's %.0f %% two-sided percentile interval: B = %d resamples, "+
+		"seed %d, tasks resampled jointly across arms.\n", 100*a.Confidence, eval.LiveBootstrapB, eval.LiveBootstrapSeed)
+	b.WriteString("- Fixed sequence: H1 steer > classic on recovery, then H2 steer > generic, then H3 (below); S: steer " +
+		"non-inferior to classic on task success, ")
+	if a.SFallback {
+		fmt.Fprintf(b, "the 20th percentile above -%.2f (the pre-registered fallback).\n", a.NonInferiorityMargin)
+	} else {
+		fmt.Fprintf(b, "the lower bound above -%.2f.\n", a.NonInferiorityMargin)
+	}
+	fmt.Fprintf(b, "- Sizing: Δ_H1 %.2f, Δ_H2 %.2f, ICC_int %.2f.\n", a.DeltaH1, a.DeltaH2, a.ICCInt)
+	e := a.Efficiency
+	fmt.Fprintf(b, "- Efficiency (amendment 4): margin %.2f on %s; cost C is the host's list-price estimate with "+
+		"missing costs imputed adversely, active time T caps a step with no result at %d ms.\n", e.Margin,
+		strings.Join(e.Metrics, " and "), e.StepTimeoutMS)
+	for _, g := range e.Guards {
+		kind := "a label for the docs, not gating"
+		if g.Gated {
+			kind = "gated: harm shown, or indeterminate, blocks shipping"
+		}
+		fmt.Fprintf(b, "  - %s vs %s: harm shown when the ratio's lower bound exceeds %.2f (%s).\n", g.Treated, g.Comparator,
+			1+e.Margin, kind)
+	}
+	fmt.Fprintf(b, "- H3, steering's cost non-inferior to classic's (upper bound below %.2f): %s. Pilot brief redesign "+
+		"ratio %.2f.\n", 1+e.Margin, map[bool]string{true: "a ship condition", false: "a claim, not a ship condition"}[e.H3ShipCondition],
+		e.PilotRedesignRatio)
 }
 
 // describeLiveCheck says in plain words what a check looks for.

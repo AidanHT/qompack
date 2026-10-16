@@ -16,6 +16,16 @@ Written by `devtool live-eval --describe` from the files and settings a run with
 - Known open defects in the bundles: none (the operator's statement, not machine-checked).
 - Pre-registered confirmatory design: not met (its task set qompack-live-v7-harness-test has no pre-registration; it excluded the held-out tasks).
 
+## Pre-registered decisions
+
+- Every interval is the paired task bootstrap's 95 % two-sided percentile interval: B = 10000 resamples, seed 20261016, tasks resampled jointly across arms.
+- Fixed sequence: H1 steer > classic on recovery, then H2 steer > generic, then H3 (below); S: steer non-inferior to classic on task success, the lower bound above -0.10.
+- Sizing: Δ_H1 0.25, Δ_H2 0.15, ICC_int 0.10.
+- Efficiency (amendment 4): margin 0.10 on cost and active_time; cost C is the host's list-price estimate with missing costs imputed adversely, active time T caps a step with no result at 600000 ms.
+  - steer vs classic: harm shown when the ratio's lower bound exceeds 1.10 (gated: harm shown, or indeterminate, blocks shipping).
+  - classic vs stock: harm shown when the ratio's lower bound exceeds 1.10 (a label for the docs, not gating).
+- H3, steering's cost non-inferior to classic's (upper bound below 1.10): a claim, not a ship condition. Pilot brief redesign ratio 1.25.
+
 ## Pacing
 
 - Five-hour gate 0.90: no trial starts while the newest `rate_limit_event` puts the five-hour window at or above it, or rejected; the run waits for its reset (plus 1m0s) when that falls inside the night window, and pauses otherwise.
