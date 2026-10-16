@@ -514,7 +514,12 @@ func executeLivePlan(ctx context.Context, o liveOptions, env *liveEnv, w io.Writ
 		pacer.pacing.FiveHourGate, pacer.pacing.SevenDayCeiling, pacer.night)
 	var abort error
 	paused := ""
-	configErrors := 0
+	// R27's three configuration errors are counted over the whole run, every session of it, since the
+	// last configuration stop: resuming after such a stop is the operator's "investigated" (review I4).
+	configBase, configErrors, err := liveConfigErrorCount(o.out, plan)
+	if err != nil {
+		return err
+	}
 	stop := func(err error) {
 		abort = err
 		fmt.Fprintf(w, "live-eval: STOPPING: %v\n", err)
@@ -551,7 +556,8 @@ slots:
 			switch {
 			case rec.ConfigurationError != "":
 				configErrors++
-				fmt.Fprintf(w, "live-eval: %s/%s/%d: configuration error %d of the run: %s; set aside, the slot runs again\n",
+				fmt.Fprintf(w, "live-eval: %s/%s/%d: configuration error %d of the run since its last configuration stop: %s; "+
+					"set aside, the slot runs again\n",
 					p.Task, p.Arm, p.Trial, configErrors, rec.ConfigurationError)
 			case rec.Limited != "":
 				fmt.Fprintf(w, "live-eval: %s/%s/%d: limited: %s; set aside, the slot runs again from a fresh fixture\n",
@@ -580,8 +586,13 @@ slots:
 				break
 			}
 			if configErrors >= liveConfigErrorLimit {
-				stop(fmt.Errorf("live-eval: three configuration errors in this run, the last on %s/%s/%d (%s); "+
-					"stopping for investigation", p.Task, p.Arm, p.Trial, rec.ConfigurationError))
+				stop(fmt.Errorf("live-eval: three configuration errors in this run since its last configuration stop, the "+
+					"last on %s/%s/%d (%s); stopping for investigation", p.Task, p.Arm, p.Trial, rec.ConfigurationError))
+				if err := writeJSONFile(filepath.Join(o.out, liveConfigStopFile), liveConfigStop{
+					Discarded: configBase + configErrors, At: env.now().UTC().Format(time.RFC3339),
+				}); err != nil {
+					abort = errors.Join(abort, err)
+				}
 				break slots
 			}
 			if rec.Limited != "" && eval.PaceLive(pacer.snap, env.now(), pacer.pacing).Action == eval.PaceGo {
@@ -627,6 +638,38 @@ func summarizeLiveRun(o liveOptions, w io.Writer, plan eval.LivePlan, ts eval.Li
 	}
 	fmt.Fprintf(w, "live-eval: decision %s — %s\nlive-eval: records under %s\n", sum.Decision.Verdict, sum.Decision.Reason, o.out)
 	return abort
+}
+
+// liveConfigStopFile marks, in the run directory, the run's last stop on three configuration errors.
+const liveConfigStopFile = "config-stop.json"
+
+// liveConfigStop is config-stop.json: how many configuration-discarded attempts the run directory
+// held when the run stopped on them.
+type liveConfigStop struct {
+	Discarded int    `json:"discarded"`
+	At        string `json:"at"`
+}
+
+// liveConfigErrorCount is the run's configuration-discarded attempts at its last configuration stop
+// (base) and since then (count): every slot's trial.discarded-<n>.json, in every session.
+func liveConfigErrorCount(out string, plan eval.LivePlan) (base, count int, err error) {
+	recs, err := collectLiveRecords(out, plan)
+	if err != nil {
+		return 0, 0, err
+	}
+	raw, err := os.ReadFile(filepath.Join(out, liveConfigStopFile))
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return 0, 0, fmt.Errorf("live-eval: reading %s: %w", liveConfigStopFile, err)
+	default:
+		var st liveConfigStop
+		if err := json.Unmarshal(raw, &st); err != nil {
+			return 0, 0, fmt.Errorf("live-eval: parsing %s: %w", liveConfigStopFile, err)
+		}
+		base = st.Discarded
+	}
+	return base, max(0, recs.discarded-base), nil
 }
 
 // liveRecords is what a run directory's slots hold.
