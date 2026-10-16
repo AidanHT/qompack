@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -373,4 +374,134 @@ func TestModSources_RegisterNeverAliasesTheHost(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, hostAliasUses(string(src["register.ts"])),
 		"register.ts must write every host call out in full and pass `$` only as a parameter or argument")
+}
+
+// functionDecl matches a top-level function declaration of register.ts with its parameter list:
+// the name, then everything up to the list's closing parenthesis. Parameter types in register.ts
+// hold no parentheses, so the first `)` closes the list.
+var functionDecl = regexp.MustCompile(`(?m)^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)`)
+
+// hostTyped matches a parameter whose type is the host's interface, capturing its name.
+var hostTyped = regexp.MustCompile(`([A-Za-z_$][\w$]*)\s*\??\s*:\s*EngineInterface\b`)
+
+// splitTopLevel splits s at the commas outside any (), [], {} or <> pair, trimming each part and
+// dropping an empty last part (a trailing comma).
+func splitTopLevel(s string) []string {
+	var parts []string
+	depth, from := 0, 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '(', '[', '{', '<':
+			depth++
+		case ')', ']', '}':
+			depth--
+		case '>':
+			if i == 0 || s[i-1] != '=' { // the > of an arrow's => closes nothing
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(s[from:i]))
+				from = i + 1
+			}
+		}
+	}
+	if last := strings.TrimSpace(s[from:]); last != "" {
+		parts = append(parts, last)
+	}
+	return parts
+}
+
+// paramName is the name a parameter declares: the text before its type or default.
+func paramName(param string) string {
+	name := strings.TrimPrefix(strings.TrimSpace(param), "...")
+	if i := strings.IndexAny(name, ":=?"); i >= 0 {
+		name = name[:i]
+	}
+	return strings.TrimSpace(name)
+}
+
+// hostParamMisnames returns each place in src where the host object would travel under a name
+// other than `$`: a parameter typed EngineInterface with another name, and a top-level function
+// whose parameter receives `$` at a call site but is named something else. A parameter so named
+// could hand the host to an imported helper in a form neither the host's validator nor
+// mod-validate's scan reads as a `$` call.
+func hostParamMisnames(src string) []string {
+	code := codeOnly(src)
+	var bad []string
+	for _, m := range hostTyped.FindAllStringSubmatch(code, -1) {
+		if m[1] != "$" {
+			bad = append(bad, m[1]+": EngineInterface")
+		}
+	}
+	params := map[string][]string{}
+	for _, m := range functionDecl.FindAllStringSubmatch(code, -1) {
+		var names []string
+		for _, p := range splitTopLevel(m[2]) {
+			names = append(names, paramName(p))
+		}
+		params[m[1]] = names
+	}
+	for name, names := range params {
+		call := regexp.MustCompile(`(?:^|[^\w$.])` + regexp.QuoteMeta(name) + `\s*\(`)
+		for _, loc := range call.FindAllStringIndex(code, -1) {
+			if strings.HasSuffix(strings.TrimRight(code[:loc[0]+1], " \t\r\n"), "function") {
+				continue
+			}
+			open := loc[1] - 1
+			depth, end := 0, -1
+			for i := open; i < len(code) && end < 0; i++ {
+				switch code[i] {
+				case '(':
+					depth++
+				case ')':
+					depth--
+					if depth == 0 {
+						end = i
+					}
+				}
+			}
+			if end < 0 {
+				continue
+			}
+			for i, arg := range splitTopLevel(code[open+1 : end]) {
+				if arg == "$" && (i >= len(names) || names[i] != "$") {
+					bad = append(bad, name+" receives `$` as parameter "+strconv.Itoa(i))
+				}
+			}
+		}
+	}
+	sort.Strings(bad)
+	return bad
+}
+
+// TestModSources_RegisterNamesEveryHostParameterDollar holds the rule the parked W0 residual asked
+// for once register.ts gained top-level functions: the host travels only as `$`. The host's
+// validator reads host calls by their written-out `$.` form, and so does mod-validate's scan, so a
+// function that took the host as `host` could call `host.fs.read` unseen by both.
+func TestModSources_RegisterNamesEveryHostParameterDollar(t *testing.T) {
+	for _, bad := range []string{
+		"function run(host: EngineInterface) {}",
+		"async function run(e: E, host?: EngineInterface) {}",
+		"function run(host) {}\nrun($)",
+		"async function run(a: string, host: E) {}\nawait run('x', $)",
+		"function run($: EngineInterface) {}\nfunction pass(h) {}\npass($)",
+		"function pass(f, h) {}\npass((x) => x, $)",
+	} {
+		require.NotEmpty(t, hostParamMisnames(bad), "the check must catch %q, or it is vacuous", bad)
+	}
+	for _, good := range []string{
+		"function run($: EngineInterface) {}\nrun($)",
+		"async function run(\n  $: EngineInterface,\n  e: SessionCompactInput,\n  next: Next<'session.compact'>,\n) {}\nawait run($, e, next)",
+		"function log($: EngineInterface, text: string) {}\nlog($, 'a, b')",
+		"on('session.start', async ($, e, next) => next(e))",
+	} {
+		require.Empty(t, hostParamMisnames(good), "%q is a permitted use", good)
+	}
+
+	src, err := pluginmanifest.ModSources(pluginmanifest.CommittedGOOS)
+	require.NoError(t, err)
+	reg := string(src["register.ts"])
+	require.NotEmpty(t, functionDecl.FindAllString(codeOnly(reg), -1), "register.ts declares no function; the check is vacuous")
+	require.Empty(t, hostParamMisnames(reg), "register.ts must name every host parameter `$`")
 }

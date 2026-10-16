@@ -1,12 +1,13 @@
 // Tests for the bridge's pure half. They run under `claude plugin test` on the materialised plugin,
 // where the mod sources sit in hooks/ and these tests in tests/, hence the ../hooks/ imports.
 //
-// The JSON strings below are internal/modwire's response goldens, verbatim; a Go test fails when
-// one of those goldens changes and this file does not.
+// The JSON strings below are internal/modwire's response goldens and its hello request golden,
+// verbatim; a Go test fails when one of those goldens changes and this file does not.
 
 import { describe, expect, test } from 'claude-code/testing'
 import {
   binaryPath,
+  briefLogLine,
   decodeBrief,
   decodeHello,
   encodeRequest,
@@ -26,6 +27,8 @@ const helloRefused = '{"v":1,"ok":false,"reason":"refused","enabled":false,"stee
 const helloBelowMin = '{"v":1,"ok":true,"enabled":false,"steering":false}'
 const briefServed = '{"v":1,"ok":true,"instructions":"Qompack - reproduce these items verbatim:\\nKeep: the failing test is TestLedgerReplay; never edit db/.","fact_ids":["neg_7c1d2e3f4a5b","pin_0a1b2c3d4e5f"]}'
 const briefCold = '{"v":1,"ok":false,"reason":"cold","instructions":"","fact_ids":[]}'
+// internal/modwire's hello request golden, verbatim: the mod writes exactly these bytes.
+const helloRequestGolden = '{"v":1,"session_id":"3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b","cwd":"/home/dev/project","host_version":"2.1.300"}'
 const unsupportedVersion = '{"v":1,"ok":false,"reason":"error","detail":"modwire: unsupported wire version 2 (this side speaks 1)"}'
 
 describe('binaryPath', () => {
@@ -53,6 +56,11 @@ describe('encodeRequest', () => {
   test('is one JSON object and a newline', async () => {
     const s = encodeRequest({ v: 1, session_id: 's', cwd: '/p', host_version: '2.1.300' })
     expect(s).toBe('{"v":1,"session_id":"s","cwd":"/p","host_version":"2.1.300"}\n')
+  })
+
+  test('writes the hello request in the Go golden field order', async () => {
+    const req = helloRequest('3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b', '/home/dev/project', '2.1.300')
+    expect(encodeRequest(req)).toBe(helloRequestGolden + '\n')
   })
 })
 
@@ -220,5 +228,17 @@ describe('helloLogLine', () => {
     expect(helloLogLine(decodeHello(0, helloBelowMin))).toBe('qompack mod hello: served, not enabled for this host')
     expect(helloLogLine(decodeHello(0, helloRefused))).toBe('qompack mod hello: refused')
     expect(helloLogLine(unservedHello('cold', 'starting'))).toBe('qompack mod hello: cold (starting)')
+  })
+})
+
+describe('briefLogLine', () => {
+  test('says what the brief came to, never its text', async () => {
+    const served = decodeBrief(0, briefServed, BRIEF_MAX_CHARS)
+    const line = briefLogLine(served)
+    expect(line).toBe('qompack mod brief: served, ' + served.instructions.length + ' chars, 2 fact ids')
+    expect(line).not.toContain('TestLedgerReplay')
+    expect(briefLogLine({ v: 1, ok: true, instructions: '', fact_ids: [] })).toBe('qompack mod brief: served empty')
+    expect(briefLogLine(decodeBrief(0, briefCold, BRIEF_MAX_CHARS))).toBe('qompack mod brief: cold')
+    expect(briefLogLine(unservedBrief('error', 'exit 1'))).toBe('qompack mod brief: error (exit 1)')
   })
 })
