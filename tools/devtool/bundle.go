@@ -105,6 +105,9 @@ type bundleAssembly struct {
 	// asyncHooks renders hooks.json through pluginmanifest.WithAsyncHooks (V7 F4). It is off
 	// unless --async-hooks asks for it, so a default bundle ships today's synchronous hooks.
 	asyncHooks bool
+	// asyncPrompt renders hooks.json through pluginmanifest.WithAsyncPrompt (V7 F4b). It is off
+	// unless --async-prompt asks for it, so a default bundle ships a synchronous UserPromptSubmit.
+	asyncPrompt bool
 }
 
 // goBuildReleaseFn is the build `devtool bundle` runs for each target. It is a variable only so
@@ -157,6 +160,9 @@ func taskBundle(args []string) error {
 	asyncHooks := fs.Bool("async-hooks", false,
 		"mark the ACK-only capture hooks (PostToolUse, Stop, SubagentStop) async in hooks.json; "+
 			"off by default, for the live latency check before it ships (V7 F4, G0.7)")
+	asyncPrompt := fs.Bool("async-prompt", false,
+		"mark UserPromptSubmit async in hooks.json while its reply is empty; SessionStart stays "+
+			"synchronous; off by default, for the live latency check before it ships (V7 F4b, G0.7)")
 	var targets repeatedFlag
 	fs.Var(&targets, "target", "os/arch to assemble, repeatable (default: all six release targets)")
 	if err := fs.Parse(args); err != nil {
@@ -204,7 +210,8 @@ func taskBundle(args []string) error {
 		build: func(goos, goarch, out string) error {
 			return goBuildReleaseFn(goos, goarch, out, ldflags)
 		},
-		asyncHooks: *asyncHooks,
+		asyncHooks:  *asyncHooks,
+		asyncPrompt: *asyncPrompt,
 	}
 
 	dirs := make(map[bundleTarget]string, len(tgts))
@@ -386,7 +393,10 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 		return "", bundleIdentity{}, fmt.Errorf("clearing %s: %w", dir, err)
 	}
 
-	tree, err := pluginTreeFiles(a.version, tgt.OS, a.asyncHooks)
+	tree, err := pluginTreeFiles(a.version, tgt.OS, pluginTreeOptions{
+		asyncHooks:  a.asyncHooks,
+		asyncPrompt: a.asyncPrompt,
+	})
 	if err != nil {
 		return "", bundleIdentity{}, err
 	}
@@ -445,6 +455,13 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 	return dir, id, nil
 }
 
+// pluginTreeOptions are the `devtool bundle` switches that change the generated plugin tree. They
+// travel as one value so that a new switch adds a field rather than another positional bool.
+type pluginTreeOptions struct {
+	asyncHooks  bool // --async-hooks: pluginmanifest.WithAsyncHooks (V7 F4)
+	asyncPrompt bool // --async-prompt: pluginmanifest.WithAsyncPrompt (V7 F4b)
+}
+
 // pluginTreeFiles returns the plugin tree generated for goos, keyed by BUNDLE-relative slash path.
 //
 // The tree is rendered per target because every hook and the MCP server name the exact executable
@@ -456,12 +473,17 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 // is an error rather than a file written to an unexpected place, because that would mean the
 // generator's layout changed underneath the assembler.
 //
-// With asyncHooks, the tree is pluginmanifest.WithAsyncHooks's: the same files, with the three
-// ACK-only capture hooks marked async in hooks.json.
-func pluginTreeFiles(version, goos string, asyncHooks bool) (map[string][]byte, error) {
+// With opts.asyncHooks, the three ACK-only capture hooks are marked async in hooks.json
+// (pluginmanifest.WithAsyncHooks); with opts.asyncPrompt, UserPromptSubmit is
+// (pluginmanifest.WithAsyncPrompt). The two only set flags, so they compose; neither drops the
+// other's output.
+func pluginTreeFiles(version, goos string, opts pluginTreeOptions) (map[string][]byte, error) {
 	m := pluginmanifest.ForTarget(version, goos)
-	if asyncHooks {
+	if opts.asyncHooks {
 		m = pluginmanifest.WithAsyncHooks(m)
+	}
+	if opts.asyncPrompt {
+		m = pluginmanifest.WithAsyncPrompt(m)
 	}
 	files, err := m.Files()
 	if err != nil {

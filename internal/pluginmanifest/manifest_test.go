@@ -85,6 +85,45 @@ func TestManifest_CommandsShellOutToBinary(t *testing.T) {
 	}
 }
 
+// TestManifest_UserOnlyCommands pins V7 F11 per command. The five diagnostics commands are written
+// for the user ("report its output verbatim to the user") and the model has their MCP twins, so
+// they carry `disable-model-invocation: true` and stay out of the model's skill listing. The
+// 2.1.300 host's plugin-command loader reads that key and its listing predicate drops such
+// commands. /qompack:pin stays model-invocable: a checkpoint drop reason tells the model to run
+// "/qompack:pin --list" (internal/checkpoint/finalize.go).
+func TestManifest_UserOnlyCommands(t *testing.T) {
+	m := pluginmanifest.Default(testVersion)
+	files, err := m.Files()
+	require.NoError(t, err)
+
+	want := map[string]bool{
+		"status": true, "recall": true, "pin": false, "why": true, "dropped": true, "eval": true,
+	}
+	require.Len(t, m.Commands, len(want), "every shipped command must have a UserOnly expectation")
+
+	const line = "disable-model-invocation: true\n"
+	for _, c := range m.Commands {
+		userOnly, ok := want[c.Name]
+		require.True(t, ok, "%s has no UserOnly expectation", c.Name)
+		require.Equal(t, userOnly, c.UserOnly, "%s: UserOnly", c.Name)
+
+		body := string(files["plugin/commands/"+c.Name+".md"])
+		require.True(t, strings.HasPrefix(body, "---\n"), "%s: frontmatter must open the file", c.Name)
+		end := strings.Index(body[len("---\n"):], "\n---\n")
+		require.GreaterOrEqual(t, end, 0, "%s: frontmatter must close", c.Name)
+		front := body[len("---\n") : len("---\n")+end+1]
+		rest := body[len("---\n")+end+1:]
+
+		require.NotContains(t, rest, "disable-model-invocation", "%s: the key belongs in the frontmatter", c.Name)
+		require.NotContains(t, front, "user-invocable", "%s: the user must keep the command", c.Name)
+		if userOnly {
+			require.Equal(t, 1, strings.Count(front, line), "%s: frontmatter must carry %q once", c.Name, line)
+		} else {
+			require.NotContains(t, front, "disable-model-invocation", "%s must stay model-invocable", c.Name)
+		}
+	}
+}
+
 func TestMCPJSON_UsesPluginRoot(t *testing.T) {
 	m := pluginmanifest.Default(testVersion)
 	srv, ok := m.MCP.MCPServers["qompack"]
