@@ -28,7 +28,7 @@ import (
 // five-hour gate (R2 sets it to 1 − k × the largest per-trial share) and the seven-day ceiling, the
 // owner's 40 % reserve. Both are live-eval flags.
 const (
-	LiveFiveHourGate    = 0.90
+	LiveFiveHourGate    = 0.90 //nomagic:allow plan W6 item 8 pacing gate (a live-eval flag), not a config default
 	LiveSevenDayCeiling = 0.60
 )
 
