@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -224,4 +225,43 @@ func TestDoctorContextCost_SectionKeepsTheExitCode(t *testing.T) {
 	}
 	require.Equal(t, doctorUnknown, doctorFindRow(t, doc, "context", "context.layer.project")["status"])
 	require.Equal(t, "unset", doctorFindRow(t, doc, "context", "context.env.DISABLE_COMPACT")["observed"])
+}
+
+func TestDoctorContextCost_UnreadableSettingsFileReadsUnknown(t *testing.T) {
+	e := newCCEnv(t)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Join(e.home, ".claude", "settings.json")), 0o700))
+
+	r := ccRow(t, e.rows(), "context.layer.user")
+	require.Equal(t, doctorUnknown, r.Status, "%+v", r)
+	require.Equal(t, "could not be read", r.Observed)
+	require.Contains(t, r.Detail, filepath.Join(e.home, ".claude", "settings.json"))
+}
+
+func TestDoctorContextCost_ManagedProfileIsNotDecoded(t *testing.T) {
+	e := newCCEnv(t)
+	profile := filepath.Join(e.managed, "com.anthropic.claudecode.plist")
+	ccWrite(t, profile, `<plist><dict><key>autoCompactWindow</key><integer>100000</integer></dict></plist>`)
+	o := e.opts()
+	o.Managed.Opaque = []string{profile}
+
+	r := ccRow(t, contextCostRows(o, e.getenv), "context.layer.managed-profile")
+	require.Equal(t, doctorUnknown, r.Status, "%+v", r)
+	require.Equal(t, "present; not decoded", r.Observed)
+	require.NotContains(t, r.Observed+r.Detail, "100000")
+}
+
+// TestDoctorContextCost_DropInListingErrorReadsUnknown: a managed-settings.d that cannot be listed
+// as documented (here, more drop-ins than hostperm reads) is one unknown row naming the directory.
+func TestDoctorContextCost_DropInListingErrorReadsUnknown(t *testing.T) {
+	e := newCCEnv(t)
+	for i := range 257 {
+		ccWrite(t, filepath.Join(e.managed, "managed-settings.d", fmt.Sprintf("%03d.json", i)), `{}`)
+	}
+
+	rows := e.rows()
+	ccRequireVocabulary(t, rows)
+	r := ccRow(t, rows, "context.layer.managed-drop-in")
+	require.Equal(t, doctorUnknown, r.Status, "%+v", r)
+	require.Equal(t, "could not be read", r.Observed)
+	require.Contains(t, r.Detail, filepath.Join(e.managed, "managed-settings.d"))
 }
