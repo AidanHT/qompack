@@ -232,10 +232,16 @@ func TestTaskBundle_ModsWithAsyncHooks(t *testing.T) {
 		extra     []string
 		wantAsync []string
 	}{
-		{"mods and async-hooks", []string{"--mods", "--async-hooks"},
-			[]string{"PostToolUse", "Stop", "SubagentStop"}},
-		{"mods, async-hooks and async-prompt", []string{"--mods", "--async-hooks", "--async-prompt"},
-			[]string{"PostToolUse", "Stop", "SubagentStop", "UserPromptSubmit"}},
+		{
+			"mods and async-hooks",
+			[]string{"--mods", "--async-hooks"},
+			[]string{"PostToolUse", "Stop", "SubagentStop"},
+		},
+		{
+			"mods, async-hooks and async-prompt",
+			[]string{"--mods", "--async-hooks", "--async-prompt"},
+			[]string{"PostToolUse", "Stop", "SubagentStop", "UserPromptSubmit"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out := t.TempDir()

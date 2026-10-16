@@ -116,10 +116,13 @@ func TestE2E_ModBriefColdThenServed(t *testing.T) {
 
 	addr, err := ipc.Resolve(p.root)
 	require.NoError(t, err)
+	// A ticker paces the poll, never time.Sleep: §6.1 bans wall-clock sleeps outside test/bench.
+	ticker := time.NewTicker(e2eLazySpawnSettleTick)
+	defer ticker.Stop()
 	deadline := time.Now().Add(e2eLazySpawnSettleBound)
 	for !ipc.Probe(addr, e2eProbeTimeout) {
 		require.True(t, time.Now().Before(deadline), "the daemon the cold brief started never listened")
-		time.Sleep(e2eLazySpawnSettleTick)
+		<-ticker.C
 	}
 
 	r, _ = p.brief(t, bin, p.sub)
