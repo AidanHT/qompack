@@ -148,6 +148,8 @@ type liveOptions struct {
 	// stepTimeoutGiven says --step-timeout was given; when it was not, a task set's efficiency block
 	// pins the step timeout (amendment 4).
 	stepTimeoutGiven bool
+	// sizeFrom is the pilot summary the sizing step reads (W6 item 2, decision D-d).
+	sizeFrom string
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -211,6 +213,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"has checked the account cannot spend overage")
 	fs.BoolVar(&o.describe, "describe", false, "print, as Markdown, what the run would do (tasks, checks, arms, bundles, "+
 		"host pin, trial order, model, flags and pacing); start nothing")
+	fs.StringVar(&o.sizeFrom, "size-from", "", "the sizing step: from this pilot summary.json and the task set's Δs and "+
+		"ICC_int, print each arm's n for the main run, a calendar estimate and the efficiency tests' power; start nothing")
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
@@ -241,7 +245,7 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 			return o, err
 		}
 		o.night = n
-	} else if !o.dryRun && !o.describe && o.resume == "" {
+	} else if !o.dryRun && !o.describe && o.resume == "" && o.sizeFrom == "" {
 		return o, errors.New("live-eval: a run that starts trials names its night window: --night-window HH:MM-HH:MM, " +
 			"or --night-window none to run at any hour (D100 runs at night)")
 	}
@@ -348,6 +352,9 @@ func knownDefectsText(a *eval.LiveDefectAttestation) string {
 func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) error {
 	if o.resume != "" {
 		return resumeLiveEval(ctx, o, env, w)
+	}
+	if o.sizeFrom != "" {
+		return runLiveSizing(o, w)
 	}
 	ts, raw, err := eval.LoadLiveTaskSet(o.tasksFile)
 	if err != nil {
