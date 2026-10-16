@@ -406,6 +406,53 @@ func TestServeBrief_ASnapshotFailureServesEmpty(t *testing.T) {
 	require.Equal(t, int64(1), r.counter(counterBriefServedEmptyPrefix+briefEmptySnapshot))
 }
 
+// briefWithShortDeadline is a precompute brief whose deadline passes while its snapshot runs.
+func (r *briefRig) briefWithShortDeadline() briefCall {
+	c := r.call(modwire.TriggerPrecompute)
+	c.Deadline = time.Now().Add(100 * time.Millisecond)
+	return c
+}
+
+// TestServeBrief_ASnapshotThatAnswersAfterTheDeadlineIsATimeout is review Minor 2: a snapshot cut
+// short by the deadline answers what it had, which is not a full brief. Once the deadline has passed
+// the route answers timeout, not served.
+func TestServeBrief_ASnapshotThatAnswersAfterTheDeadlineIsATimeout(t *testing.T) {
+	r := newBriefRig(t)
+	r.dd.svc.BriefSnapshot = func(ctx context.Context, _ core.SessionID) (checkpoint.Brief, error) {
+		<-ctx.Done()
+		return checkpoint.Brief{Items: []checkpoint.BriefItem{
+			{Kind: checkpoint.BriefInvariant, ID: "inv_1", Text: "Never log access tokens."},
+		}}, nil
+	}
+
+	resp, out := r.dd.serveBrief(r.ctx(), r.briefWithShortDeadline())
+
+	require.False(t, resp.OK)
+	require.Equal(t, modwire.ReasonTimeout, resp.Reason)
+	require.Empty(t, resp.Instructions)
+	require.NoError(t, resp.Validate(modwire.BriefMaxChars))
+	require.Equal(t, modwire.OutcomeTimeout, out.Outcome)
+	require.Zero(t, r.counter(counterBriefServed))
+}
+
+// TestServeBrief_ASnapshotThatFailsOnTheDeadlineIsATimeout is review Minor 3 at the route: a
+// snapshot that reports its context's end is a timeout, not a served-empty brief.
+func TestServeBrief_ASnapshotThatFailsOnTheDeadlineIsATimeout(t *testing.T) {
+	r := newBriefRig(t)
+	r.dd.svc.BriefSnapshot = func(ctx context.Context, _ core.SessionID) (checkpoint.Brief, error) {
+		<-ctx.Done()
+		return checkpoint.Brief{}, ctx.Err()
+	}
+
+	resp, out := r.dd.serveBrief(r.ctx(), r.briefWithShortDeadline())
+
+	require.False(t, resp.OK)
+	require.Equal(t, modwire.ReasonTimeout, resp.Reason)
+	require.Contains(t, resp.Detail, "before the snapshot answered")
+	require.Equal(t, modwire.OutcomeTimeout, out.Outcome)
+	require.Zero(t, r.counter(counterBriefServedEmptyPrefix+briefEmptySnapshot))
+}
+
 // TestServeBrief_WithNoCheckpointerItServesEmpty: a daemon with no checkpoint layer bound has
 // nothing to brief from.
 func TestServeBrief_WithNoCheckpointerItServesEmpty(t *testing.T) {

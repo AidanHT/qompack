@@ -8,6 +8,7 @@ package daemon
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -199,4 +200,82 @@ func TestCloseSegmentForBrief_LeavesASegmentWithNothingObservedOpen(t *testing.T
 	require.NoError(t, err)
 	require.Equal(t, int64(1), fx.counter(counterTapCompactUnobserved))
 	require.Zero(t, fx.counter(counterTapCompactAfterBrief))
+}
+
+// TestCloseSegmentForBrief_AnUnboundRuntimeIsNotBoundByABrief is review finding I1. The brief route
+// is no hook route and touches no registry, and the mod's session id may not be the hooks' (G0.1).
+// So a brief on a runtime bound to no session (a daemon restarted mid-session) closes nothing and
+// binds nothing; the PreCompact that follows, a hook route, binds and closes as it always has.
+func TestCloseSegmentForBrief_AnUnboundRuntimeIsNotBoundByABrief(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	fx := newRTFixture(t)
+	fx.rt.mu.Lock()
+	fx.rt.d = &registryDaemon{reg: NewSessionRegistry()} // the registry knows no session
+	fx.rt.mu.Unlock()
+	open, err := fx.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+	s := &Services{
+		ObserveTool: func(context.Context, hookio.Event) error { return nil },
+		PreCompact:  func(context.Context, hookio.Event) (hookio.Output, error) { return hookio.Empty(), nil },
+	}
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	tapRecord(fx, tapToolUseID, "Read", 700)
+	require.NoError(t, s.ObserveTool(ctx, tapToolEvent(tapToolUseID, "Read", "", "")))
+	require.Empty(t, fx.rt.session, "fixture sanity: the runtime is unbound")
+
+	closed, err := fx.rt.CloseSegmentForBrief(ctx, rtSession)
+
+	require.NoError(t, err)
+	require.False(t, closed)
+	require.Empty(t, fx.rt.session, "the brief bound nothing")
+	require.Empty(t, fx.store.segs.closeCalls, "and closed nothing")
+	require.Equal(t, int64(1), fx.counter(counterBriefCloseUnbound))
+
+	_, err = s.PreCompact(ctx, tapEvent("PreCompact", rtSession))
+	require.NoError(t, err)
+	require.Equal(t, rtSession, fx.rt.session, "the PreCompact binds, as today")
+	seg, err := fx.store.segs.Get(ctx, open)
+	require.NoError(t, err)
+	require.True(t, seg.Closed)
+	require.Equal(t, core.Tokens(700), seg.Tokens)
+	require.Equal(t, int64(1), fx.counter(counterSegmentClosedPrefix+causeCompact))
+	require.Zero(t, fx.counter(counterTapCompactAfterBrief))
+}
+
+// TestCloseSegmentForBrief_TheMarkLapsesAfterTheBriefsCompactionWindow is review Minor 1: a brief
+// whose compaction the host vetoed leaves its mark set, since no PreCompact spends it. The mark only
+// excuses a compaction inside the window a brief's own compaction falls in (the mod's TimeoutMs plus
+// the PreCompact hook's timeout); a much later empty compaction is unobserved again.
+func TestCloseSegmentForBrief_TheMarkLapsesAfterTheBriefsCompactionWindow(t *testing.T) {
+	t.Parallel()
+	r := newBriefCloseRig(t)
+	ctx := context.Background()
+	closed, err := r.fx.rt.CloseSegmentForBrief(ctx, rtSession)
+	require.NoError(t, err)
+	require.True(t, closed)
+
+	r.fx.clock.Advance(briefMarkWindow() + time.Millisecond)
+	_, err = r.svc.PreCompact(ctx, tapEvent("PreCompact", rtSession))
+	require.NoError(t, err)
+
+	require.Zero(t, r.fx.counter(counterTapCompactAfterBrief), "a lapsed mark excuses nothing")
+	require.Equal(t, int64(1), r.fx.counter(counterTapCompactUnobserved))
+}
+
+// TestCloseSegmentForBrief_TheMarkHoldsInsideTheWindow: the compaction a brief was for, arriving at
+// the window's edge, is still excused.
+func TestCloseSegmentForBrief_TheMarkHoldsInsideTheWindow(t *testing.T) {
+	t.Parallel()
+	r := newBriefCloseRig(t)
+	ctx := context.Background()
+	_, err := r.fx.rt.CloseSegmentForBrief(ctx, rtSession)
+	require.NoError(t, err)
+
+	r.fx.clock.Advance(briefMarkWindow())
+	_, err = r.svc.PreCompact(ctx, tapEvent("PreCompact", rtSession))
+	require.NoError(t, err)
+
+	require.Equal(t, int64(1), r.fx.counter(counterTapCompactAfterBrief))
+	require.Zero(t, r.fx.counter(counterTapCompactUnobserved))
 }
