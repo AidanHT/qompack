@@ -89,9 +89,38 @@ func (r *schedRuntime) CloseSegmentOn(ctx context.Context, at core.TurnIndex, f 
 // tokens, which Segment.Tokens would keep for good. The turn is the highest tool-use turn
 // observed, so a final prompt answered without a tool lands in the successor and is encoded by a
 // later checkpoint rather than this one.
+//
+// A compaction that finds the open segment empty because the brief before it closed the segment
+// (CloseSegmentForBrief) and nothing was observed since is counted as counterTapCompactAfterBrief,
+// not as unobserved: the runtime had the account, and the brief's close used it.
 func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.SessionID) error {
+	_, err := r.closeOpenSegmentFor(ctx, sess, causeCompact)
+	return err
+}
+
+// CloseSegmentForBrief is CloseSegmentForCompaction for the mod's brief before a compaction (V7
+// plan §5.3 step 1), and shares its body: the same binding of an unbound runtime, the same refusal
+// to close another session's segment or one the runtime holds no token account for, and the same
+// close at the highest turn observed. Its cause is "brief" and its counters are its own
+// (counterBriefCloseForeign, counterBriefCloseUnobserved, and the segment-closed counter under
+// "brief"), so no compaction counter moves on a brief. The segment itself records no cause.
+//
+// It reports whether it closed the segment. When it did, the compaction the brief was for usually
+// follows with nothing new observed, and its own close is then a no-op that is not counted
+// unobserved (CloseSegmentForCompaction).
+func (r *schedRuntime) CloseSegmentForBrief(ctx context.Context, sess core.SessionID) (bool, error) {
+	return r.closeOpenSegmentFor(ctx, sess, causeBrief)
+}
+
+// closeOpenSegmentFor is the shared body of CloseSegmentForCompaction (cause compact) and
+// CloseSegmentForBrief (cause brief). It reports whether a segment was closed.
+func (r *schedRuntime) closeOpenSegmentFor(ctx context.Context, sess core.SessionID, cause string) (bool, error) {
 	if sess == "" {
-		return nil
+		return false, nil
+	}
+	foreign, unobserved := counterTapCompactForeign, counterTapCompactUnobserved
+	if cause == causeBrief {
+		foreign, unobserved = counterBriefCloseForeign, counterBriefCloseUnobserved
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -100,14 +129,24 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 	case "":
 		r.bindUnboundLocked(sess, nil)
 	default:
-		r.count(counterTapCompactForeign)
-		return nil
+		r.count(foreign)
+		return false, nil
 	}
 	if r.openSegTokens == 0 {
-		r.count(counterTapCompactUnobserved)
-		return nil
+		if cause == causeCompact && r.briefClosed == sess {
+			// One brief excuses one compaction: the next empty one is unobserved again.
+			r.briefClosed = ""
+			r.count(counterTapCompactAfterBrief)
+			return false, nil
+		}
+		r.count(unobserved)
+		return false, nil
 	}
-	return r.closeSessionSegmentLocked(ctx, sess, r.maxTurn, scheduler.Features{}, causeCompact)
+	closed, err := r.closeSessionSegmentLocked(ctx, sess, r.maxTurn, scheduler.Features{}, cause)
+	if closed && cause == causeBrief {
+		r.briefClosed = sess
+	}
+	return closed, err
 }
 
 // bindUnboundLocked binds sess on a runtime bound to nothing, keeping the two accumulators a
@@ -153,25 +192,27 @@ func (r *schedRuntime) bindUnboundLocked(sess core.SessionID, e *hookio.Event) {
 // Cause is one of: changepoint, todo, test, commit.
 // SP-08 owns the session's FIRST Open; every subsequent roll is owned here.
 func (r *schedRuntime) closeSegmentLocked(ctx context.Context, at core.TurnIndex, f scheduler.Features, cause string) error {
-	return r.closeSessionSegmentLocked(ctx, r.session, at, f, cause)
+	_, err := r.closeSessionSegmentLocked(ctx, r.session, at, f, cause)
+	return err
 }
 
 // closeSessionSegmentLocked is closeSegmentLocked for a named session: every close cause but
-// "compact" names the bound one.
+// "compact" and "brief" names the bound one. It reports whether it closed a segment; a close clears
+// the brief's mark (briefClosed), which CloseSegmentForBrief then sets again for its own.
 func (r *schedRuntime) closeSessionSegmentLocked(ctx context.Context, sess core.SessionID, at core.TurnIndex,
 	f scheduler.Features, cause string,
-) error {
+) (bool, error) {
 	if !r.conf().Checkpoint.Frontier.AdvanceOnSegmentClose {
-		return nil
+		return false, nil
 	}
 	cur, err := r.segs.Current(ctx, sess)
 	if errors.Is(err, core.ErrNotFound) {
-		return nil // SP-08 has not opened one yet; nothing to close
+		return false, nil // SP-08 has not opened one yet; nothing to close
 	} else if err != nil {
-		return err
+		return false, err
 	}
 	if cur.Closed || at < cur.StartTurn {
-		return nil
+		return false, nil
 	}
 	feats := map[string]float64{
 		// "tokens" is NOT a BOCD feature: it is the pseudo-feature store.SegmentLog.Close reads
@@ -189,15 +230,16 @@ func (r *schedRuntime) closeSessionSegmentLocked(ctx context.Context, sess core.
 		"prob_changepoint": r.det.State().ProbChangepoint,
 	}
 	if err := r.segs.Close(ctx, cur.ID, at, feats); err != nil {
-		return err
+		return false, err
 	}
 	_, err = r.segs.Open(ctx, store.Segment{
 		Session: sess, StartTurn: at + 1, StartTS: r.nowMS(),
 	})
 	r.openSegTokens = 0 // the successor starts empty; the tap refills it from rec.Tokens
+	r.briefClosed = ""
 	r.dirty = true
 	r.count(counterSegmentClosedPrefix + cause)
-	return err
+	return true, err
 }
 
 // advanceFrontier submits closed, unencoded segments to the checkpoint-owned port. The returned
