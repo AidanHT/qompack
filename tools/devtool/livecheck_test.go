@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -17,6 +18,9 @@ import (
 )
 
 const liveTestCheckSuite = "../../testdata/eval/live/checks-v7-test.json"
+
+// liveLongFloat matches a float written with more than nine decimals, keeping the first nine.
+var liveLongFloat = regexp.MustCompile(`(\d+\.\d{9})\d+`)
 
 // recordedHost answers every session with a recorded Claude Code 2.1.280 stream: the plugin session
 // (smoke2) when the session loads a plugin by --plugin-dir, the stock one (smoke1) otherwise. edit,
@@ -109,7 +113,10 @@ func TestLiveCheck_QuickTierOnRecordedStreams(t *testing.T) {
 
 	raw, err := os.ReadFile(filepath.Join(o.out, "results.json"))
 	require.NoError(t, err)
-	requireGolden(t, "live-check-results.golden.json", strings.ReplaceAll(string(raw), r.RunID, "<run id>"))
+	// Interval bounds are cut to nine decimals: an architecture that fuses multiply-adds may differ in
+	// the last bits of a float, and the schema, not the sixteenth digit, is what the golden pins.
+	got := liveLongFloat.ReplaceAllString(strings.ReplaceAll(string(raw), r.RunID, "<run id>"), "$1")
+	requireGolden(t, "live-check-results.golden.json", got)
 }
 
 // TestLiveCheck_MetricsTierRepeatsModelDependentChecks: the metrics tier repeats only the checks

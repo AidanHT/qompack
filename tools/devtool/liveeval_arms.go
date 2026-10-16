@@ -227,14 +227,20 @@ func liveGenericClaudeMD(orig []byte, textG string) []byte {
 // stream.<kind>-<n>.jsonl). It never writes trial.json, the only name a scored trial has, so a
 // set-aside attempt never fills its slot (D-b). It returns the record's path.
 func liveSetAside(slotDir, kind string, rec eval.LiveTrial) (string, error) {
+	return liveSetAsideRecord(slotDir, kind, liveScoredRecord, liveAttemptFiles, rec)
+}
+
+// liveSetAsideRecord is liveSetAside for any record: rec is written as record.<kind>-<n> in slotDir and
+// each of files present there is renamed the same way. live-check sets its limited runs aside with it.
+func liveSetAsideRecord(slotDir, kind, record string, files []string, rec any) (string, error) {
 	n := 1
 	for {
-		if _, err := os.Stat(filepath.Join(slotDir, liveSetAsideName("trial.json", kind, n))); errors.Is(err, os.ErrNotExist) {
+		if _, err := os.Stat(filepath.Join(slotDir, liveSetAsideName(record, kind, n))); errors.Is(err, os.ErrNotExist) {
 			break
 		}
 		n++
 	}
-	for _, f := range liveAttemptFiles {
+	for _, f := range files {
 		src := filepath.Join(slotDir, f)
 		if _, err := os.Stat(src); err != nil {
 			continue
@@ -243,7 +249,7 @@ func liveSetAside(slotDir, kind string, rec eval.LiveTrial) (string, error) {
 			return "", fmt.Errorf("live-eval: setting %s aside: %w", f, err)
 		}
 	}
-	p := filepath.Join(slotDir, liveSetAsideName("trial.json", kind, n))
+	p := filepath.Join(slotDir, liveSetAsideName(record, kind, n))
 	return p, writeJSONFile(p, rec)
 }
 
