@@ -93,12 +93,15 @@ type briefCall struct {
 	// At is when the brief was asked for, the hook time the settle measures spooled captures
 	// against (a capture fired after it is not this compaction's). Zero means the daemon's now.
 	At core.UnixMilli
-	// Deadline is the absolute instant the daemon must answer by: receipt plus the budget the CLI
-	// sends. Zero means none.
+	// Deadline is the absolute instant the daemon must answer by. The mod route sets it with
+	// modDeadline: receipt plus the budget the CLI sends (never more than modwire.TimeoutMs), capped
+	// at the request's TS (the CLI process's start) plus TimeoutMs - RecordMarginMs -
+	// DaemonReplyMarginMs. Zero means none.
 	Deadline time.Time
-	// MaxChars is the configured cap on the instructions (runtime.mod.briefMaxChars): zero means
-	// modwire.BriefMaxChars, and a larger value is clamped to it. The request's own max_chars also
-	// bounds them (briefCharLimit).
+	// MaxChars is the cap on the instructions. The mod route sets it with modMaxChars: the smaller of
+	// the daemon's configured runtime.mod.briefMaxChars and the cap the CLI sent in its envelope.
+	// Zero means modwire.BriefMaxChars, and a larger value is clamped to that wire ceiling. The
+	// request's own max_chars also bounds them (briefCharLimit).
 	MaxChars int
 }
 
