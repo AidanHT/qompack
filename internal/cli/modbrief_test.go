@@ -429,19 +429,20 @@ func TestModBrief_AnUnreadableRequestIsAnErrorWithNoRecord(t *testing.T) {
 	}
 }
 
-// TestModBrief_AFailedRecordIsAnError: a call that cannot be recorded is not passed on, so a brief
-// never steers a compaction its record does not show.
-func TestModBrief_AFailedRecordIsAnError(t *testing.T) {
+// TestModBrief_AFailedRecordStillServesTheBrief: failing open, a brief whose record cannot be written
+// is still served, unchanged; the failure is reported on stderr, naming no path, and the call is left
+// with no record (the evaluation reads it as unrecorded).
+func TestModBrief_AFailedRecordStillServesTheBrief(t *testing.T) {
 	p := newModProject(t, true)
 	fakeModDaemon(t, p.root, func(context.Context, ipc.Request) ipc.Response { return briefData(t, servedBrief()) })
 	require.NoError(t, os.WriteFile(paths.Of(p.root).State, []byte("not a directory"), 0o600))
 
 	code, stdout, stderr := runMod(t, p.briefEnv(briefRequestFor(t, p.root, "2.1.300", "auto"), 0), briefArgs()...)
 	require.Equal(t, ExitOK, code, stderr)
-	r := decodeBriefOut(t, stdout)
-	require.Equal(t, modwire.ReasonError, r.Reason)
-	require.Empty(t, r.Instructions)
-	require.NotContains(t, r.Detail, p.root)
+	require.Equal(t, servedBrief(), decodeBriefOut(t, stdout), "the daemon's brief, unchanged")
+	require.Contains(t, stderr, "qompack mod brief: record not written")
+	require.NotContains(t, stderr, p.root, "the report names no path")
+	require.NoFileExists(t, p.briefRecordPath())
 }
 
 // TestModBrief_EveryCallAppendsOneLine: the log grows by one line per call.
