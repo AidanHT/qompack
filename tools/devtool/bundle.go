@@ -102,7 +102,14 @@ type bundleAssembly struct {
 	// legal is LICENSE and THIRD_PARTY_NOTICES.md, keyed by bundle-relative path
 	// (readBundleLegalFiles). assemble refuses to run without every bundleLegalFiles entry.
 	legal map[string][]byte
+	// asyncHooks renders hooks.json through pluginmanifest.WithAsyncHooks (V7 F4). It is off
+	// unless --async-hooks asks for it, so a default bundle ships today's synchronous hooks.
+	asyncHooks bool
 }
+
+// goBuildReleaseFn is the build `devtool bundle` runs for each target. It is a variable only so
+// the flag-wiring test can substitute the fixture builder for six real compiles.
+var goBuildReleaseFn = goBuildRelease
 
 // bundleLegalFiles are the repository files every bundle, and therefore every release zip, ships
 // at its root (V6 close-out audit F4, D53(e)). The binary statically links go-winio (MIT),
@@ -147,6 +154,9 @@ func taskBundle(args []string) error {
 			"checksums.txt over them; these are the files a release uploads")
 	evidence := fs.String("evidence", "",
 		"file to write the --host-validate record to (default: print it to stdout)")
+	asyncHooks := fs.Bool("async-hooks", false,
+		"mark the ACK-only capture hooks (PostToolUse, Stop, SubagentStop) async in hooks.json; "+
+			"off by default, for the live latency check before it ships (V7 F4, G0.7)")
 	var targets repeatedFlag
 	fs.Var(&targets, "target", "os/arch to assemble, repeatable (default: all six release targets)")
 	if err := fs.Parse(args); err != nil {
@@ -192,8 +202,9 @@ func taskBundle(args []string) error {
 		goVersion: runtime.Version(),
 		outDir:    rootRelative(*outDir),
 		build: func(goos, goarch, out string) error {
-			return goBuildRelease(goos, goarch, out, ldflags)
+			return goBuildReleaseFn(goos, goarch, out, ldflags)
 		},
+		asyncHooks: *asyncHooks,
 	}
 
 	dirs := make(map[bundleTarget]string, len(tgts))
@@ -375,7 +386,7 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 		return "", bundleIdentity{}, fmt.Errorf("clearing %s: %w", dir, err)
 	}
 
-	tree, err := pluginTreeFiles(a.version, tgt.OS)
+	tree, err := pluginTreeFiles(a.version, tgt.OS, a.asyncHooks)
 	if err != nil {
 		return "", bundleIdentity{}, err
 	}
@@ -444,8 +455,15 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 // A bundle's root IS the plugin root, so the prefix comes off — and a key that does not carry it
 // is an error rather than a file written to an unexpected place, because that would mean the
 // generator's layout changed underneath the assembler.
-func pluginTreeFiles(version, goos string) (map[string][]byte, error) {
-	files, err := pluginmanifest.ForTarget(version, goos).Files()
+//
+// With asyncHooks, the tree is pluginmanifest.WithAsyncHooks's: the same files, with the three
+// ACK-only capture hooks marked async in hooks.json.
+func pluginTreeFiles(version, goos string, asyncHooks bool) (map[string][]byte, error) {
+	m := pluginmanifest.ForTarget(version, goos)
+	if asyncHooks {
+		m = pluginmanifest.WithAsyncHooks(m)
+	}
+	files, err := m.Files()
 	if err != nil {
 		return nil, fmt.Errorf("generating the plugin tree: %w", err)
 	}
