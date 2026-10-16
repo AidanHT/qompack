@@ -89,22 +89,54 @@ func TestHelloFile_Validation(t *testing.T) {
 		{V: v, SessionID: "", HostVersion: "2.1.300", TS: 1},
 		{V: v, SessionID: "../s", HostVersion: "2.1.300", TS: 1},
 		{V: v, SessionID: "s", HostVersion: "", TS: 1},
+		{V: v, SessionID: "s", HostVersion: "2.1.300", Steering: true, TS: 1},
 	} {
 		_, err := h.Encode()
 		require.ErrorIs(t, err, modwire.ErrInvalid, "case %d", i)
 	}
-	_, err := modwire.ParseHelloFile([]byte(`{"v":1,"session_id":"s","host_version":"","ts":1}`))
+	_, err := modwire.ParseHelloFile(
+		[]byte(`{"v":1,"session_id":"s","host_version":"","enabled":true,"steering":false,"ts":1}`))
 	require.ErrorIs(t, err, modwire.ErrInvalid)
 
 	for _, ver := range []int{0, 2} {
-		_, err := modwire.HelloFile{V: ver, SessionID: "s", HostVersion: "2.1.300", TS: 1}.Encode()
+		_, err := modwire.HelloFile{V: ver, SessionID: "s", HostVersion: "2.1.300", Enabled: true, TS: 1}.Encode()
 		require.ErrorIs(t, err, modwire.ErrUnsupportedVersion, "v %d", ver)
 	}
 	for _, in := range []string{
-		`{"session_id":"s","host_version":"2.1.300","ts":1}`,
-		`{"v":2,"session_id":"s","host_version":"2.1.300","ts":1}`,
+		`{"session_id":"s","host_version":"2.1.300","enabled":true,"steering":true,"ts":1}`,
+		`{"v":2,"session_id":"s","host_version":"2.1.300","enabled":true,"steering":true,"ts":1}`,
 	} {
 		_, err := modwire.ParseHelloFile([]byte(in))
 		require.ErrorIs(t, err, modwire.ErrUnsupportedVersion, in)
+	}
+}
+
+// TestHelloFile_RecordsWhatTheHelloAnswered: the hello file carries the served hello's enabled and
+// steering answers. A reader can never take an absent answer for false: a file that lacks either
+// key, or carries it as null, is refused, as an absent "v" is. Steering true implies enabled true,
+// as on the hello response.
+func TestHelloFile_RecordsWhatTheHelloAnswered(t *testing.T) {
+	for _, tc := range []struct{ enabled, steering bool }{{false, false}, {true, false}, {true, true}} {
+		h := modwire.HelloFile{
+			V: modwire.Version, SessionID: "s", HostVersion: "2.1.300",
+			Enabled: tc.enabled, Steering: tc.steering, TS: 1,
+		}
+		b, err := h.Encode()
+		require.NoError(t, err)
+		got, err := modwire.ParseHelloFile(b)
+		require.NoError(t, err)
+		require.Equal(t, h, got)
+	}
+
+	for _, in := range []string{
+		`{"v":1,"session_id":"s","host_version":"2.1.300","steering":false,"ts":1}`,
+		`{"v":1,"session_id":"s","host_version":"2.1.300","enabled":false,"ts":1}`,
+		`{"v":1,"session_id":"s","host_version":"2.1.300","ts":1}`,
+		`{"v":1,"session_id":"s","host_version":"2.1.300","enabled":null,"steering":false,"ts":1}`,
+		`{"v":1,"session_id":"s","host_version":"2.1.300","enabled":true,"steering":null,"ts":1}`,
+		`{"v":1,"session_id":"s","host_version":"2.1.300","enabled":false,"steering":true,"ts":1}`,
+	} {
+		_, err := modwire.ParseHelloFile([]byte(in))
+		require.ErrorIs(t, err, modwire.ErrInvalid, in)
 	}
 }
