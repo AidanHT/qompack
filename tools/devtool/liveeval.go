@@ -133,6 +133,8 @@ type liveOptions struct {
 	night           liveNightWindow
 	// resume is the run directory --resume continues (W6 item 13).
 	resume string
+	// describe prints the run's description and starts nothing (W6 item 10).
+	describe bool
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -188,6 +190,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"cleanly outside it (default: no window)")
 	fs.StringVar(&o.resume, "resume", "", "continue the run in this directory from its plan.json: verify its hashes and host, "+
 		"skip every slot that holds a scored trial, run the rest, and decide over every session's trials")
+	fs.BoolVar(&o.describe, "describe", false, "print, as Markdown, what the run would do (tasks, checks, arms, bundles, "+
+		"host pin, trial order, model, flags and pacing); start nothing")
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
@@ -375,6 +379,20 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	plan.Trials = planLiveTrials(tasks, o.arms, counts, plan.OrderSeed)
 	if o.maxSessions > 0 && len(plan.Trials) > o.maxSessions {
 		return fmt.Errorf("live-eval: the plan starts %d session(s), above --max-sessions %d", len(plan.Trials), o.maxSessions)
+	}
+	if o.describe {
+		departures := eval.LivePlanDepartures(plan, ts.Analysis)
+		if o.confirmatory && len(departures) > 0 {
+			return fmt.Errorf("live-eval: --confirmatory: this plan is not the pre-registered confirmatory design: %s",
+				strings.Join(departures, "; "))
+		}
+		// Reading the version runs `claude --version`, a subcommand: no session starts.
+		plan.ClaudeCLI = env.claudeBin
+		d := liveDescription{
+			opts: o, plan: plan, set: ts, tasks: tasks, hostVersion: env.cliVersion(ctx), departures: departures,
+		}
+		_, err := io.WriteString(w, d.render())
+		return err
 	}
 
 	fmt.Fprintf(w, "live-eval: run %s: %d trial(s) of task set %s (%s, fixture tree %s) on %s, arms %s, install %s\n",
