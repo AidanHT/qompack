@@ -381,3 +381,53 @@ func TestRunLiveEval_RecordsTheOverageState(t *testing.T) {
 	require.Contains(t, strings.Join(sum.Notes, "\n"), "org_level_disabled")
 	require.Contains(t, log.String(), "overage rejected (org_level_disabled)")
 }
+
+// TestParseLiveFlags_NightWindowIsExplicit: a run that starts trials must name its night window, or
+// say none; a dry run, a description and a resume (which reuses the stored window) need not (review I3).
+func TestParseLiveFlags_NightWindowIsExplicit(t *testing.T) {
+	_, err := parseLiveFlags([]string{"--arms", "stock"})
+	require.ErrorContains(t, err, "--night-window")
+	o, err := parseLiveFlags([]string{"--arms", "stock", "--night-window", "none"})
+	require.NoError(t, err)
+	require.False(t, o.night.set, "none is the deliberate opt-out")
+	for _, ok := range [][]string{{"--dry-run"}, {"--describe"}, {"--resume", "dir"}} {
+		_, err := parseLiveFlags(ok)
+		require.NoError(t, err, ok)
+	}
+	_, err = parseLiveCheckFlags([]string{"--suite", "s.json"})
+	require.ErrorContains(t, err, "--night-window")
+	_, err = parseLiveCheckFlags([]string{"--suite", "s.json", "--dry-run"})
+	require.NoError(t, err)
+}
+
+// TestRunLiveEval_ResumeReusesThePacing: the pacing values of a run's first session are kept in its
+// directory; a resumed session with no pacing flag paces on them, and one that names a different value
+// is refused unless it says --pacing-override (review I3).
+func TestRunLiveEval_ResumeReusesThePacing(t *testing.T) {
+	env, clk, home := pacedEnv(t)
+	clk.t = time.Date(2026, 9, 22, 23, 0, 0, 0, time.UTC)
+	env.run = scriptedPilotHostWith(t, home, pilotHostOpts{
+		streamExtra: []string{rateLine("allowed", 0.1, 0.68, clk.t.Add(time.Hour), clk.t.Add(80*time.Hour), false)},
+	})
+	night, err := parseNightWindow("22:00-07:00")
+	require.NoError(t, err)
+	o := stockRun(t, 2)
+	o.night, o.sevenDayCeiling = night, 0.7
+	killAtVersionCall(env, 3) // dies after the first trial
+	runKilled(t, o, env)
+	var st livePacingState
+	readJSON(t, filepath.Join(o.out, livePacingFile), &st)
+	require.Equal(t, &livePacingSettings{FiveHourGate: 0.90, SevenDayCeiling: 0.7, NightWindow: "22:00-07:00"}, st.Settings)
+
+	env.cli = pinnedCLI(fakeLiveEnv(t, nil).cli)
+	r := resumeRun(t, o.out)
+	r.sevenDayCeiling, r.pacingGiven = 0.5, map[string]bool{"seven-day-ceiling": true}
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveEval(context.Background(), r, env, &log), "--pacing-override")
+	require.NoDirExists(t, slotDir(o.out, "stock", 2))
+
+	require.NoError(t, runLiveEval(context.Background(), resumeRun(t, o.out), env, &log), log.String())
+	require.FileExists(t, filepath.Join(slotDir(o.out, "stock", 2), "trial.json"),
+		"the stored ceiling 0.7 lets the 0.68 week through; the default 0.60 would have paused")
+	require.Contains(t, log.String(), "seven-day ceiling 0.70, night window 22:00-07:00")
+}
