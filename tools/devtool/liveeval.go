@@ -40,6 +40,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -477,6 +478,13 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if err := os.MkdirAll(o.out, liveDirPerm); err != nil {
 		return fmt.Errorf("live-eval: creating %s: %w", o.out, err)
 	}
+	// The lock comes before plan.json, so a second start pointed at a running run's directory cannot
+	// overwrite its plan (re-review M8).
+	release, err := acquireLiveLock(o.out, env.now())
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := writeJSONFile(filepath.Join(o.out, "plan.json"), plan); err != nil {
 		return err
 	}
@@ -511,17 +519,15 @@ func executeLivePlan(ctx context.Context, o liveOptions, env *liveEnv, w io.Writ
 	for _, s := range plan.ArmStates {
 		states[s.Arm] = s
 	}
-	release, err := acquireLiveLock(o.out, env.now())
-	if err != nil {
-		return err
-	}
-	defer release()
 	if err := checkLiveOverageStop(o); err != nil {
 		return err
 	}
 	pacer, err := newLivePacer(o, o.out, env.now())
 	if err != nil {
 		return err
+	}
+	for _, warn := range pacer.warnings {
+		fmt.Fprintf(w, "live-eval: pacing: %s\n", warn)
 	}
 	fmt.Fprintf(w, "live-eval: pacing: five-hour gate %.2f, seven-day ceiling %.2f, night window %s\n",
 		pacer.pacing.FiveHourGate, pacer.pacing.SevenDayCeiling, pacer.night)
@@ -552,7 +558,7 @@ slots:
 			why, paceErr := pacer.before(ctx, env, w)
 			if paceErr != nil {
 				stop(paceErr)
-				markLiveOverageStop(o.out, env, paceErr)
+				markLiveOverageStop(o.out, env, paceErr.Error())
 				break slots
 			}
 			if why != "" {
@@ -584,13 +590,21 @@ slots:
 				fmt.Fprintf(w, "live-eval: %s/%s/%d: the account reports overage %s (%s)\n", p.Task, p.Arm, p.Trial,
 					orUnknown(rec.OverageStatus), orUnknown(rec.OverageDisabledReason))
 			}
+			// The driver's own stop is the overage stop, whatever the cut stream parses to, and its marker
+			// is written before the guard is looked at (re-review N1).
+			over := rec.Stopped
+			if over == "" {
+				over = liveOverage(rec.RateLimits)
+			}
+			if over != "" {
+				markLiveOverageStop(o.out, env, over)
+			}
 			if guardErr != nil {
 				stop(guardErr)
 				break slots
 			}
-			if over := liveOverage(rec.RateLimits); over != "" {
+			if over != "" {
 				stop(fmt.Errorf("live-eval: after %s/%s/%d: %s", p.Task, p.Arm, p.Trial, over))
-				markLiveOverageStop(o.out, env, abort)
 				break slots
 			}
 			if problem := eval.LiveRateProblem(rec.RateLimits); problem != "" {
@@ -971,7 +985,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		if r := recover(); r != nil {
 			// A panic leaves no record at all: a trial.json written now would be an ungraded failure
 			// that --resume counts as scored. The slot stays open and the panic goes on.
-			panic(r)
+			panic(fmt.Sprintf("%v\n%s", r, debug.Stack()))
 		}
 		rec.ApplyHarnessFailure(task)
 		// A configuration error outranks a limit: the attempt was not the arm's, whatever cut it short.
@@ -1130,6 +1144,7 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 	rec.Limited = eval.LiveUsageLimited(stream)
 	if proc.Stopped != "" {
 		// The driver cut the session short (review I1): never a scored trial.
+		rec.Stopped = proc.Stopped
 		rec.Limited = "the session was stopped: " + proc.Stopped
 	}
 	rec.OverageStatus, rec.OverageDisabledReason = eval.LiveOverageState(stream.RateLimits)

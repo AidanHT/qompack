@@ -46,6 +46,10 @@ type liveCheckOptions struct {
 	compare                         []string
 	fiveHourGate, sevenDayCeiling   float64
 	night                           liveNightWindow
+	// pacingGiven names the pacing flags given; pacingOverride lets them replace values an existing
+	// --out directory stored (re-review N3).
+	pacingGiven    map[string]bool
+	pacingOverride bool
 }
 
 func taskLiveCheck(args []string) error {
@@ -84,9 +88,17 @@ func parseLiveCheckFlags(args []string) (liveCheckOptions, error) {
 	fs.Float64Var(&o.fiveHourGate, "five-hour-gate", eval.LiveFiveHourGate, "as live-eval's")
 	fs.Float64Var(&o.sevenDayCeiling, "seven-day-ceiling", eval.LiveSevenDayCeiling, "as live-eval's")
 	night := fs.String("night-window", "", "as live-eval's: HH:MM-HH:MM, local time (default: no window)")
+	fs.BoolVar(&o.pacingOverride, "pacing-override", false, "let the pacing flags replace values the --out directory stored")
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
+	o.pacingGiven = map[string]bool{}
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "five-hour-gate", "seven-day-ceiling", "night-window":
+			o.pacingGiven[f.Name] = true
+		}
+	})
 	if *compare {
 		if fs.NArg() != 2 {
 			return o, errors.New("live-check: --compare takes two run directories")
@@ -183,9 +195,13 @@ func runLiveCheck(ctx context.Context, o liveCheckOptions, env *liveEnv, w io.Wr
 
 	pacer, err := newLivePacer(liveOptions{
 		fiveHourGate: o.fiveHourGate, sevenDayCeiling: o.sevenDayCeiling, night: o.night, sessionTimeout: o.sessionTimeout,
+		pacingGiven: o.pacingGiven, pacingOverride: o.pacingOverride,
 	}, o.out, env.now())
 	if err != nil {
 		return err
+	}
+	for _, warn := range pacer.warnings {
+		fmt.Fprintf(w, "live-check: pacing: %s\n", warn)
 	}
 	results := eval.LiveCheckResults{
 		Schema: eval.LiveCheckResultsSchema, RunID: runID, Suite: suite.ID, SuiteVersion: suite.Version,
@@ -226,7 +242,11 @@ checks:
 					stop = guardErr
 					break checks
 				}
-				if over := liveOverage(evs); over != "" {
+				over := run.Stopped
+				if over == "" {
+					over = liveOverage(evs)
+				}
+				if over != "" {
 					stop = fmt.Errorf("live-check: after %s run %d: %s", c.ID, n, over)
 					break checks
 				}
@@ -423,6 +443,7 @@ func (r *liveCheckRun) runOnce(ctx context.Context, c eval.LiveSuiteCheck, n int
 		run = graded
 		run.Limited = eval.LiveUsageLimited(stream)
 		if proc.Stopped != "" {
+			run.Stopped = proc.Stopped
 			run.Limited = "the session was stopped: " + proc.Stopped
 		}
 	}

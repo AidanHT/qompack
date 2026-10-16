@@ -65,6 +65,11 @@ func resumeLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Write
 		return fmt.Errorf("live-eval: refusing to start real sessions without %s=1 (CI never sets it); "+
 			"use --dry-run to validate", liveEvalGateEnv)
 	}
+	release, err := acquireLiveLock(dir, env.now())
+	if err != nil {
+		return err
+	}
+	defer release()
 	return executeLivePlan(ctx, o, env, w, plan, ts, rates, tasks)
 }
 

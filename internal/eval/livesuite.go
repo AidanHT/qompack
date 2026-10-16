@@ -409,7 +409,9 @@ type LiveCheckRun struct {
 	// HarnessError is a failure of the driver or the process; such a run is never a pass.
 	HarnessError string `json:"harness_error,omitempty"`
 	// Limited says how a subscription limit cut the run short: it is not counted, and runs again.
-	Limited  string          `json:"limited,omitempty"`
+	Limited string `json:"limited,omitempty"`
+	// Stopped is why the harness stopped the session itself (paid overage in use).
+	Stopped  string          `json:"stopped,omitempty"`
 	Failures []string        `json:"failures,omitempty"`
 	WallMS   int64           `json:"wall_ms"`
 	Record   LiveCheckRecord `json:"record"`

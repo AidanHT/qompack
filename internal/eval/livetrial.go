@@ -128,6 +128,9 @@ type LiveTrial struct {
 	// disk under another name in its slot, excluded from every analysis but the limited sensitivity
 	// analysis, and its slot is run again.
 	Limited string `json:"limited,omitempty"`
+	// Stopped is why the harness stopped the session itself (paid overage in use): the stop the run
+	// acts on, whatever the cut stream parses to (re-review N1).
+	Stopped string `json:"stopped,omitempty"`
 	// LimitResetsAt is when the usage-limit result that cut the trial short said the limit resets,
 	// in Unix seconds; 0 when it did not say.
 	LimitResetsAt int64    `json:"limit_resets_at,omitempty"`

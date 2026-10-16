@@ -13,10 +13,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/qompack/qompack/internal/eval"
@@ -115,6 +113,8 @@ type livePacer struct {
 	// sessionMargin is how long before the night window closes the last trial may start: a trial
 	// runs up to the session timeout (review M4).
 	sessionMargin time.Duration
+	// warnings are the stored values the flags replaced under --pacing-override, for the caller to print.
+	warnings []string
 	// holdUntil and holdWhy are a reset a usage-limit result announced (review M5).
 	holdUntil time.Time
 	holdWhy   string
@@ -167,6 +167,12 @@ func newLivePacer(o liveOptions, dir string, now time.Time) (*livePacer, error) 
 		}
 	}
 	p.snap = st.Snapshot
+	if st.Settings == nil && o.resume != "" && !o.pacingGiven["night-window"] {
+		// The first session died before it stored its pacing, or the file was removed: never resume
+		// with no night window by default (re-review N2).
+		return nil, fmt.Errorf("live-eval: %s holds no stored pacing values; name the night window for the rest of "+
+			"the run with --night-window HH:MM-HH:MM (or none)", p.path)
+	}
 	if s := st.Settings; s != nil {
 		stored, err := parseNightWindow(s.NightWindow)
 		if err != nil {
@@ -184,7 +190,10 @@ func newLivePacer(o liveOptions, dir string, now time.Time) (*livePacer, error) 
 			switch {
 			case !o.pacingGiven[f.flag]:
 				f.apply()
-			case f.given != f.stored && !o.pacingOverride:
+			case f.given != f.stored && o.pacingOverride:
+				p.warnings = append(p.warnings, fmt.Sprintf("--%s %s replaces the stored %s (--pacing-override)",
+					f.flag, f.given, f.stored))
+			case f.given != f.stored:
 				return nil, fmt.Errorf("live-eval: --%s %s differs from the %s this run paces on (%s); pass --pacing-override "+
 					"to change it for this and later sessions", f.flag, f.given, f.stored, p.path)
 			}
@@ -267,12 +276,12 @@ func (p *livePacer) observe(env *liveEnv, evs []eval.HostRateLimit) error {
 const liveOverageStopFile = "overage-stop.json"
 
 // markLiveOverageStop leaves the overage-stop marker for why, when why is an overage stop.
-func markLiveOverageStop(dir string, env *liveEnv, why error) {
-	if why == nil || !strings.Contains(why.Error(), "overage") {
+func markLiveOverageStop(dir string, env *liveEnv, why string) {
+	if !strings.Contains(why, "overage") {
 		return
 	}
 	_ = writeJSONFile(filepath.Join(dir, liveOverageStopFile), map[string]string{
-		"at": env.now().UTC().Format(time.RFC3339), "why": why.Error(),
+		"at": env.now().UTC().Format(time.RFC3339), "why": why,
 	})
 }
 
@@ -431,19 +440,4 @@ func boolText(b *bool) string {
 		return "absent"
 	}
 	return fmt.Sprint(*b)
-}
-
-// liveProcessAlive reports that a process with this pid runs on this machine. On Windows finding a
-// process opens it, which fails for one that no longer exists; elsewhere signal 0 asks without
-// signalling. A process the harness may not open reads as gone, which only lets a stale lock go.
-func liveProcessAlive(pid int) bool {
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	if runtime.GOOS == "windows" {
-		_ = p.Release()
-		return true
-	}
-	return p.Signal(syscall.Signal(0)) == nil
 }

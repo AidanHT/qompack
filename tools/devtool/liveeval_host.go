@@ -139,6 +139,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	cmd.Dir = spec.Dir
 	cmd.Env = liveProcessEnv(os.Environ(), spec)
 	cmd.WaitDelay = liveExitGrace
+	liveTreeCancel(cmd)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdin, err := cmd.StdinPipe()
@@ -259,6 +260,14 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	return res
 }
 
+// liveTreeCancel makes cmd's context cancellation end the whole process tree the harness started,
+// not only the direct child (re-review I1): the default host is npm's claude.cmd shim, whose claude.exe
+// a kill of cmd.exe alone leaves running.
+func liveTreeCancel(cmd *exec.Cmd) {
+	liveSetProcessGroup(cmd)
+	cmd.Cancel = func() error { return liveKillTree(cmd) }
+}
+
 // liveInheritedPrefix is the prefix of the environment variables Qompack reads its configuration
 // and kill switches from (QOMPACK_RUNTIME__MODE, say). A session must not inherit the operator's.
 const liveInheritedPrefix = "QOMPACK_"
@@ -347,6 +356,7 @@ func runLiveCLI(ctx context.Context, bin, dir string, args ...string) liveCLIRes
 	cmd.Stdin = bytes.NewReader(nil)
 	cmd.Env = liveCLIEnv(os.Environ())
 	cmd.WaitDelay = liveExitGrace
+	liveTreeCancel(cmd)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err := cmd.Run()
@@ -386,6 +396,7 @@ func runLiveGit(ctx context.Context, dir string, args ...string) error {
 	cctx, cancel := context.WithTimeout(ctx, liveCLITimeout)
 	defer cancel()
 	cmd := exec.CommandContext(cctx, "git", args...)
+	liveTreeCancel(cmd)
 	cmd.Dir = dir
 	cmd.Stdin = bytes.NewReader(nil)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -406,6 +417,7 @@ func runLiveCheckCommand(dir string, argv []string) eval.CommandOutcome {
 	cmd.Dir = dir
 	cmd.Stdin = bytes.NewReader(nil)
 	cmd.WaitDelay = liveExitGrace
+	liveTreeCancel(cmd)
 	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
 	out, err := cmd.CombinedOutput()
 	if len(out) > liveCommandOutputKeep {
