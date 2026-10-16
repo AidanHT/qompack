@@ -27,14 +27,15 @@ const modRefusedHostVersion = "the host version is below the minimum or unreadab
 // A brief is refused, with nothing written and nothing spawned, when its host_version is below
 // modwire.MinHostVersion or unreadable, and for every refusal modServedProject makes for a verb that
 // steers: a home-directory root, no store, runtime.mod.enabled or runtime.mod.steering off, runtime
-// mode off. A request that cannot be read
-// is the bare error object, and a configuration that does not load is an error; neither is
-// recorded, because the first cannot name its record and the second leaves the switches unknown.
+// mode off. A request that cannot be read is the bare error object, and a configuration that does
+// not load is an error; neither is recorded, because the first cannot name its record and the second
+// leaves the switches unknown.
 //
-// Otherwise the verb asks the daemon (askBriefDaemon) and records the call, whatever it came to,
-// as one line of the session's brief-outcome log before it answers. A call that cannot be recorded
-// is answered as an error, so the log shows every brief that steered a compaction.
-func modBrief(ctx context.Context, env Env, stdin io.Reader) any {
+// Otherwise the verb asks the daemon (askBriefDaemon) and records the call, whatever it came to, as
+// one line of the session's brief-outcome log before it answers. A record that cannot be written
+// does not change the answer: failing open, the brief is still served, the failure is reported on
+// errw with no path in it, and the call is left with no record, which the evaluation reads as such.
+func modBrief(ctx context.Context, env Env, stdin io.Reader, errw io.Writer) any {
 	clk := env.Clock
 	if clk == nil {
 		clk = core.SystemClock()
@@ -70,7 +71,8 @@ func modBrief(ctx context.Context, env Env, stdin io.Reader) any {
 		V: modwire.Version, TS: core.NowMilli(clk), Trigger: req.Trigger, Outcome: modwire.OutcomeFor(resp.Status),
 		Chars: chars, MS: max(clk.Since(started).Milliseconds(), 0),
 	}); err != nil {
-		return unserved(modFailure(fmt.Errorf("brief record: %w", err), root, homeDir(env)))
+		_, _ = fmt.Fprintf(errw, "qompack mod brief: record not written: %s\n",
+			modFailure(err, root, homeDir(env)).Detail)
 	}
 	return resp
 }

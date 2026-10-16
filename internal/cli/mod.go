@@ -43,14 +43,15 @@ func modCmds() []Cmd {
 }
 
 // modVerb answers one verb: it reads the request from stdin and returns the response to write,
-// which is always one of the verb's modwire response types or a bare modwire.Status.
-type modVerb func(ctx context.Context, env Env, stdin io.Reader) any
+// which is always one of the verb's modwire response types or a bare modwire.Status. errw is the
+// process's stderr, for a failure the verb reports without changing its answer.
+type modVerb func(ctx context.Context, env Env, stdin io.Reader, errw io.Writer) any
 
 // runModVerb wraps a verb in the group's framing: no arguments beyond --set (which Dispatch has
 // already taken), the request on stdin, exactly one response object on stdout, and a nil error for
 // every handled failure, so Dispatch exits 0.
 func runModVerb(verb modwire.Verb, answer modVerb) func(context.Context, Env, []string, io.Writer, io.Writer) error {
-	return func(ctx context.Context, env Env, args []string, out, _ io.Writer) error {
+	return func(ctx context.Context, env Env, args []string, out, errw io.Writer) error {
 		var resp any
 		if len(args) > 0 {
 			resp = modwire.Failure(modwire.ReasonError,
@@ -60,7 +61,7 @@ func runModVerb(verb modwire.Verb, answer modVerb) func(context.Context, Env, []
 			if stdin == nil {
 				stdin = strings.NewReader("")
 			}
-			resp = answer(ctx, env, stdin)
+			resp = answer(ctx, env, stdin, errw)
 		}
 		return writeModResponse(out, resp)
 	}
@@ -165,7 +166,7 @@ func modServedProject(env Env, cwd string, steering bool) (root string, cfg conf
 // steering as the response carries them. A refused hello writes nothing. Hello does not steer,
 // so runtime.mod.steering off does not refuse it. Hello needs no daemon: the file is written from
 // this process.
-func modHello(_ context.Context, env Env, stdin io.Reader) any {
+func modHello(_ context.Context, env Env, stdin io.Reader, _ io.Writer) any {
 	req, err := modwire.DecodeHelloRequest(stdin)
 	if err != nil {
 		return modwire.FailureFor(err)

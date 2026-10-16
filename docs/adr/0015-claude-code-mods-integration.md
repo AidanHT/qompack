@@ -155,8 +155,9 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
   content. `ts` is when the call finished and `ms` is its wall time from the CLI process's start.
   A refused call gets no record, and no store is created for it. Neither does a request that
   cannot be read (it cannot name the file or the trigger) or a configuration that does not load
-  (the switches are then unknown). A call whose record cannot be written is answered `error`, so
-  no brief steers a compaction its record does not show. The **hello file**
+  (the switches are then unknown). A call whose record cannot be written still gets its answer,
+  failing open: the CLI reports the failure on stderr, and the evaluation reads the call as having
+  no record. The **hello file**
   `.qompack/state/mod-hello-<session>.json` holds `{v, session_id, host_version, enabled,
   steering, ts}`, the proof a mod session reached the binary and the `enabled` and `steering` its
   hello answered; it is written for every served hello, including one answered `enabled: false`,
