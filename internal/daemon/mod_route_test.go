@@ -242,3 +242,22 @@ func TestHandleMod_TheConfiguredDefaultIsTheWireCeiling(t *testing.T) {
 	require.Equal(t, modwire.BriefMaxChars, config.ModBriefMaxCharsCeiling)
 	require.Equal(t, modwire.BriefMaxChars, config.Defaults().Runtime.Mod.BriefMaxChars)
 }
+
+// TestHandleMod_TheDeadlineNeverOutlivesTheCLIsWait: the request's TS is the CLI process's start,
+// so the CLI stops waiting at TS + TimeoutMs - RecordMarginMs; the route's deadline is never later
+// than that less DaemonReplyMarginMs, however long the dial and the transit took to deliver the
+// budget. Here TS is 1,000 ms old and the budget 1,500 ms, so the deadline is TS + 1,700 ms, about
+// 700 ms after receipt rather than 1,500.
+func TestHandleMod_TheDeadlineNeverOutlivesTheCLIsWait(t *testing.T) {
+	dd, p := newModRouteDaemon(t, nil)
+	req := modCallRequest(t, "brief", 1500, modBriefRequest(modwire.TriggerPrecompute))
+	ts := time.Now().Add(-time.Second)
+	req.TS = core.UnixMilli(ts.UnixMilli())
+
+	modAnswer(t, dd.dispatchOp(context.Background(), req))
+
+	layer1 := time.Duration(modwire.TimeoutMs-modwire.RecordMarginMs-modwire.DaemonReplyMarginMs) * time.Millisecond
+	require.True(t, p.hasDL)
+	require.Equal(t, time.UnixMilli(int64(req.TS)).Add(layer1), p.deadline,
+		"the deadline is the CLI's start plus the daemon's layer, not receipt plus the budget")
+}
