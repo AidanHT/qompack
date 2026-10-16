@@ -61,6 +61,9 @@ type HostStream struct {
 	// Other counts every line kind this parser does not interpret, keyed "type" or "type/subtype",
 	// so a new host event is visible in the record instead of silently dropped.
 	Other map[string]int `json:"other,omitempty"`
+	// RateLimits is every rate_limit_event line in order (V7 W6 item 8): the subscription windows'
+	// state as the host reported it, which the harness paces on.
+	RateLimits []HostRateLimit `json:"rate_limits,omitempty"`
 }
 
 // HostInit is the session metadata the host reports at start-up.
@@ -511,7 +514,9 @@ func (p *streamParser) line(line []byte, at int64) error {
 		return p.result(line, at)
 	case "user":
 		return p.user(line, at)
-	case "rate_limit_event", "stream_event":
+	case "rate_limit_event":
+		return p.rateLimit(line, at)
+	case "stream_event":
 		p.turn(at)
 		return nil
 	default:
