@@ -88,8 +88,24 @@ type LiveAnalysis struct {
 	// NonInferiorityMargin is how far below stock Qompack's task-success rate may sit and still be
 	// called non-inferior, as a proportion.
 	NonInferiorityMargin float64 `json:"non_inferiority_margin"`
-	// TrialsPerArm is the pre-registered number of trials per task per arm.
-	TrialsPerArm int `json:"trials_per_arm"`
+	// TrialsPerArm is the pre-registered number of trials per task per arm, one count for every arm.
+	// A four-arm set gives ArmTrialsPerTask instead; a set gives exactly one of the two.
+	TrialsPerArm int `json:"trials_per_arm,omitempty"`
+	// ArmTrialsPerTask is the pre-registered trials per task of each Stage A arm, by arm name. It
+	// lives here, in the hashed task file, so the counts cannot move after outcomes exist.
+	ArmTrialsPerTask map[string]int `json:"arm_trials_per_task,omitempty"`
+	// GenericCompactInstructions is text G: what the generic arm's CLAUDE.md carries under its
+	// `# Compact instructions` heading. It lives here so the task-set hash covers it.
+	GenericCompactInstructions string `json:"generic_compact_instructions,omitempty"`
+}
+
+// TrialsFor is arm's pre-registered trials per task: its own count in a four-arm set, the one count
+// in a set that gives one, and 0 for an arm a four-arm set does not name.
+func (a LiveAnalysis) TrialsFor(arm string) int {
+	if a.ArmTrialsPerTask != nil {
+		return a.ArmTrialsPerTask[arm]
+	}
+	return a.TrialsPerArm
 }
 
 // LiveTask is one task.
@@ -258,8 +274,22 @@ func (ts LiveTaskSet) Validate() error {
 		if err := t.validate(); err != nil {
 			return fmt.Errorf("eval: task %s: %w", t.ID, err)
 		}
+		if ts.Analysis.fourArm() && !t.hasRecoveryCheck() {
+			// Stage A decides on recovery, so every trial must carry a recovery verdict (W6 item 3).
+			return fmt.Errorf("eval: task %s declares no recovery check; every task of a four-arm set needs one", t.ID)
+		}
 	}
 	return nil
+}
+
+// hasRecoveryCheck reports that the task declares at least one recovery check.
+func (t LiveTask) hasRecoveryCheck() bool {
+	for _, c := range t.Checks {
+		if c.Outcome == OutcomeRecovery {
+			return true
+		}
+	}
+	return false
 }
 
 func (a LiveAnalysis) validate() error {
@@ -272,11 +302,30 @@ func (a LiveAnalysis) validate() error {
 	if strings.TrimSpace(a.Model) == "" {
 		return fmt.Errorf("eval: analysis.model must name the pre-registered model")
 	}
-	if a.TrialsPerArm <= 0 {
+	switch {
+	case a.TrialsPerArm < 0:
 		return fmt.Errorf("eval: analysis.trials_per_arm must be positive")
+	case a.TrialsPerArm == 0 && len(a.ArmTrialsPerTask) == 0:
+		return fmt.Errorf("eval: analysis needs trials_per_arm or arm_trials_per_task")
+	case a.TrialsPerArm > 0 && a.ArmTrialsPerTask != nil:
+		return fmt.Errorf("eval: analysis gives trials_per_arm or arm_trials_per_task, not both")
+	}
+	for _, arm := range keysOfInt(a.ArmTrialsPerTask) {
+		if _, ok := LiveArmSpec(arm); !ok {
+			return fmt.Errorf("eval: analysis.arm_trials_per_task names %q, which is not one of %v", arm, LiveArms)
+		}
+		if a.ArmTrialsPerTask[arm] <= 0 {
+			return fmt.Errorf("eval: analysis.arm_trials_per_task[%s] must be positive", arm)
+		}
+	}
+	if a.ArmTrialsPerTask[ArmGeneric] > 0 && strings.TrimSpace(a.GenericCompactInstructions) == "" {
+		return fmt.Errorf("eval: the generic arm needs analysis.generic_compact_instructions (text G)")
 	}
 	return nil
 }
+
+// fourArm reports that the set is in the Stage A shape, with per-arm trials.
+func (a LiveAnalysis) fourArm() bool { return len(a.ArmTrialsPerTask) > 0 }
 
 func (t LiveTask) validate() error {
 	if !liveIDPattern.MatchString(t.ID) {
@@ -437,5 +486,10 @@ func cleanRelative(p string) error {
 // keysOfBool lists m's keys in sorted order, so an error message naming them reads the same on
 // every run (D53(a)).
 func keysOfBool(m map[string]bool) []string {
+	return slices.Sorted(maps.Keys(m))
+}
+
+// keysOfInt lists m's keys in sorted order.
+func keysOfInt(m map[string]int) []string {
 	return slices.Sorted(maps.Keys(m))
 }
