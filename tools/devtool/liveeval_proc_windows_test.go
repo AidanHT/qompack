@@ -191,3 +191,53 @@ func TestLiveTaskkill_NotFoundExit(t *testing.T) {
 	require.ErrorAs(t, err, &tk)
 	require.Equal(t, liveTaskkillNotFound, tk.Code, tk.Output)
 }
+
+
+// TestRunLiveCLI_FailedWalkIsKept: a claude subcommand whose tree kill failed keeps the walk error in
+// its stderr, beside its exit code (R53, H2).
+func TestRunLiveCLI_FailedWalkIsKept(t *testing.T) {
+	fakeTaskkill(t, func(int) error { return errors.New("taskkill exploded") })
+	t.Setenv(liveHelperEnv, "1")
+	t.Setenv(liveHelperModeEnv, "sleep")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		tick := time.NewTimer(500 * time.Millisecond)
+		defer tick.Stop()
+		<-tick.C
+		cancel()
+	}()
+	r := runLiveCLI(ctx, os.Args[0], "", "-test.run=^TestLiveHelperProcess$")
+	require.NotZero(t, r.Code)
+	require.Contains(t, r.Stderr, "taskkill exploded")
+}
+
+// TestRunLiveCheckCommand_FailedWalkOnTimeout: a check command that timed out and whose tree kill
+// failed reports both (R53, H2).
+func TestRunLiveCheckCommand_FailedWalkOnTimeout(t *testing.T) {
+	fakeTaskkill(t, func(int) error { return errors.New("taskkill exploded") })
+	old := liveCheckCommandTimeout
+	liveCheckCommandTimeout = 500 * time.Millisecond
+	t.Cleanup(func() { liveCheckCommandTimeout = old })
+	t.Setenv(liveHelperEnv, "1")
+	t.Setenv(liveHelperModeEnv, "sleep")
+	co := runLiveCheckCommand(t.TempDir(), []string{os.Args[0], "-test.run=^TestLiveHelperProcess$"})
+	require.Error(t, co.Err)
+	require.Contains(t, co.Err.Error(), "timed out")
+	require.Contains(t, co.Err.Error(), "taskkill exploded")
+}
+
+// TestLiveKillTree_NoSettleWaitWhenTaskkillNeverRan: when taskkill could not even run, the root is not
+// waited for before the direct child is killed (R53, N1).
+func TestLiveKillTree_NoSettleWaitWhenTaskkillNeverRan(t *testing.T) {
+	fakeTaskkill(t, func(int) error { return errors.New("taskkill.exe cannot be named") })
+	cmd := liveHelperCmd(t, "sleep")
+	started, done, _ := liveTreeCancel(cmd)
+	require.NoError(t, cmd.Start())
+	started()
+	begun := time.Now()
+	require.ErrorContains(t, cmd.Cancel(), "only the direct child")
+	require.Less(t, time.Since(begun), time.Second, "no settle wait")
+	require.Error(t, cmd.Wait())
+	done()
+}

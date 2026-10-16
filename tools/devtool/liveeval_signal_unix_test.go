@@ -19,7 +19,13 @@ func TestLiveSignals_Unix(t *testing.T) {
 	require.Contains(t, liveSignalList(), os.Signal(syscall.SIGHUP))
 	require.Contains(t, liveSignalList(), os.Signal(syscall.SIGQUIT))
 	signal.Ignore(syscall.SIGHUP)
-	defer signal.Reset(syscall.SIGHUP)
+	defer func() {
+		// Reset alone does not undo Ignore; Notify clears the ignored state first (R53, H3).
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP)
+		signal.Reset(syscall.SIGHUP)
+		require.False(t, signal.Ignored(syscall.SIGHUP), "SIGHUP is no longer ignored for later tests")
+	}()
 	require.NotContains(t, liveSignalList(), os.Signal(syscall.SIGHUP), "nohup's SIGHUP stays ignored")
 	require.Contains(t, liveSignalList(), os.Signal(syscall.SIGQUIT))
 }

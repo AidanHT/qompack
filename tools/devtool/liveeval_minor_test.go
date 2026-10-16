@@ -518,3 +518,57 @@ func TestLiveCheck_InterruptedRunWritesNoRunJSON(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(dir, "run.json"))
 	require.FileExists(t, filepath.Join(dir, "run.interrupted-1.json"))
 }
+
+
+// partialWalk is the harness error a session whose tree kill was only partial carries.
+const partialWalk = "the process tree was only partly ended, so a descendant may still run: taskkill /T /F /PID 7: exit 255: " +
+	"ERROR: The process with PID 8 (child process of PID 7) could not be terminated."
+
+// TestRunLiveEval_FailedTreeKillReachesTheConsole: when the tree kill of an overage-stopped or
+// interrupted session failed, the limited slot line, the STOPPING line and overage-stop.json say a
+// host process may still be running (R53, H1).
+func TestRunLiveEval_FailedTreeKillReachesTheConsole(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	over := rateLine("allowed", 0.1, 0.1, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), true)
+	scripted := scriptedPilotHostWith(t, home, pilotHostOpts{streamExtra: []string{over}})
+	env.run = func(c context.Context, spec liveProcSpec) liveProcResult {
+		res := scripted(c, spec)
+		res.Err = joinErr(res.Err, partialWalk)
+		return res
+	}
+	o := stockRun(t, 2)
+	var log bytes.Buffer
+	err := runLiveEval(context.Background(), o, env, &log)
+	require.ErrorContains(t, err, "a host process may still be running")
+	require.ErrorContains(t, err, "exit 255")
+	require.Contains(t, log.String(), "limited: ")
+	for _, l := range strings.Split(log.String(), "\n") {
+		if strings.Contains(l, "limited: ") {
+			require.Contains(t, l, "a host process may still be running", l)
+		}
+	}
+	raw, rerr := os.ReadFile(filepath.Join(o.out, liveOverageStopFile))
+	require.NoError(t, rerr)
+	require.Contains(t, string(raw), "a host process may still be running")
+
+	env2, _, home2 := pacedEnv(t)
+	scripted2 := scriptedPilotHost(t, home2)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env2.run = func(c context.Context, spec liveProcSpec) liveProcResult {
+		res := scripted2(c, spec)
+		cancel()
+		res.Err = joinErr("the session bound expired", partialWalk)
+		return res
+	}
+	err = runLiveEval(ctx, stockRun(t, 1), env2, &log)
+	require.ErrorContains(t, err, "interrupted")
+	require.ErrorContains(t, err, "a host process may still be running")
+}
+
+// TestJoinErr_NoTrailingSeparator: joining nothing adds no "; " (R53, N3).
+func TestJoinErr_NoTrailingSeparator(t *testing.T) {
+	require.Equal(t, "a", joinErr("a", ""))
+	require.Equal(t, "b", joinErr("", "b"))
+	require.Equal(t, "a; b", joinErr("a", "b"))
+}
