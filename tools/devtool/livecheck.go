@@ -64,7 +64,9 @@ func taskLiveCheck(args []string) error {
 	if err != nil {
 		return err
 	}
-	return runLiveCheck(context.Background(), o, env, os.Stdout)
+	ctx, stop := liveSignalContext()
+	defer stop()
+	return runLiveCheck(ctx, o, env, os.Stdout)
 }
 
 func parseLiveCheckFlags(args []string) (liveCheckOptions, error) {
@@ -195,11 +197,13 @@ func runLiveCheck(ctx context.Context, o liveCheckOptions, env *liveEnv, w io.Wr
 
 	pacer, err := newLivePacer(liveOptions{
 		fiveHourGate: o.fiveHourGate, sevenDayCeiling: o.sevenDayCeiling, night: o.night, sessionTimeout: o.sessionTimeout,
-		pacingGiven: o.pacingGiven, pacingOverride: o.pacingOverride,
+		pacingGiven: o.pacingGiven, pacingOverride: o.pacingOverride, pacingTool: "live-check",
 	}, o.out, env.now())
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(w, "live-check: pacing: five-hour gate %.2f, seven-day ceiling %.2f, night window %s\n",
+		pacer.pacing.FiveHourGate, pacer.pacing.SevenDayCeiling, pacer.night)
 	for _, warn := range pacer.warnings {
 		fmt.Fprintf(w, "live-check: pacing: %s\n", warn)
 	}
@@ -214,6 +218,10 @@ checks:
 	for _, c := range suite.Checks {
 		for n := 1; n <= c.Runs(o.tier); n++ {
 			for {
+				if err := liveInterrupted(ctx, "live-check"); err != nil {
+					stop = err
+					break checks
+				}
 				if v := env.cliVersion(ctx); v != r.manifest.ClaudeCodeVersion {
 					stop = fmt.Errorf("live-check: the host reports Claude Code %s, not %s, before %s run %d", v,
 						r.manifest.ClaudeCodeVersion, c.ID, n)
@@ -229,6 +237,10 @@ checks:
 					break checks
 				}
 				run, evs, model, guardErr := r.runOnce(ctx, c, n)
+				if err := liveInterrupted(ctx, "live-check"); err != nil {
+					stop = errors.Join(err, guardErr) // the interrupted run is not graded or kept
+					break checks
+				}
 				runs[c.ID] = append(runs[c.ID], run)
 				if model != "" {
 					hostModels[model] = true
@@ -450,6 +462,9 @@ func (r *liveCheckRun) runOnce(ctx context.Context, c eval.LiveSuiteCheck, n int
 	model := ""
 	if stream.Init != nil {
 		model = stream.Init.Model
+	}
+	if ctx.Err() != nil {
+		return run, stream.RateLimits, model, guardErr // interrupted: nothing is written
 	}
 	if run.Limited != "" {
 		if _, err := liveSetAsideRecord(dir, liveSlotLimited, "run.json", liveCheckAttemptFiles, run); err != nil && guardErr == nil {

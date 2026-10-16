@@ -139,7 +139,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	cmd.Dir = spec.Dir
 	cmd.Env = liveProcessEnv(os.Environ(), spec)
 	cmd.WaitDelay = liveExitGrace
-	liveTreeCancel(cmd)
+	pinned, unpin := liveTreeCancel(cmd)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdin, err := cmd.StdinPipe()
@@ -156,6 +156,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 		res.Err, res.EndedAt = "starting the host: "+err.Error(), time.Now()
 		return res
 	}
+	pinned()
 	t0 := time.Now()
 
 	var mu sync.Mutex
@@ -239,6 +240,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	}
 	grace.Stop()
 	werr := cmd.Wait()
+	unpin()
 	var exitErr *exec.ExitError
 	switch {
 	case werr == nil:
@@ -263,9 +265,27 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 // liveTreeCancel makes cmd's context cancellation end the whole process tree the harness started,
 // not only the direct child (re-review I1): the default host is npm's claude.cmd shim, whose claude.exe
 // a kill of cmd.exe alone leaves running.
-func liveTreeCancel(cmd *exec.Cmd) {
+//
+// started must be called right after a successful Start, and done after Wait returns: between them
+// the process the harness started is pinned, so the kill never names a pid the harness no longer owns
+// and a kill that races a normal exit reports os.ErrProcessDone instead of an error (re-review N6).
+func liveTreeCancel(cmd *exec.Cmd) (started, done func()) {
 	liveSetProcessGroup(cmd)
-	cmd.Cancel = func() error { return liveKillTree(cmd) }
+	pin := &liveProcPin{}
+	cmd.Cancel = func() error { return liveKillTree(cmd, pin) }
+	return func() { pin.pin(cmd) }, pin.release
+}
+
+// liveRunPinned is cmd.Run with the tree kill and its pin (liveTreeCancel).
+func liveRunPinned(cmd *exec.Cmd) error {
+	started, done := liveTreeCancel(cmd)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	started()
+	err := cmd.Wait()
+	done()
+	return err
 }
 
 // liveInheritedPrefix is the prefix of the environment variables Qompack reads its configuration
@@ -356,10 +376,9 @@ func runLiveCLI(ctx context.Context, bin, dir string, args ...string) liveCLIRes
 	cmd.Stdin = bytes.NewReader(nil)
 	cmd.Env = liveCLIEnv(os.Environ())
 	cmd.WaitDelay = liveExitGrace
-	liveTreeCancel(cmd)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
-	err := cmd.Run()
+	err := liveRunPinned(cmd)
 	r := liveCLIResult{Stdout: out.String(), Stderr: errb.String()}
 	var exitErr *exec.ExitError
 	switch {
@@ -396,11 +415,12 @@ func runLiveGit(ctx context.Context, dir string, args ...string) error {
 	cctx, cancel := context.WithTimeout(ctx, liveCLITimeout)
 	defer cancel()
 	cmd := exec.CommandContext(cctx, "git", args...)
-	liveTreeCancel(cmd)
 	cmd.Dir = dir
 	cmd.Stdin = bytes.NewReader(nil)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := liveRunPinned(cmd); err != nil {
+		return fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(out.String()))
 	}
 	return nil
 }
@@ -417,9 +437,11 @@ func runLiveCheckCommand(dir string, argv []string) eval.CommandOutcome {
 	cmd.Dir = dir
 	cmd.Stdin = bytes.NewReader(nil)
 	cmd.WaitDelay = liveExitGrace
-	liveTreeCancel(cmd)
 	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
-	out, err := cmd.CombinedOutput()
+	var buf bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &buf, &buf
+	err := liveRunPinned(cmd)
+	out := buf.Bytes()
 	if len(out) > liveCommandOutputKeep {
 		out = out[len(out)-liveCommandOutputKeep:]
 	}
@@ -465,6 +487,9 @@ func (e *liveEnv) marketplaceInstall(ctx context.Context, project, bundle, work 
 		return func() []string { return nil }, err
 	}
 	id := livePluginName + "@" + liveMarketplaceName
+	// The undo runs even after an interrupt cancelled ctx: the operator's configuration is restored
+	// whatever ended the trial.
+	ctx = context.WithoutCancel(ctx)
 	undo := func() []string {
 		var left []string
 		if r := e.cli(ctx, project, "plugin", "uninstall", id, "--scope", "local", "-y"); r.Code != 0 {

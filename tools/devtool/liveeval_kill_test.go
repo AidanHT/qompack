@@ -157,7 +157,7 @@ func TestLiveTreeCancel_AfterExitIsNotAnError(t *testing.T) {
 	bin, err := os.Executable()
 	require.NoError(t, err)
 
-	cmd := exec.Command(bin, "-test.run=^$")
+	cmd := exec.CommandContext(context.Background(), bin, "-test.run=^$")
 	started, done := liveTreeCancel(cmd)
 	require.NoError(t, cmd.Start())
 	started()

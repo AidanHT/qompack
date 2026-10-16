@@ -140,6 +140,8 @@ type liveOptions struct {
 	// from the values a run directory stored (review I3).
 	pacingGiven    map[string]bool
 	pacingOverride bool
+	// pacingTool names the command in the pacing's messages ("" is live-eval).
+	pacingTool string
 	// overageChecked is the operator's word that an earlier overage stop of this run was looked into
 	// (review M1).
 	overageChecked bool
@@ -155,7 +157,9 @@ func taskLiveEval(args []string) error {
 	if err != nil {
 		return err
 	}
-	return runLiveEval(context.Background(), o, env, os.Stdout)
+	ctx, stop := liveSignalContext()
+	defer stop()
+	return runLiveEval(ctx, o, env, os.Stdout)
 }
 
 func parseLiveFlags(args []string) (liveOptions, error) {
@@ -550,6 +554,10 @@ slots:
 			continue // scored in an earlier session of this run
 		}
 		for {
+			if err := liveInterrupted(ctx, "live-eval"); err != nil {
+				stop(err)
+				break slots
+			}
 			if v := env.cliVersion(ctx); v != plan.ClaudeCLIVersion {
 				stop(fmt.Errorf("live-eval: the host reports Claude Code %s, not the pinned %s, before %s/%s/%d; "+
 					"no trial starts on another host version", v, plan.ClaudeCLIVersion, p.Task, p.Arm, p.Trial))
@@ -570,6 +578,11 @@ slots:
 				runID: plan.RunID, rates: rates, plan: &plan, rateBefore: pacer.snap,
 			}
 			rec, guardErr := lt.run(ctx)
+			if err := liveInterrupted(ctx, "live-eval"); err != nil {
+				// The interrupted attempt wrote no record (lt.run), so its slot runs again on --resume.
+				stop(errors.Join(err, guardErr))
+				break slots
+			}
 			if err := pacer.observe(env, rec.RateLimits); err != nil && guardErr == nil {
 				guardErr = err
 			}
@@ -986,6 +999,11 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 			// A panic leaves no record at all: a trial.json written now would be an ungraded failure
 			// that --resume counts as scored. The slot stays open and the panic goes on.
 			panic(fmt.Sprintf("%v\n%s", r, debug.Stack()))
+		}
+		if ctx.Err() != nil {
+			// An interrupt killed the host: the cut attempt is neither scored nor set aside, and its
+			// slot runs again on --resume (re-review N5).
+			return
 		}
 		rec.ApplyHarnessFailure(task)
 		// A configuration error outranks a limit: the attempt was not the arm's, whatever cut it short.

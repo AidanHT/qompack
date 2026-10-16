@@ -12,9 +12,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/qompack/qompack/internal/eval"
@@ -113,6 +115,8 @@ type livePacer struct {
 	// sessionMargin is how long before the night window closes the last trial may start: a trial
 	// runs up to the session timeout (review M4).
 	sessionMargin time.Duration
+	// tool names the command in the pacing's messages: live-eval or live-check (re-review N9).
+	tool string
 	// warnings are the stored values the flags replaced under --pacing-override, for the caller to print.
 	warnings []string
 	// holdUntil and holdWhy are a reset a usage-limit result announced (review M5).
@@ -150,7 +154,10 @@ func (p *livePacer) wouldStart(now time.Time) bool { return p.verdict(now).Actio
 // flags otherwise; a flag that names a different value than the stored one is refused unless
 // o.pacingOverride says it is meant (review I3). The values in force are then stored.
 func newLivePacer(o liveOptions, dir string, now time.Time) (*livePacer, error) {
-	p := &livePacer{pacing: o.livePacing(), night: o.night, sessionMargin: o.sessionTimeout}
+	p := &livePacer{pacing: o.livePacing(), night: o.night, sessionMargin: o.sessionTimeout, tool: o.pacingTool}
+	if p.tool == "" {
+		p.tool = "live-eval"
+	}
 	if dir == "" {
 		return p, nil
 	}
@@ -160,23 +167,23 @@ func newLivePacer(o liveOptions, dir string, now time.Time) (*livePacer, error) 
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 	case err != nil:
-		return nil, fmt.Errorf("live-eval: reading %s: %w", p.path, err)
+		return nil, fmt.Errorf(p.tool+": reading %s: %w", p.path, err)
 	default:
 		if err := json.Unmarshal(raw, &st); err != nil {
-			return nil, fmt.Errorf("live-eval: parsing %s: %w", p.path, err)
+			return nil, fmt.Errorf(p.tool+": parsing %s: %w", p.path, err)
 		}
 	}
 	p.snap = st.Snapshot
 	if st.Settings == nil && o.resume != "" && !o.pacingGiven["night-window"] {
 		// The first session died before it stored its pacing, or the file was removed: never resume
 		// with no night window by default (re-review N2).
-		return nil, fmt.Errorf("live-eval: %s holds no stored pacing values; name the night window for the rest of "+
+		return nil, fmt.Errorf(p.tool+": %s holds no stored pacing values; name the night window for the rest of "+
 			"the run with --night-window HH:MM-HH:MM (or none)", p.path)
 	}
 	if s := st.Settings; s != nil {
 		stored, err := parseNightWindow(s.NightWindow)
 		if err != nil {
-			return nil, fmt.Errorf("live-eval: %s: %w", p.path, err)
+			return nil, fmt.Errorf(p.tool+": %s: %w", p.path, err)
 		}
 		for _, f := range []struct {
 			flag          string
@@ -194,7 +201,7 @@ func newLivePacer(o liveOptions, dir string, now time.Time) (*livePacer, error) 
 				p.warnings = append(p.warnings, fmt.Sprintf("--%s %s replaces the stored %s (--pacing-override)",
 					f.flag, f.given, f.stored))
 			case f.given != f.stored:
-				return nil, fmt.Errorf("live-eval: --%s %s differs from the %s this run paces on (%s); pass --pacing-override "+
+				return nil, fmt.Errorf(p.tool+": --%s %s differs from the %s this run paces on (%s); pass --pacing-override "+
 					"to change it for this and later sessions", f.flag, f.given, f.stored, p.path)
 			}
 		}
@@ -227,7 +234,7 @@ func (p *livePacer) before(ctx context.Context, env *liveEnv, w io.Writer) (stri
 		case eval.PaceGo:
 			return "", nil
 		case eval.PaceStop:
-			return "", fmt.Errorf("live-eval: %s", v.Reason)
+			return "", fmt.Errorf(p.tool+": %s", v.Reason)
 		case eval.PacePause:
 			return pauseReason(v), nil
 		}
@@ -239,9 +246,9 @@ func (p *livePacer) before(ctx context.Context, env *liveEnv, w io.Writer) (stri
 			return fmt.Sprintf("%s; it resets at %s, after the night window %s closes", v.Reason,
 				v.Until.Format(time.RFC3339), p.night), nil
 		}
-		fmt.Fprintf(w, "live-eval: pacing: %s; waiting until %s\n", v.Reason, until.Format(time.RFC3339))
+		fmt.Fprintf(w, p.tool+": pacing: %s; waiting until %s\n", v.Reason, until.Format(time.RFC3339))
 		if err := env.sleep(ctx, until.Sub(now)); err != nil {
-			return "", fmt.Errorf("live-eval: waiting for the rate-limit reset: %w", err)
+			return "", fmt.Errorf(p.tool+": waiting for the rate-limit reset: %w", err)
 		}
 	}
 }
@@ -420,6 +427,25 @@ func (o liveOptions) livePacing() eval.LivePacing {
 		p.SevenDayCeiling = eval.LiveSevenDayCeiling
 	}
 	return p
+}
+
+// liveSignals are the signals that stop live-eval and live-check: each cancels the run's context, so
+// the running host's whole tree is killed and the run stops without scoring the cut attempt
+// (re-review N5). SIGTERM is never delivered on Windows, where the console's interrupt is.
+var liveSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+
+// liveSignalContext is the run's context, cancelled by any of liveSignals.
+func liveSignalContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), liveSignals...)
+}
+
+// liveInterrupted is the stop an interrupt makes, or nil while ctx runs.
+func liveInterrupted(ctx context.Context, tool string) error {
+	if ctx.Err() == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: interrupted (%v): the running host's process tree was killed and the cut attempt is "+
+		"not scored; the run stopped and continues with --resume", tool, context.Cause(ctx))
 }
 
 // sleepContext waits d or until ctx ends.

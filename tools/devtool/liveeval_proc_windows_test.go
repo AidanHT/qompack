@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +34,7 @@ func TestLiveKillTree_NeverRunsTaskkillForAnExitedHost(t *testing.T) {
 	t.Cleanup(func() { liveTaskkill = old })
 	bin, err := os.Executable()
 	require.NoError(t, err)
-	cmd := exec.Command(bin, "-test.run=^$")
+	cmd := exec.CommandContext(context.Background(), bin, "-test.run=^$")
 	started, done := liveTreeCancel(cmd)
 	require.NoError(t, cmd.Start())
 	started()

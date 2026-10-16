@@ -17,13 +17,25 @@ func liveSetProcessGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
+// liveProcPin keeps nothing on Unix: the group is killed by its id, and a group that is gone answers
+// ESRCH.
+type liveProcPin struct{}
+
+func (*liveProcPin) pin(*exec.Cmd) {}
+
+func (*liveProcPin) release() {}
+
 // liveKillTree ends the process group of the process the harness started: the host and everything
-// it started that stayed in its group.
-func liveKillTree(cmd *exec.Cmd) error {
+// it started that stayed in its group. A group that is already gone reports os.ErrProcessDone, so exec
+// does not report a cancellation for a process that had exited (re-review N6).
+func liveKillTree(cmd *exec.Cmd, _ *liveProcPin) error {
 	if cmd.Process == nil {
 		return nil
 	}
-	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
+		if errors.Is(err, syscall.ESRCH) {
+			return os.ErrProcessDone
+		}
 		return err
 	}
 	return nil
