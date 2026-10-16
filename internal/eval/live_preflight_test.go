@@ -39,9 +39,9 @@ func confirmatoryPlan(t *testing.T) eval.LivePlan {
 // contingency alias alike (the alias's resolution is only known once its trials have run).
 func TestLivePlanDepartures_TheWholeDesignHasNone(t *testing.T) {
 	p := confirmatoryPlan(t)
-	require.Empty(t, eval.LivePlanDepartures(p, 2))
+	require.Empty(t, eval.LivePlanDepartures(p, eval.LiveAnalysis{TrialsPerArm: 2}))
 	p.Model = eval.LivePreregistrations[p.TaskSet].ModelContingency
-	require.Empty(t, eval.LivePlanDepartures(p, 2), "section 3's contingency alias is the pre-registered model")
+	require.Empty(t, eval.LivePlanDepartures(p, eval.LiveAnalysis{TrialsPerArm: 2}), "section 3's contingency alias is the pre-registered model")
 }
 
 // TestLivePlanDepartures_NamesEachDeparture: each way a plan can depart from the design, one at a
@@ -76,9 +76,56 @@ func TestLivePlanDepartures_NamesEachDeparture(t *testing.T) {
 	} {
 		p := confirmatoryPlan(t)
 		c.mutate(&p)
-		got := strings.Join(eval.LivePlanDepartures(p, 2), "\n")
+		got := strings.Join(eval.LivePlanDepartures(p, eval.LiveAnalysis{TrialsPerArm: 2}), "\n")
 		for _, want := range c.want {
 			require.Contains(t, got, want, name)
 		}
 	}
+}
+
+// TestLivePlanDepartures_PerArmTrials: a four-arm plan records each arm's trials per task, and each
+// arm whose count is not the pre-registered one is named on its own; a plan's two bundles are each
+// held to the clean-tree rule, and a plan with neither names no bundle.
+func TestLivePlanDepartures_PerArmTrials(t *testing.T) {
+	a := eval.LiveAnalysis{ArmTrialsPerTask: map[string]int{"stock": 3, "classic": 14, "generic": 10, "steer": 14}}
+	plan := func() eval.LivePlan {
+		return eval.LivePlan{
+			Arms:       []string{"stock", "classic", "generic", "steer"},
+			ArmTrials:  map[string]int{"stock": 3, "classic": 14, "generic": 10, "steer": 14},
+			Plugin:     &eval.LivePluginIdentity{Commit: "c0ffee"},
+			PluginMods: &eval.LivePluginIdentity{Commit: "c0ffee", Mods: true},
+		}
+	}
+	trialsText := func(p eval.LivePlan) string {
+		var out []string
+		for _, d := range eval.LivePlanDepartures(p, a) {
+			if strings.Contains(d, "trials per") || strings.Contains(d, "bundle") {
+				out = append(out, d)
+			}
+		}
+		return strings.Join(out, "\n")
+	}
+	require.Empty(t, trialsText(plan()))
+
+	p := plan()
+	p.ArmTrials["steer"], p.ArmTrials["stock"] = 13, 4
+	got := trialsText(p)
+	require.Contains(t, got, "it ran 13 trials per task on the steer arm, not the pre-registered 14")
+	require.Contains(t, got, "it ran 4 trials per task on the stock arm, not the pre-registered 3")
+	require.NotContains(t, got, "classic arm")
+
+	p = plan()
+	p.Arms = append(p.Arms, "extra")
+	p.ArmTrials["extra"] = 1
+	require.Contains(t, trialsText(p), "it ran 1 trials per task on the extra arm, not the pre-registered 0")
+
+	p = plan()
+	p.PluginMods.Dirty = true
+	require.Contains(t, trialsText(p), "--bundle-mods was assembled from a worktree with uncommitted changes")
+	p = plan()
+	p.Plugin, p.PluginMods = nil, nil
+	require.Contains(t, trialsText(p), "names no plugin bundle")
+	p = plan()
+	p.Plugin = nil
+	require.Empty(t, trialsText(p), "a steer-only plan has the mods bundle alone")
 }
