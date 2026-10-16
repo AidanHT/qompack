@@ -478,6 +478,27 @@ describe('the compaction hook on a surface without the process noun', () => {
     expect(passed).toEqual([e])
   })
 
+  test('a debug log that throws loses only its lines: a served brief still joins the instructions', async () => {
+    const tried: string[] = []
+    const answers: Record<string, string> = { hello: helloSteering, brief: briefOut(BRIEF) }
+    const host = {
+      ...standIn({ run: async (argv: string[]) => ({ exitCode: 0, stdout: answers[argv[2]], stderr: '' }) }, [], 'standin-log-throws'),
+      ui: {
+        log: (text: string) => {
+          tried.push(text)
+          throw new Error('no log')
+        },
+      },
+    }
+    const { passed, next } = standInNext()
+
+    await steerCompaction(host as never, compaction({ instructions: 'mine' }), next as never)
+
+    expect(tried).toEqual([helloLine, servedLine(BRIEF)])
+    expect(passed).toHaveLength(1)
+    expect((passed[0] as { instructions?: string }).instructions).toBe('mine\n\n' + BRIEF)
+  })
+
   test("the engine's own failure is not retried: next runs once and its rejection stands", async () => {
     const logs: string[] = []
     let calls = 0
