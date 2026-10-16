@@ -269,7 +269,9 @@ func TestRunLiveEval_NightWindow(t *testing.T) {
 // utilization deltas, the limited trials with their sensitivity analysis, and a pause.
 func TestRenderLiveSummary_ShowsSubscriptionUseAndLimited(t *testing.T) {
 	a := eval.LiveAnalysis{Model: "m", Confidence: 0.95, NonInferiorityMargin: 0.1, TrialsPerArm: 2}
-	d := func(v float64) eval.LiveRateDelta { return eval.LiveRateDelta{Delta: &v, Basis: eval.RateBasisPrevious} }
+	d := func(v float64) eval.LiveRateDelta {
+		return eval.LiveRateDelta{Delta: &v, Basis: eval.RateBasisPrevious}
+	}
 	ok := true
 	ts := []eval.LiveTrial{
 		{TaskID: "t", Arm: "steer", Trial: 1, Completed: true, TaskSuccess: true, Recovered: &ok, PreregisteredModel: true,
