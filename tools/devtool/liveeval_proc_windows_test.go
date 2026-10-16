@@ -192,7 +192,6 @@ func TestLiveTaskkill_NotFoundExit(t *testing.T) {
 	require.Equal(t, liveTaskkillNotFound, tk.Code, tk.Output)
 }
 
-
 // TestRunLiveCLI_FailedWalkIsKept: a claude subcommand whose tree kill failed keeps the walk error in
 // its stderr, beside its exit code (R53, H2).
 func TestRunLiveCLI_FailedWalkIsKept(t *testing.T) {

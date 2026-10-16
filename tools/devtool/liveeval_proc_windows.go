@@ -113,8 +113,9 @@ func liveTaskkillPath() (string, error) {
 		"taskkill.exe cannot be named")
 }
 
-// liveTaskkillNotFound is taskkill's exit code when no process has the pid, an exited one whose
-// handle is still held included: established on Windows 11 by running taskkill /T /F /PID on a pid no
+// liveTaskkillNotFound is taskkill's exit code when a pid it was named is not found, an exited process
+// whose handle is still held included. liveKillTree names exactly one pid, the root, so here it means
+// the root was not found. Established on Windows 11 by running taskkill /T /F /PID on a pid no
 // process has and on an exited child whose handle the prober held, both "ERROR: The process "<pid>"
 // not found." with exit 128 (fix round 5; TestLiveTaskkill_NotFoundExit pins it). A walk that ended
 // the root but not a descendant exits 255 (re-review 4's demonstration).
@@ -158,8 +159,10 @@ var liveTaskkill = func(pid int) error {
 // Once the process has exited, or Wait has returned, nothing is killed and os.ErrProcessDone tells exec
 // not to report a cancellation, so a kill racing a normal exit never turns a clean trial into a
 // harness error. Before the pin is taken the tree is still walked: Go's own handle pins the pid until
-// Wait. If the walk fails, the direct child is killed and the walk's error is returned with it, so a
-// degraded kill is never silent (re-review F2).
+// Wait. If the walk fails with the root still running, the direct child is killed and the walk's error
+// is returned with it; if the walk ended the root but failed on a descendant (a partial walk), the
+// direct child is already gone and only the walk's error is returned. Either way it is recorded for
+// the caller to report after Wait, so a degraded kill is never silent (re-review F2, 4-F2; R53).
 func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 	if cmd.Process == nil {
 		return nil
@@ -174,8 +177,14 @@ func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 		return nil
 	}
 	var tk *liveTaskkillError
-	notFound := errors.As(walkErr, &tk) && tk.Code == liveTaskkillNotFound
-	rootGone := pin.exitedWithin(liveWalkSettle)
+	ran := errors.As(walkErr, &tk)
+	notFound := ran && tk.Code == liveTaskkillNotFound
+	// The settle wait is for a root taskkill may just have ended; when taskkill never ran, nothing
+	// was ended, and the direct child is killed at once (R53, N1).
+	rootGone := pin.exited()
+	if ran {
+		rootGone = pin.exitedWithin(liveWalkSettle)
+	}
 	if notFound && rootGone {
 		// The root exited between the check and the walk, so taskkill found nothing (re-review F4).
 		return os.ErrProcessDone

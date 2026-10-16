@@ -283,6 +283,23 @@ func liveTreeCancel(cmd *exec.Cmd) (started, done func(), killErr func() error) 
 	return func() { pin.pin(cmd) }, pin.release, pin.killError
 }
 
+// liveWalkPart is the part of liveRunPinned's joined error that is not the command's own exit: the
+// tree kill's failure, or nil.
+func liveWalkPart(err error) error {
+	var joined interface{ Unwrap() []error }
+	if !errors.As(err, &joined) {
+		return nil
+	}
+	var rest []error
+	for _, e := range joined.Unwrap() {
+		var exitErr *exec.ExitError
+		if e != nil && !errors.As(e, &exitErr) && !errors.Is(e, exec.ErrWaitDelay) {
+			rest = append(rest, e)
+		}
+	}
+	return errors.Join(rest...)
+}
+
 // liveRunPinned is cmd.Run with the tree kill and its pin (liveTreeCancel).
 func liveRunPinned(cmd *exec.Cmd) error {
 	started, done, killErr := liveTreeCancel(cmd)
@@ -385,7 +402,13 @@ func runLiveCLI(ctx context.Context, bin, dir string, args ...string) liveCLIRes
 	cmd.WaitDelay = liveExitGrace
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
-	err := liveRunPinned(cmd)
+	started, done, killErr := liveTreeCancel(cmd)
+	err := cmd.Start()
+	if err == nil {
+		started()
+		err = cmd.Wait()
+		done()
+	}
 	r := liveCLIResult{Stdout: out.String(), Stderr: errb.String()}
 	var exitErr *exec.ExitError
 	switch {
@@ -394,6 +417,13 @@ func runLiveCLI(ctx context.Context, bin, dir string, args ...string) liveCLIRes
 		r.Code = exitErr.ExitCode()
 	default:
 		r.Code, r.Stderr = -1, r.Stderr+"\n"+err.Error()
+	}
+	if kerr := killErr(); kerr != nil {
+		// The exit code alone would hide that the command's tree may still run (R53, H2).
+		r.Stderr = strings.TrimSpace(r.Stderr + "\n" + kerr.Error())
+		if r.Code == 0 {
+			r.Code = -1
+		}
 	}
 	return r
 }
@@ -437,8 +467,11 @@ func (e *liveEnv) runCheckCommand(project string, argv []string) eval.CommandOut
 	return e.check(project, argv)
 }
 
+// liveCheckCommandTimeout bounds one check command; a variable so a test can shorten it.
+var liveCheckCommandTimeout = liveCommandTimeout
+
 func runLiveCheckCommand(dir string, argv []string) eval.CommandOutcome {
-	ctx, cancel := context.WithTimeout(context.Background(), liveCommandTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), liveCheckCommandTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = dir
@@ -456,7 +489,8 @@ func runLiveCheckCommand(dir string, argv []string) eval.CommandOutcome {
 	var exitErr *exec.ExitError
 	switch {
 	case ctx.Err() != nil:
-		co.Err = fmt.Errorf("timed out after %s", liveCommandTimeout)
+		// The timeout is the one time the tree kill runs, so its walk error is joined here (R53, H2).
+		co.Err = errors.Join(fmt.Errorf("timed out after %s", liveCheckCommandTimeout), liveWalkPart(err))
 		co.ExitCode = -1
 	case err == nil:
 	case errors.As(err, &exitErr):

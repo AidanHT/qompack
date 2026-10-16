@@ -282,6 +282,8 @@ func (p *livePacer) observe(env *liveEnv, evs []eval.HostRateLimit) error {
 const liveOverageStopFile = "overage-stop.json"
 
 // markLiveOverageStop leaves the overage-stop marker for why, when why is an overage stop.
+// why carries the trial's tree-kill note when that kill failed, so the marker says a host process may
+// still be running (R53, H1).
 func markLiveOverageStop(dir string, env *liveEnv, why string) {
 	if !strings.Contains(why, "overage") {
 		return

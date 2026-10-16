@@ -599,11 +599,12 @@ slots:
 			if over == "" {
 				over = liveOverage(rec.RateLimits)
 			}
+			treeKill := liveTreeKillNote(rec.HarnessError)
 			if over != "" {
-				markLiveOverageStop(o.out, env, over)
+				markLiveOverageStop(o.out, env, over+treeKill)
 			}
 			_, scoredErr := os.Stat(filepath.Join(liveSlotDir(o.out, p), liveScoredRecord))
-			if err := liveInterrupted(ctx, "live-eval", liveCutNote(scoredErr == nil, len(rec.Checks) > 0)); err != nil {
+			if err := liveInterrupted(ctx, "live-eval", liveCutNote(scoredErr == nil, len(rec.Checks) > 0)+treeKill); err != nil {
 				// The interrupted attempt was set aside (lt.run), so its slot runs again on --resume.
 				if over != "" {
 					err = fmt.Errorf("%w; before it, %s", err, over)
@@ -618,8 +619,8 @@ slots:
 					"set aside, the slot runs again\n",
 					p.Task, p.Arm, p.Trial, configErrors, rec.ConfigurationError)
 			case rec.Limited != "":
-				fmt.Fprintf(w, "live-eval: %s/%s/%d: limited: %s; set aside, the slot runs again from a fresh fixture\n",
-					p.Task, p.Arm, p.Trial, rec.Limited)
+				fmt.Fprintf(w, "live-eval: %s/%s/%d: limited: %s; set aside, the slot runs again from a fresh fixture%s\n",
+					p.Task, p.Arm, p.Trial, rec.Limited, treeKill)
 			default:
 				fmt.Fprintf(w, "live-eval: %s/%s/%d: completed=%t task_success=%t violations=%d harness_error=%q\n",
 					p.Task, p.Arm, p.Trial, rec.Completed, rec.TaskSuccess, rec.ConstraintViolations, rec.HarnessError)
@@ -635,7 +636,7 @@ slots:
 				break slots
 			}
 			if over != "" {
-				stop(fmt.Errorf("live-eval: after %s/%s/%d: %s", p.Task, p.Arm, p.Trial, over))
+				stop(fmt.Errorf("live-eval: after %s/%s/%d: %s%s", p.Task, p.Arm, p.Trial, over, treeKill))
 				break slots
 			}
 			if problem := eval.LiveRateProblem(rec.RateLimits); problem != "" {
@@ -1654,10 +1655,29 @@ func contains(xs []string, x string) bool {
 }
 
 func joinErr(a, b string) string {
-	if a == "" {
+	switch {
+	case a == "":
 		return b
+	case b == "":
+		return a
 	}
 	return a + "; " + b
+}
+
+// liveTreeKillNote is the console's note that a trial's tree kill failed or was partial, taken from
+// its harness error ("" when it did not): the operator must know a host process may still be running
+// (R53, H1).
+func liveTreeKillNote(harnessErr string) string {
+	var parts []string
+	for _, part := range strings.Split(harnessErr, "; ") {
+		if strings.Contains(part, "the process tree") || strings.Contains(part, "the process group") {
+			parts = append(parts, part)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "; a host process may still be running: " + strings.Join(parts, "; ")
 }
 
 // renderLiveSummary is the human-readable summary written beside summary.json.

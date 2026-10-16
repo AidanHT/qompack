@@ -519,7 +519,6 @@ func TestLiveCheck_InterruptedRunWritesNoRunJSON(t *testing.T) {
 	require.FileExists(t, filepath.Join(dir, "run.interrupted-1.json"))
 }
 
-
 // partialWalk is the harness error a session whose tree kill was only partial carries.
 const partialWalk = "the process tree was only partly ended, so a descendant may still run: taskkill /T /F /PID 7: exit 255: " +
 	"ERROR: The process with PID 8 (child process of PID 7) could not be terminated."
