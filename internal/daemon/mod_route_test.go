@@ -287,3 +287,34 @@ func TestHandleMod_TheCLIsCapLowersTheLiveOne(t *testing.T) {
 		})
 	}
 }
+
+// TestModDeadline_ReceiptPlusTheBudgetCappedAtTheCLIsWait pins modDeadline's four cases: no TS
+// leaves receipt plus the budget; a TS in the future cannot extend it; a TS older than the daemon's
+// layer gives a deadline already past; a normal TS caps it at TS plus the layer.
+func TestModDeadline_ReceiptPlusTheBudgetCappedAtTheCLIsWait(t *testing.T) {
+	receipt := time.UnixMilli(1_760_000_000_000)
+	layer := time.Duration(modwire.TimeoutMs-modwire.RecordMarginMs-modwire.DaemonReplyMarginMs) * time.Millisecond
+	const budgetMs = 1500
+	budget := budgetMs * time.Millisecond
+	ms := func(t time.Time) core.UnixMilli { return core.UnixMilli(t.UnixMilli()) }
+
+	for name, tc := range map[string]struct {
+		ts   core.UnixMilli
+		want time.Time
+	}{
+		"no TS: the cap is skipped":          {ts: 0, want: receipt.Add(budget)},
+		"negative TS: the cap is skipped":    {ts: -1, want: receipt.Add(budget)},
+		"a future TS cannot extend it":       {ts: ms(receipt.Add(time.Second)), want: receipt.Add(budget)},
+		"a TS staler than the layer is past": {ts: ms(receipt.Add(-2 * time.Second)), want: receipt.Add(-2*time.Second + layer)},
+		"a normal TS caps it at TS + layer":  {ts: ms(receipt.Add(-time.Second)), want: receipt.Add(-time.Second + layer)},
+		"a fresh TS leaves the budget alone": {ts: ms(receipt), want: receipt.Add(budget)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := modDeadline(receipt, tc.ts, budgetMs)
+			require.True(t, tc.want.Equal(got), "got %v, want %v", got, tc.want)
+			require.False(t, got.After(receipt.Add(budget)), "the cap only shortens the deadline")
+		})
+	}
+	require.True(t, modDeadline(receipt, ms(receipt.Add(-2*time.Second)), budgetMs).Before(receipt),
+		"a TS more than the layer old leaves a deadline already past")
+}
