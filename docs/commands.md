@@ -23,6 +23,10 @@ and stderr together under that label, and the turn ends without an answer
 artifacts, and `/qompack:recall` with no query, look like that. Run the same
 `qompack` command in a terminal to see its full message and exit code.
 
+Claude does not see or run `/qompack:status`, `/qompack:recall`, `/qompack:why`,
+`/qompack:dropped` or `/qompack:eval` on its own: they carry `disable-model-invocation: true`, so
+only you can run them. `/qompack:pin` stays available to Claude.
+
 | Command | Subcommand | Arguments | Description |
 |---|---|---|---|
 | `/qompack:status` | `qompack status` | `[--json]` | Qompack status — mode, contracts, store, latency |
