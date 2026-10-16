@@ -190,6 +190,7 @@ func TestLivePlanDepartures_StageAEntry(t *testing.T) {
 		"no mods bundle": {func(p *eval.LivePlan) { p.PluginMods = nil }, "names no --bundle-mods"},
 		"no bundle":      {func(p *eval.LivePlan) { p.Plugin = nil }, "names no --bundle,"},
 		"two commits":    {func(p *eval.LivePlan) { p.PluginMods.Commit = "beef" }, "not built from one commit"},
+		"step timeout":   {func(p *eval.LivePlan) { p.StepTimeoutMS = 300000 }, "step timeout of 300000 ms, not the pre-registered 600000 ms"},
 		"another model":  {func(p *eval.LivePlan) { p.Model = "sonnet" }, "not the pre-registered model claude-opus-5-5"},
 	} {
 		_, p := stageAEntry(t)

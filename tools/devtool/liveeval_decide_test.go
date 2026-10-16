@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -267,4 +268,68 @@ func TestRunLiveEval_ResidentDaemonOfAnotherBuildIsAHarnessFault(t *testing.T) {
 		}
 	}
 	require.Equal(t, 1, recorded, "the own-build daemon is recorded on the trial it was found for")
+}
+
+// TestRunLiveEval_SummaryCarriesTheStageADecisions (W6 item 2): a four-arm run is decided by the Stage
+// A rules, not the two-arm verdict: summary.json carries every test and the decision, and summary.md
+// shows the tests, the outcome row, the reported rows and each arm's cost and active time.
+func TestRunLiveEval_SummaryCarriesTheStageADecisions(t *testing.T) {
+	out := runFourArmPilot(t, pilotHostOpts{}, nil)
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	require.NotNil(t, sum.StageA)
+	require.Equal(t, eval.LiveBootstrapB, sum.StageA.B)
+	require.Contains(t, []string{eval.LiveVerdictShip, eval.LiveVerdictNoShip, eval.LiveVerdictHarm}, sum.Decision.Verdict,
+		sum.Decision.Reason)
+	require.NotContains(t, sum.Decision.Reason, "both arms are needed", "the two-arm verdict is replaced")
+	h1, ok := sum.StageA.Test("H1")
+	require.True(t, ok)
+	require.NotNil(t, h1.Interval)
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "steer", "01", "trial.json"), &rec)
+	require.True(t, rec.Steps[0].HasResult)
+	require.NotNil(t, rec.ConstraintClean, "the pilot task declares constraint checks")
+	var plan eval.LivePlan
+	readJSON(t, filepath.Join(out, "plan.json"), &plan)
+	require.Equal(t, int64(600000), plan.StepTimeoutMS, "the efficiency block's pinned step timeout")
+
+	md, err := os.ReadFile(filepath.Join(out, "summary.md"))
+	require.NoError(t, err)
+	for _, want := range []string{
+		"## Stage A decisions", "B = 10000 resamples of 1 task(s)", "**Outcome (§9.6):**",
+		"| H1 | steer vs classic | recovery |", "| harm-cost | steer vs classic | cost |", "| H3 | steer vs classic | cost |",
+		"## Reported, never decided", "| classic-vs-stock-recovery | classic vs stock | recovery |",
+		"## Cost and active time per arm", "| steer | 2 | 2 / 0 / 0 |",
+	} {
+		require.Contains(t, string(md), want)
+	}
+}
+
+// TestRunLiveEval_TheStepTimeoutIsPinned (amendment 4): a task set's efficiency block pins the step
+// timeout active time caps a step at. With no --step-timeout the run takes it; another value is a
+// plan departure that --confirmatory refuses; and a resumed session keeps the plan's, refusing a
+// --step-timeout that differs.
+func TestRunLiveEval_TheStepTimeoutIsPinned(t *testing.T) {
+	registerStageATestEntry(t)
+	env := fakeLiveEnv(t, nil)
+	o := liveOptions{
+		tasksFile: liveTestTasksV7, rates: liveTestRates, arms: eval.LiveArms, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), bundleMods: fakeModsBundle(t, "deadbeef"), includeHeldOut: true,
+		defectsAttested: true, openDefects: []string{}, dryRun: true, idleExit: 1800,
+		stepTimeout: 5 * time.Minute, stepTimeoutGiven: true,
+	}
+	var w bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &w))
+	require.Contains(t, w.String(), "it ran with a step timeout of 300000 ms, not the pre-registered 600000 ms")
+	o.confirmatory = true
+	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &w), "step timeout of 300000 ms")
+	o.stepTimeoutGiven, o.confirmatory = false, true
+	w.Reset()
+	require.NoError(t, runLiveEval(context.Background(), o, env, &w), "without the flag the pinned value is used")
+
+	out := runFourArmPilot(t, pilotHostOpts{}, nil)
+	r := liveOptions{resume: out, rates: liveTestRates, dryRun: true, stepTimeout: 5 * time.Minute, stepTimeoutGiven: true}
+	require.ErrorContains(t, runLiveEval(context.Background(), r, fakeLiveEnv(t, nil), &w), "is not the plan's 600000 ms")
+	r.stepTimeoutGiven = false
+	require.NoError(t, runLiveEval(context.Background(), r, fakeLiveEnv(t, nil), &w))
 }
