@@ -107,3 +107,51 @@ func TestWithAsyncHooks_DoesNotMutateItsInput(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, before, after)
 }
+
+// TestWithAsyncHooks_ComposesWithMods: the async transform applied to a mods rendering keeps the
+// hooks module (hooks.json still names ./register.ts and every mod source still ships) and marks
+// exactly the three ACK-only capture hooks. With the async members removed, the bytes are the mods
+// rendering's, so neither option drops or reorders the other's output.
+func TestWithAsyncHooks_ComposesWithMods(t *testing.T) {
+	for _, goos := range manifestTargets {
+		mods, err := pluginmanifest.ForTargetWithMods(testVersion, goos)
+		require.NoError(t, err)
+		modFiles, err := mods.Files()
+		require.NoError(t, err)
+		both, err := pluginmanifest.WithAsyncHooks(mods).Files()
+		require.NoError(t, err)
+
+		require.Len(t, both, len(modFiles), goos)
+		for rel, b := range modFiles {
+			if rel == hooksJSONPath {
+				continue
+			}
+			require.Equal(t, string(b), string(both[rel]), "%s/%s: only hooks.json may change", goos, rel)
+		}
+		for name := range mods.ModSources {
+			require.Contains(t, both, "plugin/hooks/"+name, "%s: mod source %s ships", goos, name)
+		}
+
+		var doc struct {
+			Modules []string `json:"modules"`
+		}
+		require.NoError(t, json.Unmarshal(both[hooksJSONPath], &doc))
+		require.Equal(t, []string{pluginmanifest.ModuleEntry}, doc.Modules, goos)
+
+		var gotAsync []string
+		for event, keys := range decodeHookEntries(t, both[hooksJSONPath]) {
+			v, has := keys["async"]
+			if !wantAsyncEvents[event] {
+				require.False(t, has, "%s/%s must stay synchronous", goos, event)
+				continue
+			}
+			require.Equal(t, "true", string(v), "%s/%s", goos, event)
+			gotAsync = append(gotAsync, event)
+		}
+		sort.Strings(gotAsync)
+		require.Equal(t, []string{"PostToolUse", "Stop", "SubagentStop"}, gotAsync, goos)
+
+		stripped := bytes.ReplaceAll(both[hooksJSONPath], []byte(asyncMember), nil)
+		require.Equal(t, string(modFiles[hooksJSONPath]), string(stripped), goos)
+	}
+}

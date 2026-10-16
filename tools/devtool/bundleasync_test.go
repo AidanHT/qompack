@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -109,5 +111,64 @@ func TestTaskBundle_AsyncHooksFlag(t *testing.T) {
 				t.Errorf("hooks.json:\n got %s\nwant %s", got, want)
 			}
 		})
+	}
+}
+
+// TestTaskBundle_ModsWithAsyncHooks: the two flags combine. `--mods --async-hooks` ships the hooks
+// module (hooks.json names ./register.ts, the mod sources sit beside it) and marks exactly
+// PostToolUse, Stop and SubagentStop async. The build step is the fixture builder.
+func TestTaskBundle_ModsWithAsyncHooks(t *testing.T) {
+	prevRoot, prevBuild := root, goBuildReleaseFn
+	root = testModuleRoot(t)
+	goBuildReleaseFn = func(goos, goarch, out, _ string) error {
+		return fixtureBuilder(t)(goos, goarch, out)
+	}
+	t.Cleanup(func() { root, goBuildReleaseFn = prevRoot, prevBuild })
+
+	const version = "v9.9.9-testing"
+	tgt := bundleTarget{"linux", "amd64"}
+	out := t.TempDir()
+	args := []string{"--version", version, "--target", tgt.OS + "/" + tgt.Arch, "--out", out, "--mods", "--async-hooks"}
+	if err := taskBundle(args); err != nil {
+		t.Fatalf("taskBundle %v: %v", args, err)
+	}
+	dir := filepath.Join(out, bundleDirName(version, tgt))
+
+	tree := make(map[string]bool)
+	for _, rel := range listBundleTree(t, dir) {
+		tree[rel] = true
+	}
+	for _, rel := range modBundleSources {
+		if !tree[rel] {
+			t.Errorf("bundle is missing mod source %s", rel)
+		}
+	}
+
+	var doc struct {
+		Modules []string `json:"modules"`
+		Hooks   map[string][]struct {
+			Hooks []map[string]any `json:"hooks"`
+		} `json:"hooks"`
+	}
+	readBundleJSON(t, dir, "hooks/hooks.json", &doc)
+	if len(doc.Modules) != 1 || doc.Modules[0] != pluginmanifest.ModuleEntry {
+		t.Errorf("hooks.json modules = %v, want [%s]", doc.Modules, pluginmanifest.ModuleEntry)
+	}
+	var gotAsync []string
+	for event, groups := range doc.Hooks {
+		for _, g := range groups {
+			for _, h := range g.Hooks {
+				if v, has := h["async"]; has {
+					if v != true {
+						t.Errorf("%s: async = %v, want true", event, v)
+					}
+					gotAsync = append(gotAsync, event)
+				}
+			}
+		}
+	}
+	sort.Strings(gotAsync)
+	if want := []string{"PostToolUse", "Stop", "SubagentStop"}; !slices.Equal(gotAsync, want) {
+		t.Errorf("async events = %v, want %v", gotAsync, want)
 	}
 }
