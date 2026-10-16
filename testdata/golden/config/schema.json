@@ -528,6 +528,13 @@
         },
         "mod": {
           "properties": {
+            "briefMaxChars": {
+              "default": 4000,
+              "description": "the most characters (UTF-16 code units) a brief's instructions may hold; the default is the mod wire contract's ceiling, and a larger value is clamped to it",
+              "type": "integer",
+              "x-qompack-range": "[1,4000]",
+              "x-qompack-section": "ADR 0015"
+            },
             "enabled": {
               "default": false,
               "description": "let the Claude Code mod reach Qompack; while false every qompack mod verb answers refused and writes nothing",
@@ -542,6 +549,7 @@
             }
           },
           "required": [
+            "briefMaxChars",
             "enabled",
             "steering"
           ],

@@ -343,12 +343,17 @@ type Services struct {
 	// The nine nil-tolerant function seams (§5.21, out-of-scope table). None is called by SP-05
 	// except through the exact call sites handlers.go documents; every other subplan wires its own
 	// implementation in via Bind.
-	ObserveTool    func(ctx context.Context, e hookio.Event) error
-	ObservePrompt  func(ctx context.Context, e hookio.Event) (hookio.Output, error)
-	ObserveStop    func(ctx context.Context, e hookio.Event, subagent bool) error
-	SessionStart   func(ctx context.Context, e hookio.Event) (hookio.Output, error)
-	SessionEnd     func(ctx context.Context, e hookio.Event) error
-	PreCompact     func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+	ObserveTool   func(ctx context.Context, e hookio.Event) error
+	ObservePrompt func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+	ObserveStop   func(ctx context.Context, e hookio.Event, subagent bool) error
+	SessionStart  func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+	SessionEnd    func(ctx context.Context, e hookio.Event) error
+	PreCompact    func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+	// BriefSnapshot arms the checkpoint writer's sources and reads session s's must-keep items for
+	// the mod's brief (checkpoint.FileWriter.BriefSnapshot). BindCheckpoint binds it; the brief
+	// route (serveBrief) calls it after its settle and its segment close. nil means no checkpointer,
+	// and the brief is served empty.
+	BriefSnapshot  func(ctx context.Context, s core.SessionID) (checkpoint.Brief, error)
 	Rehydrate      func(ctx context.Context, e hookio.Event) (hookio.Output, error)
 	MCPInitialized func(ctx context.Context) bool
 	StatusExtra    func(ctx context.Context) (json.RawMessage, error)

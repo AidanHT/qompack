@@ -40,6 +40,22 @@ const (
 	// counterTapCompactUnobserved counts compactions whose open segment the tap left open because
 	// the runtime holds no token account for it: closed, it would record zero tokens for good.
 	counterTapCompactUnobserved = "sched.tap.compact_unobserved"
+	// counterTapCompactAfterBrief counts compactions whose open segment the tap left alone because
+	// the brief before them had already closed it and nothing was observed since: the segment the
+	// compaction found is the empty successor the brief rolled open (CloseSegmentForBrief).
+	counterTapCompactAfterBrief = "sched.tap.compact_after_brief"
+
+	// causeBrief is the mod's brief before a compaction: it closes the open segment the compaction
+	// is about to summarize, so the brief encodes it (V7 plan §5.3). It has counters of its own, and
+	// no compaction counter moves on it.
+	causeBrief = "brief"
+	// counterBriefCloseForeign is counterTapCompactForeign for a brief.
+	counterBriefCloseForeign = "sched.brief.close_foreign"
+	// counterBriefCloseUnobserved is counterTapCompactUnobserved for a brief.
+	counterBriefCloseUnobserved = "sched.brief.close_unobserved"
+	// counterBriefCloseUnbound counts briefs that found the runtime bound to no session and so closed
+	// nothing: unlike a compaction's close, a brief's never binds (closeOpenSegmentFor).
+	counterBriefCloseUnbound = "sched.brief.close_unbound"
 
 	// counterTapBindFirstHook counts binds made by a session's first hook on a runtime bound to no
 	// session: a daemon restarted in the middle of the session, which gets no SessionStart for it.

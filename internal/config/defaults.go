@@ -197,6 +197,11 @@ func Defaults() Config {
 				CalibrationMax:      1.6,
 				CalibrationAlpha:    0.2,
 			},
+			Mod: ModCfg{
+				Enabled:       false,
+				Steering:      false,
+				BriefMaxChars: ModBriefMaxCharsCeiling,
+			},
 		},
 	}
 }

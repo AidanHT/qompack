@@ -95,19 +95,19 @@ func TestSketchSet_CarriesAllFourStructures(t *testing.T) {
 	require.NotNil(t, d)
 }
 
-// allOps is the 13-route table TestServicesAllNil and friends drive.
+// allOps is the 14-route table TestServicesAllNil and friends drive.
 var allOps = []ipc.Op{
 	ipc.OpObserveTool, ipc.OpObservePrompt, ipc.OpObserveStop, ipc.OpSessionStart,
-	ipc.OpCheckpoint, ipc.OpFlush, ipc.OpStatus, ipc.OpMCP,
+	ipc.OpCheckpoint, ipc.OpFlush, ipc.OpStatus, ipc.OpMCP, ipc.OpMod,
 	ipc.OpAdminPing, ipc.OpAdminDrain, ipc.OpAdminReload, ipc.OpAdminIdle, ipc.OpAdminShutdown,
 }
 
-// TestServicesAllNil drives every one of the 13 ops through the daemon with a fully nil Services
-// set: every response must be OK:true except mcp, which reports OK:false "mcp not built" — and no
-// call may panic.
+// TestServicesAllNil drives every one of the 14 ops through the daemon with a fully nil Services
+// set: every response must be OK:true except mcp, which reports OK:false "mcp not built", and mod,
+// whose request here carries no call and is refused as malformed — and no call may panic.
 func TestServicesAllNil(t *testing.T) {
 	t.Parallel()
-	require.Len(t, allOps, 13)
+	require.Len(t, allOps, 14)
 
 	root := t.TempDir()
 	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
@@ -132,6 +132,11 @@ func TestServicesAllNil(t *testing.T) {
 		if op == ipc.OpMCP {
 			require.False(t, resp.OK, "op %s", op)
 			require.Equal(t, "mcp not built", resp.Err)
+			continue
+		}
+		if op == ipc.OpMod {
+			require.False(t, resp.OK, "op %s", op)
+			require.Contains(t, resp.Err, "malformed mod call")
 			continue
 		}
 		require.True(t, resp.OK, "op %s must ACK even with nil Services: %+v", op, resp)

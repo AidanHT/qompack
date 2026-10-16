@@ -59,8 +59,11 @@ export const TRIGGER_PRECOMPUTE = 'precompute'
 /** How long the mod waits for one `qompack mod <verb>` child, in milliseconds (provisional). */
 export const TIMEOUT_MS = 2000
 
-/** How much earlier than TIMEOUT_MS the daemon-side deadline falls, in milliseconds. */
-export const DAEMON_DEADLINE_SLACK_MS = 500
+/** How much of TIMEOUT_MS the CLI keeps, after its wait for the daemon, to write the brief's record and answer, in milliseconds. */
+export const RECORD_MARGIN_MS = 100
+
+/** How much earlier than the end of the CLI's wait the daemon's budget runs out, in milliseconds. */
+export const DAEMON_REPLY_MARGIN_MS = 200
 
 /** The store directory that holds the per-session records. */
 export const STATE_DIR = 'state'

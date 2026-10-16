@@ -101,8 +101,12 @@ func Schema() SchemaDef {
 				"How long the mod waits for one `qompack mod <verb>` child, in milliseconds (provisional).",
 			},
 			{
-				"DaemonDeadlineSlackMs", "DAEMON_DEADLINE_SLACK_MS", DaemonDeadlineSlackMs,
-				"How much earlier than TIMEOUT_MS the daemon-side deadline falls, in milliseconds.",
+				"RecordMarginMs", "RECORD_MARGIN_MS", RecordMarginMs,
+				"How much of TIMEOUT_MS the CLI keeps, after its wait for the daemon, to write the brief's record and answer, in milliseconds.",
+			},
+			{
+				"DaemonReplyMarginMs", "DAEMON_REPLY_MARGIN_MS", DaemonReplyMarginMs,
+				"How much earlier than the end of the CLI's wait the daemon's budget runs out, in milliseconds.",
 			},
 			{"StateDir", "STATE_DIR", StateDir, "The store directory that holds the per-session records."},
 		},

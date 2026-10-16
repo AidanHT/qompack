@@ -102,6 +102,8 @@ var reloadKeyEffects = []reloadKeyEffect{
 	{"runtime.tokens", effectRestart, "the token estimators, built with their constants at start"},
 	{"runtime.mod.enabled", effectOutside, "each `qompack mod` verb, which loads the configuration when it runs"},
 	{"runtime.mod.steering", effectOutside, "each `qompack mod` verb, which loads the configuration when it runs"},
+	{"runtime.mod.briefMaxChars", effectLive, "the mod route (handleMod), which reads the live configuration for " +
+		"each brief; `qompack mod brief` loads it too, to check the daemon's answer"},
 }
 
 // What a reload reports, spelled once here for the reload and for the generated configuration

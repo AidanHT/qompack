@@ -79,6 +79,16 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
 - **Connect deadline.** `mod` verbs dial with at least the 250 ms floor the hook client gives every
   operation off the hot path; the configured 5 ms (25 ms on Windows) default is sized for a warm
   hot-path connection and would report a daemon that is merely between accepts as `busy`.
+- **The daemon exchange.** `hello` is answered by the CLI process alone. `brief` reaches the daemon
+  as one IPC request with the op `mod`. The IPC request has no field for a verb, so its existing
+  free-form field carries a small envelope, `ipc.ModCall`: the verb, the daemon's budget in
+  milliseconds (decision 6), the CLI's `runtime.mod.briefMaxChars` (the daemon renders to the
+  smaller of it and its own live value, so a layer only the CLI loaded still applies) and the mod's
+  request, which only the daemon decodes. The envelope is internal to the CLI and the daemon; the
+  mod never sees it. The daemon's answer is the verb's `modwire` response, and the CLI passes it on
+  unchanged once it has checked it against the contract. Nothing compares the daemon's build with
+  the CLI's, so a daemon of an older build still resident after an upgrade answers every brief
+  `unknown op: mod`, recorded as `error`, until it exits.
 
 ### 3. The wire contract (`internal/modwire`)
 
@@ -145,7 +155,12 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
   `v` is absent or different is refused on read. The **brief-outcome record** is one JSONL line per
   brief call in `.qompack/state/mod-brief-<session>.jsonl`, with the closed field set
   `{v, ts, trigger, outcome, chars, ms}`, where `outcome` is `served` or the reason, and no
-  content. A refused call gets no record, and no store is created for it. The **hello file**
+  content. `ts` is when the call finished and `ms` is its wall time from the CLI process's start.
+  A refused call gets no record, and no store is created for it. Neither does a request that
+  cannot be read (it cannot name the file or the trigger) or a configuration that does not load
+  (the switches are then unknown). A call whose record cannot be written still gets its answer,
+  failing open: the CLI reports the failure on stderr, and the evaluation reads the call as having
+  no record. The **hello file**
   `.qompack/state/mod-hello-<session>.json` holds `{v, session_id, host_version, enabled,
   steering, ts}`, the proof a mod session reached the binary and the `enabled` and `steering` its
   hello answered; it is written for every served hello, including one answered `enabled: false`,
@@ -184,17 +199,34 @@ compaction: a served, enabled hello reports it as `steering`, and while it is of
 `refused` and nothing is written for it. An explicit field is preferred to overloading `enabled`
 because Stage B adds further features with switches of their own. The mod calls `brief` only
 after a hello answered `steering: true`. Hello fires once per mod load, so the mod caches the
-answer for the process and says hello again before the first brief when no served answer is
-cached. Mods can also be off for reasons Qompack cannot see (the host's `disableAllHooks`, safe
-mode, bare mode, managed policy, or a remote rollout switch); in each case the classic path runs
-as today.
+answer for the process, together with the session id it said hello for, and says hello again
+before a brief when no served answer is cached or when `$.session.id()` differs from the cached
+hello's, so a brief is never decided by another session's answer. Mods can also be off for
+reasons Qompack cannot see (the host's `disableAllHooks`, safe mode, bare mode, managed policy, or
+a remote rollout switch); in each case the classic path runs as today.
 
 ### 6. Provisional timing defaults
 
-The mod waits `modwire.TimeoutMs` (**provisionally 2,000 ms**) for a child, and the daemon answers
-within `TimeoutMs - DaemonDeadlineSlackMs` (500 ms) so the CLI can still report a timeout before the
-mod gives up. Time the hook spends inside `$.process.run` does not count against the host's hook
-time limit. A measurement on a warm daemon with a realistic backlog replaces both values.
+Three layers, each inside the one around it:
+
+- The mod waits `modwire.TimeoutMs` (**provisionally 2,000 ms**) for a child, and the host kills a
+  child that outlives it. A child killed this way normally leaves no record; one killed between
+  writing its record and writing its answer leaves a record of a brief the mod did not apply.
+- A verb that asks the daemon (`brief`) waits for the daemon's answer until `TimeoutMs`, less the
+  time since its process started, less `modwire.RecordMarginMs` (100 ms). The dial counts against
+  that wait. The margin leaves the CLI time to write its record and its answer before the mod gives
+  up on it.
+- The CLI sends the daemon a budget of that wait less `modwire.DaemonReplyMarginMs` (200 ms), in
+  the `mod` IPC request. The daemon's deadline is the moment it received the request plus that
+  budget, and never later than the CLI process's start (the request's timestamp) plus `TimeoutMs` -
+  `RecordMarginMs` - `DaemonReplyMarginMs`, so the dial and the transit come out of the daemon's
+  time rather than out of the margin its answer needs. A budget that is not positive is a
+  `timeout`, which the CLI records without asking the daemon.
+
+The budget is computed for each request because the CLI's start-up time varies, and a fixed slack
+could not express that. `hello` has no daemon exchange. Time the hook spends inside `$.process.run`
+does not count against the host's hook time limit. `TimeoutMs` is a floor: a measurement of warm
+briefs with a realistic backlog may raise it, to at most 3,000 ms, and never lowers it.
 
 ### 7. Where the mod's sources live and how they are checked
 

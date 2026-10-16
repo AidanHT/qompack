@@ -27,6 +27,10 @@ const (
 	OpFlush         Op = "flush"
 	OpStatus        Op = "status"
 	OpMCP           Op = "mcp"
+	// OpMod carries one `qompack mod` verb that needs the daemon (ModCall). Like status and mcp it
+	// is a Reply request; unlike every other op it is never spooled, because an answer replayed
+	// later has no caller to reach.
+	OpMod Op = "mod"
 )
 
 // OpAdminPrefix is the reserved namespace §5.4 writes as "admin.*": operations that administer the

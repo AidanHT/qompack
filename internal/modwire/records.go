@@ -38,11 +38,18 @@ func HelloFileName(session string) (string, error) {
 }
 
 // BriefRecord is one line of a session's brief-outcome log. The CLI appends one for every brief
-// call, served or not, except a refused one (ReasonRefused: a home root, no store, either mod
-// switch off, runtime mode off, or a host below MinHostVersion), for which nothing is written and
-// no store is created. Its field set is closed and carries no content: what was asked, what it
-// came to, how much and how long. Like a message it carries "v": Version, and a line whose v is
-// absent or another version is refused.
+// call, served or not, with these exceptions, which get no record:
+//
+//   - a refused call (ReasonRefused: a home root, no store, either mod switch off, runtime mode
+//     off, or a host version below MinHostVersion or unreadable), for which nothing is written and
+//     no store is created;
+//   - a malformed request, which cannot name the file or the trigger;
+//   - a configuration that does not load, which leaves the switches unknown;
+//   - a record the CLI could not write; the brief is still served.
+//
+// Its field set is closed and carries no content: what was asked, what it came to, how much and how
+// long. Like a message it carries "v": Version, and a line whose v is absent or another version is
+// refused.
 type BriefRecord struct {
 	V int `json:"v"`
 	// TS is when the call finished.
@@ -53,7 +60,7 @@ type BriefRecord struct {
 	Outcome Outcome `json:"outcome"`
 	// Chars is CharCount of the served instructions; 0 when not served.
 	Chars int `json:"chars"`
-	// MS is the call's wall time in milliseconds.
+	// MS is the call's wall time in milliseconds, measured from the CLI process's start.
 	MS int64 `json:"ms"`
 }
 

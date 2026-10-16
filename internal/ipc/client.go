@@ -128,6 +128,12 @@ type ClientOptions struct {
 	// Send's own contract is unchanged: every failure still spools and returns (Response{OK:false},
 	// nil). It exists for a caller that has to tell the causes apart, which Send's result cannot.
 	OnFailure func(SendFailure)
+	// ReplyBy, when set, is the latest instant a Reply request waits for its answer, however long
+	// the dial and the write took: the wait ends at whichever comes first, ReplyBy or the Send
+	// deadline counted from the end of the write. It is for a caller whose own deadline is absolute
+	// (a `qompack mod` verb, which must answer before the mod gives up on it). Zero leaves the Send
+	// deadline alone.
+	ReplyBy time.Time
 }
 
 // SendFailure names the step at which Client.Send gave up on a request.
@@ -322,7 +328,11 @@ func (c *client) awaitACK(conn net.Conn, req Request) (Response, error) {
 // awaitReply is Send's step 8: the Reply path, which reads one full NDJSON response line within
 // the caller-supplied deadline (e.g. 10 s for session.start).
 func (c *client) awaitReply(conn net.Conn, req Request, deadline time.Duration) (Response, error) {
-	if err := conn.SetReadDeadline(time.Now().Add(deadline)); err != nil {
+	by := time.Now().Add(deadline)
+	if !c.o.ReplyBy.IsZero() && c.o.ReplyBy.Before(by) {
+		by = c.o.ReplyBy
+	}
+	if err := conn.SetReadDeadline(by); err != nil {
 		return c.fail(SendBroken, req)
 	}
 	line, err := NewLineReader(conn, c.o.MaxLine).ReadLine()

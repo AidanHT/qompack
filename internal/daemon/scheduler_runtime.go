@@ -222,6 +222,13 @@ type schedRuntime struct {
 	lastTokensTS core.UnixMilli
 
 	openSegTokens core.Tokens // Σ rec.Tokens since the open segment opened; reset by closeSegmentLocked
+	// briefClosed is the session whose open segment a brief closed (CloseSegmentForBrief) with no
+	// close since, so the compaction the brief was for finds that segment's successor empty and is
+	// not counted unobserved for it (closeOpenSegmentFor). Any later close of a segment, and any
+	// session change, clears it; it is not persisted. briefClosedAt is when the brief closed, and the
+	// mark lapses briefMarkWindow after it.
+	briefClosed   core.SessionID
+	briefClosedAt core.UnixMilli
 
 	lastDecision      scheduler.Decision
 	lastEvaluateTS    core.UnixMilli
@@ -602,6 +609,7 @@ func (r *schedRuntime) resetSessionLocked() {
 	r.rounds = map[core.TurnIndex]struct{}{0: {}} // turn 0 is always a legal cut point
 	r.maxTurn = 0
 	r.contextTokens, r.openSegTokens = 0, 0
+	r.briefClosed, r.briefClosedAt = "", 0
 	r.lastEffort, r.effortChanged = "", false
 	r.precomputed, r.precomputedOK = dag.Slice{}, false
 	r.lastActivity, r.lastAPICallTS, r.lastRequestStartTS, r.lastCacheWriteTS, r.lastCompactionTS = 0, 0, 0, 0, 0

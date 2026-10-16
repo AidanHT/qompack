@@ -24,6 +24,13 @@ import (
 //nomagic:allow validation bound restated from internal/cli, not a config default (§11.3)
 const HookCaptureHardCapBytes = 4 << 20
 
+// ModBriefMaxCharsCeiling is the largest runtime.mod.briefMaxChars, and its default: the mod wire
+// contract's ceiling on a brief's instructions (modwire.BriefMaxChars), restated here because config
+// may not import modwire (§3.2). A test in internal/daemon holds the two equal. A configured value
+// above it is clamped to it by the loader, as a §11.3 violation, and both sides of the bridge clamp
+// it again when they use it.
+const ModBriefMaxCharsCeiling = 4000
+
 // Validate checks every rule below against c and returns one Violation per failing leaf. It
 // never panics: a malformed Config (for example one built by hand in a test, or one that Load
 // produced from adversarial input) can only ever produce a slice of Violations, never a crash.
@@ -71,6 +78,7 @@ const HookCaptureHardCapBytes = 4 << 20
 //	    compaction.automaticVeto, experiments.enabled} must be false while their gate is pending
 //	    (migration.go's MigrationGates; every gate is pending at SP-19)
 //	runtime.migration.compaction.blockManualCompact must be false   ← hardwired; manual compact is never blocked
+//	runtime.mod.briefMaxChars ∈ [1, ModBriefMaxCharsCeiling]
 //
 // Every leaf in Config not covered by a check below is intentionally unconstrained (booleans
 // with no invalid state, and a handful of ints/strings §11.3 does not bound): see
@@ -399,6 +407,12 @@ func (c Config) Validate() []Violation {
 		add("runtime.phase7.retrieval.maxQueueDepth", "must be >= 1",
 			c.Runtime.Phase7.Retrieval.MaxQueueDepth,
 			Defaults().Runtime.Phase7.Retrieval.MaxQueueDepth)
+	}
+
+	// runtime.mod.briefMaxChars ∈ [1, ModBriefMaxCharsCeiling]
+	if c.Runtime.Mod.BriefMaxChars < 1 || c.Runtime.Mod.BriefMaxChars > ModBriefMaxCharsCeiling {
+		add("runtime.mod.briefMaxChars", "out of range", c.Runtime.Mod.BriefMaxChars,
+			fmt.Sprintf("[1,%d]", ModBriefMaxCharsCeiling))
 	}
 
 	return out

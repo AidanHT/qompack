@@ -100,16 +100,27 @@ func ClosesSegment(trigger string) bool {
 	return false
 }
 
-// Timing. The mod passes TimeoutMs to the host's process API for every verb; the daemon answers a
-// verb within TimeoutMs - DaemonDeadlineSlackMs, so the CLI can still report a timeout before the
-// mod gives up on the child. Both are provisional until measured on a warm daemon with a
-// realistic backlog.
+// Timing, in three layers, each inside the one around it. The mod passes TimeoutMs to the host's
+// process API for every verb, and the host kills a child that outlives it. A verb that asks the
+// daemon (brief) waits for the daemon's answer for TimeoutMs, less the time since the CLI process
+// started, less RecordMarginMs, so it can still write its record and its answer before the mod gives
+// up on it. It sends the daemon a budget of that reply wait less DaemonReplyMarginMs. The daemon
+// answers by receipt plus the budget, and never later than the CLI process's start plus TimeoutMs -
+// RecordMarginMs - DaemonReplyMarginMs, so the dial and the transit come out of the daemon's time.
+// The CLI's start-up time varies, so the budget is computed for each request rather than fixed; a
+// budget that is not positive is a timeout the CLI records without asking the daemon. TimeoutMs is a
+// floor: measurement on a warm daemon with a realistic backlog may raise it, never lower it.
 const (
 	// TimeoutMs is how long the mod waits for one `qompack mod <verb>` child, in milliseconds.
 	TimeoutMs = 2000
 
-	// DaemonDeadlineSlackMs is how much earlier than TimeoutMs the daemon-side deadline falls.
-	DaemonDeadlineSlackMs = 500
+	// RecordMarginMs is how much of TimeoutMs the CLI keeps, after its reply wait, to write the
+	// brief's record and its answer, in milliseconds.
+	RecordMarginMs = 100
+
+	// DaemonReplyMarginMs is how much earlier than the end of the CLI's reply wait the daemon's
+	// budget runs out, in milliseconds, so its answer reaches the CLI before the CLI stops waiting.
+	DaemonReplyMarginMs = 200
 )
 
 // Verb is a `qompack mod` subcommand.
