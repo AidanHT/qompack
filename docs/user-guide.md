@@ -650,12 +650,12 @@ overhead happens, run `/compact` at a natural break in your work"
 
 | Setting | Where it is set | What the host documentation says |
 |---|---|---|
-| (none set) | — | Models running with a native 1M window compact "at about 967K tokens by default" ([model configuration](https://code.claude.com/docs/en/model-config#default-auto-compact-thresholds)) |
+| (none set) | — | "If you don't set an auto-compact window, Claude Code compacts when the conversation reaches the model's context limit, except in these sessions", among them: models running with a native 1M window compact "at about 967K tokens by default" ([model configuration](https://code.claude.com/docs/en/model-config#default-auto-compact-thresholds)) |
 | `autoCompactWindow` | any settings file | a number of tokens "from `100000` to `1000000`"; default "unset, so Claude Code picks a window tuned for your model" ([settings](https://code.claude.com/docs/en/settings-reference#autocompactwindow)) |
 | `/autocompact` | a command, saved in your user settings under `modelSettings` | saves a window for the current model, "which takes precedence over this key in the same file for that model" |
 | `--autocompact` | a flag, for one launch | "takes precedence over this key for one session" |
-| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | the environment that starts Claude Code | "takes precedence over both" |
-| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | the environment | "Set the percentage (1-100) of the auto-compact window at which auto-compaction triggers" ([environment variables](https://code.claude.com/docs/en/env-vars)) |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | the environment that starts Claude Code, or a settings file's `env` | "takes precedence over both" |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | the environment, or a settings file's `env` | "Set the percentage (1-100) of the auto-compact window at which auto-compaction triggers. Use lower values like `50` to compact earlier; the variable can't raise the threshold, so values above the default percentage are ignored. It applies only in sessions that compact before the model's context limit. Applies to both main conversations and subagents" ([environment variables](https://code.claude.com/docs/en/env-vars)) |
 | `autoCompactEnabled` | any settings file | `false`: "Claude Code doesn't compact automatically"; "The manual `/compact` command keeps working while auto-compact is off" |
 | `idleCompaction` | any settings file | "Idle compaction is on by default for conversations that meet all of these conditions", which that page lists ([settings](https://code.claude.com/docs/en/settings-reference#idlecompaction)) |
 
@@ -684,11 +684,14 @@ layer (managed, registry, server-managed cache, user, project, local), the raw v
 `idleCompaction`, as written. It lists the six variables `CLAUDE_CODE_AUTO_COMPACT_WINDOW`,
 `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`, `CLAUDE_CODE_DISABLE_1M_CONTEXT`, `DISABLE_AUTO_COMPACT`,
 `DISABLE_COMPACT` and `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` as the doctor process sees them, which
-can differ from the session's environment. It never computes the window a session will use: it
-does not know the session's model, and `--autocompact`, `--settings` and the session's own
-environment are invisible to it. The server-managed cache (`remote-settings.json`) is reported
-present or absent, not decoded. Rows read `ok` or `unknown`, and the section never changes
-doctor's exit code.
+can differ from the session's environment. A settings file's `env` can set the same variables, and
+"A value here overwrites the same variable exported in your shell"
+([settings](https://code.claude.com/docs/en/settings-reference#environment-variables)), so each
+layer's row also lists any of the six that its `env` sets, as written. It never computes the window
+a session will use: it does not know the session's model, and `--autocompact`, `--settings` and the
+session's own environment are invisible to it. The server-managed cache (`remote-settings.json`)
+is reported present or absent, not decoded, so its `env` is not shown either. Rows read `ok` or
+`unknown`, and the section never changes doctor's exit code.
 
 ## Usage accounting
 
