@@ -39,6 +39,10 @@ type liveProcSpec struct {
 	Messages       []string      `json:"messages"`
 	StepTimeout    time.Duration `json:"step_timeout"`
 	SessionTimeout time.Duration `json:"session_timeout"`
+	// StopOn is asked about every rate_limit_event line as it arrives; a non-empty reason stops the
+	// session at once: the host is cancelled and no further message is sent (review I1: the run never
+	// spends paid overage, not even to the end of a session).
+	StopOn func(line []byte) string `json:"-"`
 }
 
 // liveProcResult is what the host printed and how it ended.
@@ -50,7 +54,9 @@ type liveProcResult struct {
 	StepsCompleted int
 	// Err is a harness failure: the process did not start, a step timed out, the stream closed
 	// before every step had a result.
-	Err       string
+	Err string
+	// Stopped is why the driver stopped the session through StopOn, or "".
+	Stopped   string
 	StartedAt time.Time
 	EndedAt   time.Time
 }
@@ -155,6 +161,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	var stream bytes.Buffer
 	var recv []int64
 	resultCount := 0
+	stopped := ""
 	// notify carries "a result line arrived" without ever blocking the reader: the count under mu
 	// is the truth, and the channel only wakes the writer to re-read it.
 	notify := make(chan struct{}, 1)
@@ -175,7 +182,18 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 				var head struct {
 					Type string `json:"type"`
 				}
-				if json.Unmarshal(trimmed, &head) == nil && head.Type == "result" {
+				ok := json.Unmarshal(trimmed, &head) == nil
+				if ok && head.Type == "rate_limit_event" && spec.StopOn != nil {
+					if why := spec.StopOn(trimmed); why != "" {
+						mu.Lock()
+						if stopped == "" {
+							stopped = why
+						}
+						mu.Unlock()
+						cancel() // our own child: CommandContext kills it
+					}
+				}
+				if ok && head.Type == "result" {
 					mu.Lock()
 					resultCount++
 					mu.Unlock()
@@ -231,7 +249,11 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	}
 	mu.Lock()
 	res.Stream, res.RecvMS = append([]byte(nil), stream.Bytes()...), append([]int64(nil), recv...)
+	res.Stopped = stopped
 	mu.Unlock()
+	if res.Stopped != "" {
+		res.Err = "stopped by the driver: " + res.Stopped
+	}
 	res.Stderr = stderr.Bytes()
 	res.EndedAt = time.Now()
 	return res

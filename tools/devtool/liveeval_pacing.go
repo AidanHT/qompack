@@ -13,6 +13,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/qompack/qompack/internal/eval"
@@ -167,12 +169,53 @@ func (p *livePacer) observe(env *liveEnv, evs []eval.HostRateLimit) error {
 	return writeJSONFile(p.path, livePacingState{UpdatedAt: env.now().UTC().Format(time.RFC3339), Snapshot: p.snap})
 }
 
+// liveOverageStop is the session driver's StopOn: the reason to stop a session at once when a
+// rate_limit_event says paid overage is in use (review I1), or "".
+func liveOverageStop(line []byte) string {
+	ev, err := eval.ParseRateLimitLine(line)
+	if err != nil || !ev.Overage() {
+		return ""
+	}
+	return "a rate_limit_event says the account is using paid overage; the session was stopped at once (D100)"
+}
+
+// liveOverageNotes are the summary's notes on the account's overage state, as the trials' events
+// reported it, and on a run whose trials printed no rate_limit_event at all (review I2).
+func liveOverageNotes(recs liveRecords) []string {
+	seen := map[string]bool{}
+	var states []string
+	events := 0
+	for _, list := range [][]eval.LiveTrial{recs.scored, recs.limited} {
+		for _, t := range list {
+			events += len(t.RateLimits)
+			if t.OverageStatus == "" && t.OverageDisabledReason == "" {
+				continue
+			}
+			s := fmt.Sprintf("%s (%s)", orUnknown(t.OverageStatus), orUnknown(t.OverageDisabledReason))
+			if !seen[s] {
+				seen[s] = true
+				states = append(states, s)
+			}
+		}
+	}
+	var out []string
+	if len(states) > 0 {
+		sort.Strings(states)
+		out = append(out, "the account's overage state, as the trials' rate_limit_events reported it: "+strings.Join(states, ", "))
+	}
+	if events == 0 && len(recs.scored)+len(recs.limited) > 0 {
+		out = append(out, "no trial printed a rate_limit_event, so the pacing had nothing to read and limits showed only as "+
+			"usage-limit results (the plan's fallback; G0.16 says how often the host prints them)")
+	}
+	return out
+}
+
 // liveOverage names the first event of evs that says paid overage is in use, or "".
 func liveOverage(evs []eval.HostRateLimit) string {
 	for _, ev := range evs {
 		if ev.Overage() {
-			return fmt.Sprintf("a rate_limit_event in turn %d says the account is using paid overage (isUsingOverage %t, "+
-				"overageInUse %t); the run never spends overage (D100)", ev.Turn+1, ev.IsUsingOverage, ev.OverageInUse)
+			return fmt.Sprintf("a rate_limit_event in turn %d says the account is using paid overage (isUsingOverage %s, "+
+				"overageInUse %s); the run never spends overage (D100)", ev.Turn+1, boolText(ev.IsUsingOverage), boolText(ev.OverageInUse))
 		}
 	}
 	return ""
@@ -201,4 +244,12 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// boolText renders an optional flag: "true", "false" or "absent".
+func boolText(b *bool) string {
+	if b == nil {
+		return "absent"
+	}
+	return fmt.Sprint(*b)
 }

@@ -62,12 +62,18 @@ type HostRateLimit struct {
 	RateLimitType string   `json:"rate_limit_type,omitempty"`
 	Utilization   *float64 `json:"utilization,omitempty"`
 	// IsUsingOverage and OverageInUse are the two fields that say the account is spending paid
-	// overage; OverageStatus is whether overage is allowed at all.
-	IsUsingOverage bool   `json:"is_using_overage"`
-	OverageInUse   bool   `json:"overage_in_use,omitempty"`
-	OverageStatus  string `json:"overage_status,omitempty"`
+	// overage; nil when the line did not carry the field. OverageStatus is whether overage is allowed
+	// at all, and OverageDisabledReason why it is not ("org_level_disabled" in the recorded lines).
+	IsUsingOverage        *bool  `json:"is_using_overage"`
+	OverageInUse          *bool  `json:"overage_in_use,omitempty"`
+	OverageStatus         string `json:"overage_status,omitempty"`
+	OverageDisabledReason string `json:"overage_disabled_reason,omitempty"`
 	// Windows is unifiedWindows: every window's utilization and reset, by window name.
 	Windows map[string]HostRateWindow `json:"windows,omitempty"`
+	// Unrecognized is that the line's rate_limit_info yielded no status, no window type and no window:
+	// a shape this parser does not know (review I2). The pacing stops on it rather than read it as
+	// "no limit".
+	Unrecognized bool `json:"unrecognized,omitempty"`
 }
 
 // HostRateWindow is one window in unifiedWindows.
@@ -77,18 +83,24 @@ type HostRateWindow struct {
 }
 
 // Overage reports that the event says paid overage is in use.
-func (e HostRateLimit) Overage() bool { return e.IsUsingOverage || e.OverageInUse }
+func (e HostRateLimit) Overage() bool {
+	return (e.IsUsingOverage != nil && *e.IsUsingOverage) || (e.OverageInUse != nil && *e.OverageInUse)
+}
+
+// carriesOverage reports that the event carried at least one of the overage-in-use fields.
+func (e HostRateLimit) carriesOverage() bool { return e.IsUsingOverage != nil || e.OverageInUse != nil }
 
 type rawRateLimitEvent struct {
 	Info struct {
-		Status         string                   `json:"status"`
-		ResetsAt       float64                  `json:"resetsAt"`
-		RateLimitType  string                   `json:"rateLimitType"`
-		Utilization    *float64                 `json:"utilization"`
-		IsUsingOverage bool                     `json:"isUsingOverage"`
-		OverageInUse   bool                     `json:"overageInUse"`
-		OverageStatus  string                   `json:"overageStatus"`
-		UnifiedWindows map[string]rawRateWindow `json:"unifiedWindows"`
+		Status                string                   `json:"status"`
+		ResetsAt              float64                  `json:"resetsAt"`
+		RateLimitType         string                   `json:"rateLimitType"`
+		Utilization           *float64                 `json:"utilization"`
+		IsUsingOverage        *bool                    `json:"isUsingOverage"`
+		OverageInUse          *bool                    `json:"overageInUse"`
+		OverageStatus         string                   `json:"overageStatus"`
+		OverageDisabledReason string                   `json:"overageDisabledReason"`
+		UnifiedWindows        map[string]rawRateWindow `json:"unifiedWindows"`
 	} `json:"rate_limit_info"`
 }
 
@@ -97,26 +109,74 @@ type rawRateWindow struct {
 	ResetsAt    float64  `json:"resetsAt"`
 }
 
-// rateLimit records one rate_limit_event line on the stream and in its turn.
-func (p *streamParser) rateLimit(line []byte, at int64) error {
+// ParseRateLimitLine decodes one rate_limit_event line. The session driver calls it on each such
+// line as it arrives, so it can stop a session the moment paid overage is in use (review I1).
+func ParseRateLimitLine(line []byte) (HostRateLimit, error) {
 	var raw rawRateLimitEvent
 	if err := json.Unmarshal(line, &raw); err != nil {
-		return err
+		return HostRateLimit{}, err
 	}
-	t := p.turn(at)
+	in := raw.Info
 	ev := HostRateLimit{
-		Turn: t.Index, RecvMS: at, Status: raw.Info.Status, ResetsAt: int64(raw.Info.ResetsAt),
-		RateLimitType: raw.Info.RateLimitType, Utilization: raw.Info.Utilization,
-		IsUsingOverage: raw.Info.IsUsingOverage, OverageInUse: raw.Info.OverageInUse, OverageStatus: raw.Info.OverageStatus,
+		Status: in.Status, ResetsAt: int64(in.ResetsAt), RateLimitType: in.RateLimitType, Utilization: in.Utilization,
+		IsUsingOverage: in.IsUsingOverage, OverageInUse: in.OverageInUse, OverageStatus: in.OverageStatus,
+		OverageDisabledReason: in.OverageDisabledReason,
 	}
-	for name, w := range raw.Info.UnifiedWindows {
+	for name, w := range in.UnifiedWindows {
 		if ev.Windows == nil {
 			ev.Windows = map[string]HostRateWindow{}
 		}
 		ev.Windows[name] = HostRateWindow{Utilization: w.Utilization, ResetsAt: int64(w.ResetsAt)}
 	}
+	ev.Unrecognized = ev.Status == "" && ev.RateLimitType == "" && len(ev.Windows) == 0
+	return ev, nil
+}
+
+// rateLimit records one rate_limit_event line on the stream and in its turn.
+func (p *streamParser) rateLimit(line []byte, at int64) error {
+	ev, err := ParseRateLimitLine(line)
+	if err != nil {
+		return err
+	}
+	t := p.turn(at)
+	ev.Turn, ev.RecvMS = t.Index, at
 	p.out.RateLimits = append(p.out.RateLimits, ev)
 	return nil
+}
+
+// LiveRateProblem says why a session's events cannot be paced on, or "" when they can (review I2):
+// an event of a shape the parser does not know, or events none of which carries an overage field, so
+// the overage stop could never fire. Both fail closed. A session with no event at all is the plan's
+// fallback (the usage-limit result), not a problem.
+func LiveRateProblem(evs []HostRateLimit) string {
+	carried := false
+	for _, ev := range evs {
+		if ev.Unrecognized {
+			return fmt.Sprintf("a rate_limit_event in turn %d has a shape that is not recognised (no status, window type "+
+				"or window); the pacing cannot read it, so no trial starts until internal/eval/liveratelimit.go follows "+
+				"the host's shape (G0.16)", ev.Turn+1)
+		}
+		carried = carried || ev.carriesOverage()
+	}
+	if len(evs) > 0 && !carried {
+		return fmt.Sprintf("none of the session's %d rate_limit_event(s) carries isUsingOverage or overageInUse, so the "+
+			"paid-overage stop cannot work; no trial starts until internal/eval/liveratelimit.go follows the host's "+
+			"shape (G0.16)", len(evs))
+	}
+	return ""
+}
+
+// LiveOverageState is the newest overage status and disabled reason among evs ("" when none says).
+func LiveOverageState(evs []HostRateLimit) (status, disabledReason string) {
+	for _, ev := range evs {
+		if ev.OverageStatus != "" {
+			status = ev.OverageStatus
+		}
+		if ev.OverageDisabledReason != "" {
+			disabledReason = ev.OverageDisabledReason
+		}
+	}
+	return status, disabledReason
 }
 
 // LiveRateWindow is what the newest events say of one window.

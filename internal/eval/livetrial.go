@@ -120,6 +120,10 @@ type LiveTrial struct {
 	// utilization delta over the trial (W6 item 8): what the trial spent of the subscription.
 	RateLimits []HostRateLimit          `json:"rate_limits,omitempty"`
 	RateUse    map[string]LiveRateDelta `json:"rate_use,omitempty"`
+	// OverageStatus and OverageDisabledReason are the account's overage state as the session's
+	// events last reported it: "rejected" and "org_level_disabled" say it cannot spend overage at all.
+	OverageStatus         string `json:"overage_status,omitempty"`
+	OverageDisabledReason string `json:"overage_disabled_reason,omitempty"`
 	// Limited says how a subscription limit cut the trial short (W6 item 8). Such a trial is kept on
 	// disk under another name in its slot, excluded from every analysis but the limited sensitivity
 	// analysis, and its slot is run again.

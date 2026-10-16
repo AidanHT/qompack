@@ -225,6 +225,10 @@ checks:
 					stop = fmt.Errorf("live-check: after %s run %d: %s", c.ID, n, over)
 					break checks
 				}
+				if problem := eval.LiveRateProblem(evs); problem != "" {
+					stop = fmt.Errorf("live-check: after %s run %d: %s", c.ID, n, problem)
+					break checks
+				}
 				if run.Limited == "" {
 					break
 				}
@@ -369,7 +373,7 @@ func (r *liveCheckRun) runOnce(ctx context.Context, c eval.LiveSuiteCheck, n int
 		spec := liveProcSpec{
 			Bin: env.claudeBin, Args: liveSessionArgs(r.model(c), task, r.suite.Defaults, newUUID(), r.extraArgs(c)),
 			Dir: project, Env: r.sessionEnv(c), Messages: liveMessages(task),
-			StepTimeout: r.o.stepTimeout, SessionTimeout: r.o.sessionTimeout,
+			StepTimeout: r.o.stepTimeout, SessionTimeout: r.o.sessionTimeout, StopOn: liveOverageStop,
 		}
 		spec.Unset = liveUnsetNames(os.Environ(), spec.Env)
 		_ = writeJSONFile(filepath.Join(dir, "invocation.json"), spec)
@@ -413,6 +417,9 @@ func (r *liveCheckRun) runOnce(ctx context.Context, c eval.LiveSuiteCheck, n int
 		graded.Passed = graded.Passed && graded.HarnessError == "" && len(run.Failures) == 0
 		run = graded
 		run.Limited = eval.LiveUsageLimited(stream)
+		if proc.Stopped != "" {
+			run.Limited = "the session was stopped: " + proc.Stopped
+		}
 	}
 	model := ""
 	if stream.Init != nil {

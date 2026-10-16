@@ -544,12 +544,20 @@ slots:
 				fmt.Fprintf(w, "live-eval: %s/%s/%d: completed=%t task_success=%t violations=%d harness_error=%q\n",
 					p.Task, p.Arm, p.Trial, rec.Completed, rec.TaskSuccess, rec.ConstraintViolations, rec.HarnessError)
 			}
+			if rec.OverageStatus != "" || rec.OverageDisabledReason != "" {
+				fmt.Fprintf(w, "live-eval: %s/%s/%d: the account reports overage %s (%s)\n", p.Task, p.Arm, p.Trial,
+					orUnknown(rec.OverageStatus), orUnknown(rec.OverageDisabledReason))
+			}
 			if guardErr != nil {
 				stop(guardErr)
 				break slots
 			}
 			if over := liveOverage(rec.RateLimits); over != "" {
 				stop(fmt.Errorf("live-eval: after %s/%s/%d: %s", p.Task, p.Arm, p.Trial, over))
+				break slots
+			}
+			if problem := eval.LiveRateProblem(rec.RateLimits); problem != "" {
+				stop(fmt.Errorf("live-eval: after %s/%s/%d: %s", p.Task, p.Arm, p.Trial, problem))
 				break slots
 			}
 			if rec.ConfigurationError == "" && rec.Limited == "" {
@@ -580,6 +588,7 @@ func summarizeLiveRun(o liveOptions, w io.Writer, plan eval.LivePlan, ts eval.Li
 	}
 	sum := eval.SummarizeLive(plan.RunID, ts.Analysis, recs.scored)
 	sum.AddLimited(ts.Analysis, recs.scored, recs.limited)
+	sum.Notes = append(sum.Notes, liveOverageNotes(recs)...)
 	if recs.discarded > 0 {
 		sum.Notes = append(sum.Notes, fmt.Sprintf("%d configuration-discarded attempt(s) were set aside in their slots "+
 			"as trial.discarded-<n>.json and the slots run again: harness errors, never scored", recs.discarded))
@@ -977,6 +986,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 			Messages:       liveMessages(task),
 			StepTimeout:    o.stepTimeout,
 			SessionTimeout: o.sessionTimeout,
+			StopOn:         liveOverageStop,
 		}
 		spec.Unset = liveUnsetNames(os.Environ(), spec.Env)
 		if len(spec.Unset) > 0 {
@@ -1040,6 +1050,11 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 		rec.RateUse = use
 	}
 	rec.Limited = eval.LiveUsageLimited(stream)
+	if proc.Stopped != "" {
+		// The driver cut the session short (review I1): never a scored trial.
+		rec.Limited = "the session was stopped: " + proc.Stopped
+	}
+	rec.OverageStatus, rec.OverageDisabledReason = eval.LiveOverageState(stream.RateLimits)
 	rec.HostReportedPlugins = stream.Init != nil
 	if stream.Init != nil {
 		rec.SessionID = stream.Init.SessionID
