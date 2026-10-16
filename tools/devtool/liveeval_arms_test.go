@@ -642,3 +642,14 @@ func seedPuttingFirst(t *testing.T, arm string, arms []string) int64 {
 	t.Fatalf("no seed below 1000 puts %s first", arm)
 	return 0
 }
+
+// pinnedCLI wraps a fake `claude` subcommand runner so `--version` answers the fake host's version,
+// which every run pins before its first trial and checks before each one.
+func pinnedCLI(f func(ctx context.Context, dir string, args ...string) liveCLIResult) func(context.Context, string, ...string) liveCLIResult {
+	return func(ctx context.Context, dir string, args ...string) liveCLIResult {
+		if len(args) > 0 && args[0] == "--version" {
+			return liveCLIResult{Stdout: "2.1.280 (Claude Code)\n"}
+		}
+		return f(ctx, dir, args...)
+	}
+}

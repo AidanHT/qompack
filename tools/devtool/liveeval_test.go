@@ -373,13 +373,13 @@ func TestRunLiveEval_GuardFailsClosed(t *testing.T) {
 	env := fakeLiveEnv(t, nil)
 	env.home = home
 	env.run = scriptedPilotHost(t, home)
-	env.cli = func(_ context.Context, _ string, args ...string) liveCLIResult {
+	env.cli = pinnedCLI(func(_ context.Context, _ string, args ...string) liveCLIResult {
 		if len(args) > 1 && args[1] == "install" {
 			require.NoError(t, os.MkdirAll(filepath.Join(home, "plugins"), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(home, "plugins", "installed_plugins.json"), []byte(`{"leaked":true}`), 0o600))
 		}
 		return liveCLIResult{}
-	}
+	})
 	out := t.TempDir()
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
@@ -1158,12 +1158,12 @@ func TestRunLiveEval_InstallFailureIsAHarnessFailureNotAMismatch(t *testing.T) {
 	env := fakeLiveEnv(t, nil)
 	env.home = home
 	env.run = scriptedPilotHost(t, home)
-	env.cli = func(_ context.Context, _ string, args ...string) liveCLIResult {
+	env.cli = pinnedCLI(func(_ context.Context, _ string, args ...string) liveCLIResult {
 		if len(args) > 1 && args[0] == "plugin" && args[1] == "install" {
 			return liveCLIResult{Code: 1, Stderr: "install failed"}
 		}
 		return liveCLIResult{}
-	}
+	})
 	out := t.TempDir()
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{

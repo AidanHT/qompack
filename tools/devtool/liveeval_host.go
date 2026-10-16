@@ -105,13 +105,16 @@ func newLiveEnv(o liveOptions) (*liveEnv, error) {
 	return e, nil
 }
 
-// cliVersion is `claude --version`'s leading token, or "unknown".
+// liveUnknownVersion is what cliVersion answers when the host does not say.
+const liveUnknownVersion = "unknown"
+
+// cliVersion is `claude --version`'s leading token, or liveUnknownVersion.
 func (e *liveEnv) cliVersion(ctx context.Context) string {
 	r := e.cli(ctx, "", "--version")
 	if f := strings.Fields(r.Stdout); r.Code == 0 && len(f) > 0 {
 		return f[0]
 	}
-	return "unknown"
+	return liveUnknownVersion
 }
 
 // ── the host process ─────────────────────────────────────────────────────────────────────────────
@@ -317,6 +320,7 @@ func runLiveCLI(ctx context.Context, bin, dir string, args ...string) liveCLIRes
 		cmd.Dir = dir
 	}
 	cmd.Stdin = bytes.NewReader(nil)
+	cmd.Env = liveCLIEnv(os.Environ())
 	cmd.WaitDelay = liveExitGrace
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb

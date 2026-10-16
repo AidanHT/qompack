@@ -3,8 +3,13 @@ package main
 // `devtool live-eval` — V6 close-out C5.4: the real-host evaluation driver.
 //
 // It runs a declared task set (testdata/eval/live/) as real headless Claude Code sessions, each in a
-// disposable project copied from the task's fixture, in two arms: `stock` (no plugin) and `qompack`
-// (the plugin loaded from a bundle, by --plugin-dir or through the real marketplace flow). Every
+// disposable project copied from the task's fixture, in the four Stage A arms (V7 W6): `stock` (no
+// plugin), `classic` (the plugin from --bundle), `generic` (classic plus the task set's text G in the
+// project's CLAUDE.md) and `steer` (the plugin from --bundle-mods with both mod switches on), each
+// loaded by --plugin-dir or through the real marketplace flow. Every arm's state is declared by
+// eval.LiveArmSpec and checked per trial; a trial whose configuration contradicts its arm is set
+// aside and run again (liveeval_arms.go). Trials run one at a time: the guard over the operator's
+// configuration snapshots around each trial, and a second concurrent trial would break it. Every
 // task forces a compaction midway with a `/compact` user turn and is graded afterwards by checks a
 // program evaluates — files, a hidden test suite, `go` commands, the text of named answers, and
 // tool calls the session should not have needed. Per trial it records completion and constraint
@@ -53,7 +58,7 @@ const (
 	liveDefaultOut   = "dist/live-eval"
 )
 
-// The two ways the qompack arm reaches the host.
+// The two ways a Qompack arm reaches the host.
 const (
 	liveInstallPluginDir   = "plugin-dir"
 	liveInstallMarketplace = "marketplace"
@@ -84,11 +89,14 @@ const (
 	liveCommandTimeout        = 5 * time.Minute
 	liveCLITimeout            = 2 * time.Minute
 	liveDaemonStopBound       = 60 * time.Second
-	liveDefaultIdleExit       = 120
-	liveCommandOutputKeep     = 16 << 10
-	liveMTimeMargin           = 2 * time.Second
-	liveDirPerm               = 0o755
-	liveFilePerm              = 0o644
+	// liveDefaultIdleExit is the product's own daemon idle exit: at the old harness default of 120 s a
+	// trial silent for a few minutes lost its daemon (W6 item 5). The harness stops each trial's
+	// daemon at the end anyway, so nothing is left running.
+	liveDefaultIdleExit   = 1800
+	liveCommandOutputKeep = 16 << 10
+	liveMTimeMargin       = 2 * time.Second
+	liveDirPerm           = 0o755
+	liveFilePerm          = 0o644
 )
 
 // liveOptions is one invocation's settled flags.
@@ -100,6 +108,8 @@ type liveOptions struct {
 	out            string
 	install        string
 	bundle         string
+	bundleMods     string
+	orderSeed      int64
 	claude         string
 	rates          string
 	only           map[string]bool
@@ -136,13 +146,18 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 	fs := flag.NewFlagSet("live-eval", flag.ContinueOnError)
 	o := liveOptions{}
 	fs.StringVar(&o.tasksFile, "tasks", liveDefaultTasks, "task-set file")
-	arms := fs.String("arms", eval.ArmStock+","+eval.ArmQompack, "comma-separated arms: stock, qompack")
-	fs.IntVar(&o.trials, "trials", 0, "trials per task per arm (default: the task set's pre-registered trials_per_arm)")
+	arms := fs.String("arms", strings.Join(eval.LiveArms, ","), "comma-separated arms: "+strings.Join(eval.LiveArms, ", "))
+	fs.IntVar(&o.trials, "trials", 0, "trials per task for every arm (default: each arm's pre-registered count in the task set)")
 	fs.StringVar(&o.model, "model", "", "model ID (default: the task set's pre-registered model)")
 	fs.StringVar(&o.out, "out", "", "output directory (default dist/live-eval/<run-id>)")
-	fs.StringVar(&o.install, "install", liveInstallPluginDir, "how the qompack arm loads the plugin: plugin-dir or marketplace")
-	fs.StringVar(&o.bundle, "bundle", "", "assembled host-target bundle directory (from `devtool bundle`); required for the qompack arm")
-	fs.StringVar(&o.claude, "claude", "", "Claude Code CLI (default: `claude` on PATH)")
+	fs.StringVar(&o.install, "install", liveInstallPluginDir, "how the Qompack arms load the plugin: plugin-dir or marketplace")
+	fs.StringVar(&o.bundle, "bundle", "", "assembled host-target bundle directory without the mod (from `devtool bundle`); "+
+		"required for the classic and generic arms")
+	fs.StringVar(&o.bundleMods, "bundle-mods", "", "assembled bundle with the mod (from `devtool bundle --mods`), built from "+
+		"the same commit as --bundle; required for the steer arm")
+	fs.Int64Var(&o.orderSeed, "order-seed", 0, "seed of the shuffle within each block of rounds "+
+		"(default: derived from the run id; plan.json records it)")
+	fs.StringVar(&o.claude, "claude", "", "Claude Code CLI, the pinned install (default: `claude` on PATH)")
 	fs.StringVar(&o.rates, "rates", liveDefaultRates, "dated rate table for the list-price estimate")
 	only := fs.String("only", "", "comma-separated task IDs to run (default: every non-held-out task)")
 	fs.BoolVar(&o.includeHeldOut, "include-held-out", false, "also run held-out tasks (the confirmatory run only)")
@@ -158,7 +173,7 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"refuse to plan, dry run included, unless the plan is the task set's pre-registered confirmatory design")
 	defects := fs.String("known-open-defects", "",
 		"the operator's statement of which known defects the bundle still carries: none, or their checklist IDs "+
-			"comma-separated (required with the qompack arm; preregistration section 9)")
+			"comma-separated (required with any Qompack arm, and covering both bundles; preregistration section 9)")
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
@@ -167,13 +182,16 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 	}
 	for _, a := range strings.Split(*arms, ",") {
 		a = strings.TrimSpace(a)
-		switch a {
-		case eval.ArmStock, eval.ArmQompack:
-			o.arms = append(o.arms, a)
-		case "":
-		default:
-			return o, fmt.Errorf("live-eval: unknown arm %q (stock, qompack)", a)
+		if a == "" {
+			continue
 		}
+		if _, ok := eval.LiveArmSpec(a); !ok {
+			return o, fmt.Errorf("live-eval: unknown arm %q (%s)", a, strings.Join(eval.LiveArms, ", "))
+		}
+		if contains(o.arms, a) {
+			return o, fmt.Errorf("live-eval: --arms names %s twice", a)
+		}
+		o.arms = append(o.arms, a)
 	}
 	if len(o.arms) == 0 {
 		return o, errors.New("live-eval: --arms names no arm")
@@ -269,8 +287,20 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if o.model == "" {
 		o.model = ts.Analysis.Model
 	}
-	if o.trials == 0 {
-		o.trials = ts.Analysis.TrialsPerArm
+	counts, err := liveArmCounts(ts, o)
+	if err != nil {
+		return err
+	}
+	states := make(map[string]eval.LiveArmState, len(o.arms))
+	stateList := make([]eval.LiveArmState, 0, len(o.arms))
+	for _, a := range o.arms {
+		s, _ := eval.LiveArmSpec(a)
+		states[a] = s
+		stateList = append(stateList, s)
+	}
+	if contains(o.arms, eval.ArmGeneric) && strings.TrimSpace(ts.Analysis.GenericCompactInstructions) == "" {
+		return fmt.Errorf("live-eval: the generic arm needs the task set's text G (analysis.generic_compact_instructions), "+
+			"and %s declares none", ts.ID)
 	}
 	tasks, err := selectLiveTasks(ts, o)
 	if err != nil {
@@ -290,34 +320,17 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		RunID: runID, CreatedAt: env.now().UTC().Format(time.RFC3339), TaskSet: ts.ID,
 		TaskSetFile: filepath.ToSlash(o.tasksFile), TaskSetSHA256: sha256Hex(raw),
 		TaskSetTasks: len(ts.Tasks), FixtureTreeSHA256: tree, FixtureTreeDirs: treeDirs,
-		Model: o.model, PreregisteredModel: ts.Analysis.Model, Arms: o.arms, TrialsPerArm: o.trials,
+		Model: o.model, PreregisteredModel: ts.Analysis.Model, Arms: o.arms,
+		TrialsPerArm: liveUniformCount(counts, o.arms), ArmTrials: counts, ArmStates: stateList,
+		OrderSeed: liveOrderSeed(o.orderSeed, runID), DaemonIdleExitSeconds: o.idleExit,
 		Install: o.install, RateTableDate: rates.Date, RateTableSource: rates.Source,
 		HeldOutIncluded: o.includeHeldOut, Host: runtime.GOOS + "/" + runtime.GOARCH,
 		Agent: "agent-executed on the real installed host (owner decision D3); not human UAT",
 	}
-	if !contains(o.arms, eval.ArmQompack) {
-		// --install describes how the plugin reaches the host; a run with no plugin arm has none.
-		o.install, plan.Install = "none", "none"
-	} else {
-		id, idErr := readLiveBundle(o.bundle)
-		if idErr != nil {
-			return idErr
-		}
-		if !o.defectsAttested {
-			return fmt.Errorf("live-eval: the qompack arm needs --known-open-defects: %q, or the checklist IDs of "+
-				"every known defect the bundle still carries. Preregistration section 9 counts only a run on a "+
-				"candidate with no known open defect as the confirmatory run, and a bundle cannot prove which "+
-				"defects it fixes, so the operator states it and plan.json records the statement", liveNoOpenDefects)
-		}
-		id.Install = o.install
-		plan.Plugin = &id
-		plan.KnownDefects = &eval.LiveDefectAttestation{Open: append([]string{}, o.openDefects...), Source: liveDefectSource}
-		// Every session runs in its disposable project, so the host would resolve a relative
-		// --plugin-dir against that project and load nothing. From here on the bundle is named by
-		// the absolute path its identity was read from.
-		o.bundle = id.BundleDir
+	if err := planLiveBundles(&o, &plan, stateList); err != nil {
+		return err
 	}
-	plan.Trials = planLiveTrials(tasks, o.arms, o.trials)
+	plan.Trials = planLiveTrials(tasks, o.arms, counts, plan.OrderSeed)
 	if o.maxSessions > 0 && len(plan.Trials) > o.maxSessions {
 		return fmt.Errorf("live-eval: the plan starts %d session(s), above --max-sessions %d", len(plan.Trials), o.maxSessions)
 	}
@@ -325,13 +338,20 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	fmt.Fprintf(w, "live-eval: run %s: %d trial(s) of task set %s (%s, fixture tree %s) on %s, arms %s, install %s\n",
 		runID, len(plan.Trials), ts.ID, plan.TaskSetSHA256[:12], plan.FixtureTreeSHA256[:12], o.model,
 		strings.Join(o.arms, ","), o.install)
+	fmt.Fprintf(w, "live-eval: trials per task: %s (order seed %d)\n", liveCountsText(counts, o.arms), plan.OrderSeed)
 	if plan.KnownDefects != nil {
 		fmt.Fprintf(w, "live-eval: known open defects: %s (%s; preregistration section 9)\n",
 			knownDefectsText(plan.KnownDefects), liveDefectSource)
 	}
-	if p := plan.Plugin; p != nil {
-		fmt.Fprintf(w, "live-eval: bundle %s at commit %s (dirty=%t), %s sha256 %s, at %s\n",
-			p.Version, p.Commit, p.Dirty, identityFileName, p.BundleSHA256, p.BundleDir)
+	for _, b := range []struct {
+		name string
+		id   *eval.LivePluginIdentity
+	}{{eval.LiveBundleClassic, plan.Plugin}, {eval.LiveBundleMods, plan.PluginMods}} {
+		if p := b.id; p != nil {
+			fmt.Fprintf(w, "live-eval: %s (%s) %s at commit %s (dirty=%t), %s sha256 %s, at %s\n",
+				b.name, strings.Join(liveArmsUsing(stateList, b.name), ", "), p.Version, p.Commit, p.Dirty,
+				identityFileName, p.BundleSHA256, p.BundleDir)
+		}
 	}
 	// What makes this the confirmatory run is mostly fixed now; say it before any session is spent.
 	departures := eval.LivePlanDepartures(plan, ts.Analysis)
@@ -365,7 +385,14 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 			"use --dry-run to validate", liveEvalGateEnv)
 	}
 
+	// The host is pinned (W6 item 12): the plan records the version, and no trial starts on another.
 	plan.ClaudeCLI, plan.ClaudeCLIVersion = env.claudeBin, env.cliVersion(ctx)
+	if plan.ClaudeCLIVersion == liveUnknownVersion {
+		return fmt.Errorf("live-eval: could not read the host version from %s --version; a run pins its host "+
+			"version, so nothing is planned", env.claudeBin)
+	}
+	fmt.Fprintf(w, "live-eval: host pinned at Claude Code %s (%s), %s=1 in every session\n",
+		plan.ClaudeCLIVersion, plan.ClaudeCLI, liveEnvAutoUpdater)
 	if err := os.MkdirAll(o.out, liveDirPerm); err != nil {
 		return fmt.Errorf("live-eval: creating %s: %w", o.out, err)
 	}
@@ -379,23 +406,54 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	}
 	var trials []eval.LiveTrial
 	var abort error
+	configErrors := 0
+slots:
 	for _, p := range plan.Trials {
-		lt := liveTrialRun{
-			opts: o, env: env, set: ts, task: byID[p.Task], arm: p.Arm, trial: p.Trial,
-			runID: runID, rates: rates, plugin: plan.Plugin,
-		}
-		rec, guardErr := lt.run(ctx)
-		trials = append(trials, rec)
-		fmt.Fprintf(w, "live-eval: %s/%s/%d: completed=%t task_success=%t violations=%d harness_error=%q\n",
-			p.Task, p.Arm, p.Trial, rec.Completed, rec.TaskSuccess, rec.ConstraintViolations, rec.HarnessError)
-		if guardErr != nil {
-			abort = guardErr
-			fmt.Fprintf(w, "live-eval: STOPPING: %v\n", guardErr)
-			break
+		// A slot runs until it holds a scored trial: an attempt whose configuration contradicted its
+		// arm is set aside in the slot and the slot runs again, until the run's third such error.
+		for {
+			if v := env.cliVersion(ctx); v != plan.ClaudeCLIVersion {
+				abort = fmt.Errorf("live-eval: the host reports Claude Code %s, not the pinned %s, before %s/%s/%d; "+
+					"no trial starts on another host version", v, plan.ClaudeCLIVersion, p.Task, p.Arm, p.Trial)
+				fmt.Fprintf(w, "live-eval: STOPPING: %v\n", abort)
+				break slots
+			}
+			lt := liveTrialRun{
+				opts: o, env: env, set: ts, task: byID[p.Task], arm: p.Arm, state: states[p.Arm], trial: p.Trial,
+				runID: runID, rates: rates, plan: &plan,
+			}
+			rec, guardErr := lt.run(ctx)
+			if rec.ConfigurationError != "" {
+				configErrors++
+				fmt.Fprintf(w, "live-eval: %s/%s/%d: configuration error %d of the run: %s; set aside, the slot runs again\n",
+					p.Task, p.Arm, p.Trial, configErrors, rec.ConfigurationError)
+			} else {
+				trials = append(trials, rec)
+				fmt.Fprintf(w, "live-eval: %s/%s/%d: completed=%t task_success=%t violations=%d harness_error=%q\n",
+					p.Task, p.Arm, p.Trial, rec.Completed, rec.TaskSuccess, rec.ConstraintViolations, rec.HarnessError)
+			}
+			if guardErr != nil {
+				abort = guardErr
+				fmt.Fprintf(w, "live-eval: STOPPING: %v\n", guardErr)
+				break slots
+			}
+			if rec.ConfigurationError == "" {
+				break
+			}
+			if configErrors >= liveConfigErrorLimit {
+				abort = fmt.Errorf("live-eval: three configuration errors in this run, the last on %s/%s/%d (%s); "+
+					"stopping for investigation", p.Task, p.Arm, p.Trial, rec.ConfigurationError)
+				fmt.Fprintf(w, "live-eval: STOPPING: %v\n", abort)
+				break slots
+			}
 		}
 	}
 
 	sum := eval.SummarizeLive(runID, ts.Analysis, trials)
+	if configErrors > 0 {
+		sum.Notes = append(sum.Notes, fmt.Sprintf("%d configuration-discarded attempt(s) were set aside in their slots "+
+			"as trial.discarded-<n>.json and the slots run again: harness errors, never scored", configErrors))
+	}
 	if abort != nil {
 		sum.StopEarly(len(trials), len(plan.Trials), abort.Error())
 	}
@@ -409,6 +467,108 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	return abort
 }
 
+// liveArmCounts is each selected arm's trials per task: --trials for every arm when given, else the
+// arm's pre-registered count in the task set.
+func liveArmCounts(ts eval.LiveTaskSet, o liveOptions) (map[string]int, error) {
+	counts := make(map[string]int, len(o.arms))
+	for _, a := range o.arms {
+		n := o.trials
+		if n == 0 {
+			n = ts.Analysis.TrialsFor(a)
+		}
+		if n <= 0 {
+			return nil, fmt.Errorf("live-eval: task set %s pre-registers no trials for the %s arm; pass --trials", ts.ID, a)
+		}
+		counts[a] = n
+	}
+	return counts, nil
+}
+
+// liveUniformCount is the one count every arm shares, or 0 when they differ.
+func liveUniformCount(counts map[string]int, arms []string) int {
+	n := 0
+	for i, a := range arms {
+		if i > 0 && counts[a] != n {
+			return 0
+		}
+		n = counts[a]
+	}
+	return n
+}
+
+// liveCountsText renders the per-arm counts in arm order: "stock 3, classic 14".
+func liveCountsText(counts map[string]int, arms []string) string {
+	parts := make([]string, 0, len(arms))
+	for _, a := range arms {
+		parts = append(parts, fmt.Sprintf("%s %d", a, counts[a]))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// liveArmsUsing names the arms, in order, that load the bundle a live-eval flag supplies.
+func liveArmsUsing(states []eval.LiveArmState, bundle string) []string {
+	var out []string
+	for _, s := range states {
+		if s.Bundle == bundle {
+			out = append(out, s.Arm)
+		}
+	}
+	return out
+}
+
+// planLiveBundles reads the bundles the selected arms need into the plan: --bundle for classic and
+// generic, --bundle-mods for steer, both from one commit, each with its mod sources present or absent
+// as its shape requires. It records which identity each Qompack arm loads and the operator's
+// known-defect statement, which covers both. A run with no Qompack arm installs nothing.
+func planLiveBundles(o *liveOptions, plan *eval.LivePlan, states []eval.LiveArmState) error {
+	classic, mods := liveArmsUsing(states, eval.LiveBundleClassic), liveArmsUsing(states, eval.LiveBundleMods)
+	if len(classic) == 0 && len(mods) == 0 {
+		// --install describes how the plugin reaches the host; a run with no plugin arm has none.
+		o.install, plan.Install = "none", "none"
+		return nil
+	}
+	if len(classic) > 0 {
+		id, err := readLiveBundle(o.bundle, eval.LiveBundleClassic, classic, false)
+		if err != nil {
+			return err
+		}
+		id.Install = o.install
+		plan.Plugin = &id
+		// Every session runs in its disposable project, so the host would resolve a relative
+		// --plugin-dir against that project and load nothing. From here on each bundle is named by
+		// the absolute path its identity was read from.
+		o.bundle = id.BundleDir
+	}
+	if len(mods) > 0 {
+		id, err := readLiveBundle(o.bundleMods, eval.LiveBundleMods, mods, true)
+		if err != nil {
+			return err
+		}
+		id.Install = o.install
+		plan.PluginMods = &id
+		o.bundleMods = id.BundleDir
+	}
+	if c, m := plan.Plugin, plan.PluginMods; c != nil && m != nil && (c.Commit != m.Commit || c.Version != m.Version) {
+		return fmt.Errorf("live-eval: --bundle (%s at %s) and --bundle-mods (%s at %s) must be built from one commit",
+			c.Version, c.Commit, m.Version, m.Commit)
+	}
+	if !o.defectsAttested {
+		return fmt.Errorf("live-eval: a Qompack arm needs --known-open-defects: %q, or the checklist IDs of "+
+			"every known defect the bundles still carry. Preregistration section 9 counts only a run on a "+
+			"candidate with no known open defect as the confirmatory run, and a bundle cannot prove which "+
+			"defects it fixes, so the operator states it and plan.json records the statement", liveNoOpenDefects)
+	}
+	plan.KnownDefects = &eval.LiveDefectAttestation{Open: append([]string{}, o.openDefects...), Source: liveDefectSource}
+	plan.ArmPlugins = map[string]*eval.LivePluginIdentity{}
+	for _, a := range classic {
+		plan.ArmPlugins[a] = plan.Plugin
+	}
+	for _, a := range mods {
+		plan.ArmPlugins[a] = plan.PluginMods
+	}
+	return nil
+}
+
 // liveRunsPreregisteredModel reports whether model is what a run of ts may run on under its
 // pre-registration: the model ts declares, or the one contingency alias the pre-registration
 // permits in its place (section 3). A task set with no pre-registration has only its own model.
@@ -420,8 +580,9 @@ func liveRunsPreregisteredModel(ts eval.LiveTaskSet, model string) bool {
 }
 
 // liveDryRunHost is what a dry run shows of the host side: each arm's command line for task t (the
-// session id is chosen per trial) and, for the marketplace flow, the plugin commands a qompack trial
-// runs before its session, so the install path can be checked without starting anything.
+// session id is chosen per trial) and environment, and, for the marketplace flow, the plugin
+// commands a Qompack arm's trial runs before its session, so the install path can be checked without
+// starting anything.
 func liveDryRunHost(o liveOptions, env *liveEnv, d eval.LiveTaskDefaults, t eval.LiveTask) []string {
 	bin := env.claudeBin
 	if bin == "" {
@@ -429,21 +590,37 @@ func liveDryRunHost(o liveOptions, env *liveEnv, d eval.LiveTaskDefaults, t eval
 	}
 	var out []string
 	for _, arm := range o.arms {
+		state, _ := eval.LiveArmSpec(arm)
+		bundle := o.liveArmBundle(state)
 		var extra []string
-		if arm == eval.ArmQompack && o.install == liveInstallPluginDir {
-			extra = []string{"--plugin-dir", o.bundle}
+		if state.Plugin && o.install == liveInstallPluginDir {
+			extra = []string{"--plugin-dir", bundle}
 		}
-		if arm == eval.ArmQompack && o.install == liveInstallMarketplace {
+		if state.Plugin && o.install == liveInstallMarketplace {
 			id := livePluginName + "@" + liveMarketplaceName
 			out = append(out,
-				fmt.Sprintf("install (qompack, per trial): %s plugin marketplace add <trial>/marketplace --scope local "+
-					"(a copy of %s)", bin, o.bundle),
-				fmt.Sprintf("install (qompack, per trial): %s plugin install %s --scope local -y", bin, id))
+				fmt.Sprintf("install (%s, per trial): %s plugin marketplace add <trial>/marketplace --scope local "+
+					"(a copy of %s)", arm, bin, bundle),
+				fmt.Sprintf("install (%s, per trial): %s plugin install %s --scope local -y", arm, bin, id))
 		}
 		args := liveSessionArgs(o.model, t, d, "<session-id>", extra)
-		out = append(out, fmt.Sprintf("host (%s, task %s): %s %s", arm, t.ID, bin, strings.Join(args, " ")))
+		out = append(out,
+			fmt.Sprintf("host (%s, task %s): %s %s", arm, t.ID, bin, strings.Join(args, " ")),
+			fmt.Sprintf("env (%s): %s", arm, strings.Join(liveSessionEnv(state, o.idleExit), " ")))
 	}
 	return out
+}
+
+// liveArmBundle is the bundle directory an arm's plugin loads from: --bundle-mods for steer,
+// --bundle for the other Qompack arms, none for stock.
+func (o liveOptions) liveArmBundle(state eval.LiveArmState) string {
+	switch state.Bundle {
+	case eval.LiveBundleMods:
+		return o.bundleMods
+	case eval.LiveBundleClassic:
+		return o.bundle
+	}
+	return ""
 }
 
 // selectLiveTasks applies --only and the held-out rule.
@@ -474,51 +651,47 @@ func selectLiveTasks(ts eval.LiveTaskSet, o liveOptions) ([]eval.LiveTask, error
 	return out, nil
 }
 
-// planLiveTrials orders trials trial-major, task by task, alternating which arm goes first so a
-// drift over the run's wall-clock (a rate limit, a busy machine) does not always land on one arm.
-func planLiveTrials(tasks []eval.LiveTask, arms []string, trials int) []eval.LivePlannedTrial {
-	var out []eval.LivePlannedTrial
-	for n := 1; n <= trials; n++ {
-		for i, t := range tasks {
-			order := append([]string(nil), arms...)
-			if (n+i)%2 == 0 {
-				for l, r := 0, len(order)-1; l < r; l, r = l+1, r-1 {
-					order[l], order[r] = order[r], order[l]
-				}
-			}
-			for _, a := range order {
-				out = append(out, eval.LivePlannedTrial{Task: t.ID, Arm: a, Trial: n})
-			}
-		}
-	}
-	return out
-}
-
 // liveTrialRun is one trial's inputs.
 type liveTrialRun struct {
-	opts   liveOptions
-	env    *liveEnv
-	set    eval.LiveTaskSet
-	task   eval.LiveTask
-	arm    string
-	trial  int
-	runID  string
-	rates  eval.LiveRateTable
-	plugin *eval.LivePluginIdentity
+	opts  liveOptions
+	env   *liveEnv
+	set   eval.LiveTaskSet
+	task  eval.LiveTask
+	arm   string
+	state eval.LiveArmState
+	trial int
+	runID string
+	rates eval.LiveRateTable
+	// plan is the run's plan: the pinned host version and each arm's bundle identity.
+	plan *eval.LivePlan
+}
+
+// plugin is the bundle identity the trial's arm loads; nil for stock.
+func (lt liveTrialRun) plugin() *eval.LivePluginIdentity {
+	if !lt.state.Plugin {
+		return nil
+	}
+	return lt.plan.ArmPlugins[lt.arm]
 }
 
 // run executes one trial and returns its record. The error is non-nil only when the guard over the
 // operator's configuration failed, which stops the whole run. Whatever path the trial leaves by, a
 // harness failure is scored as a failure on every outcome before the record is returned or written
 // (preregistration §8): a trial stopped before grading must still count in every denominator.
+//
+// A trial whose configuration contradicted its arm (W6 item 4) comes back with ConfigurationError
+// set: its record is set aside in the slot as trial.discarded-<n>.json, never written as trial.json,
+// and the caller runs the slot again. Setting it aside failing stops the run, so a slot never
+// silently loses an attempt.
 func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr error) {
-	o, env, task := lt.opts, lt.env, lt.task
+	o, env, task, state := lt.opts, lt.env, lt.task, lt.state
 	rec = eval.LiveTrial{
 		Schema: eval.LiveTrialSchema, RunID: lt.runID, TaskID: task.ID, Arm: lt.arm, Trial: lt.trial,
 		Category: task.Category, Variant: task.Variant, HeldOut: task.HeldOut, Model: o.model,
 		Install: "none", StartedAt: env.now().UTC().Format(time.RFC3339),
-		PluginExpected:     lt.arm == eval.ArmQompack,
+		PluginExpected:     state.Plugin,
 		PreregisteredModel: liveRunsPreregisteredModel(lt.set, o.model),
+		ArmState:           &state,
 	}
 	trialDir := filepath.Join(o.out, "trials", task.ID, lt.arm, fmt.Sprintf("%02d", lt.trial))
 	if err := os.MkdirAll(trialDir, liveDirPerm); err != nil {
@@ -528,7 +701,14 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 	}
 	defer func() {
 		rec.ApplyHarnessFailure(task)
-		_ = writeJSONFile(filepath.Join(trialDir, "trial.json"), rec)
+		if rec.ConfigurationError == "" {
+			_ = writeJSONFile(filepath.Join(trialDir, liveScoredRecord), rec)
+			return
+		}
+		if _, err := liveSetAside(trialDir, liveSlotDiscarded, rec); err != nil && guardErr == nil {
+			guardErr = fmt.Errorf("live-eval: setting the configuration-discarded attempt of %s/%s/%d aside: %w",
+				task.ID, lt.arm, lt.trial, err)
+		}
 	}()
 
 	// A filesystem timestamp can trail the wall clock by its resolution; the margin keeps a directory
@@ -555,24 +735,34 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		err = copyTree(fixture, project)
 	}
 	if err == nil {
+		// The arm's own project (W6 items 4 and 7) is made before the fixture commit, so `git diff`
+		// shows the session's changes only.
+		err = applyLiveArmProject(project, state, lt.set.Analysis.GenericCompactInstructions)
+	}
+	if err == nil {
 		err = env.gitInit(ctx, project)
 	}
 	if err != nil {
 		rec.HarnessError = "preparing the project: " + err.Error()
 		return rec, nil
 	}
+	sessionEnv := liveSessionEnv(state, o.idleExit)
+	if cfgErr := lt.checkConfiguration(project, fixture, sessionEnv); cfgErr != nil {
+		rec.ConfigurationError = cfgErr.Error()
+		return rec, nil
+	}
 
 	var cleanup []func() []string
 	extraArgs := []string{}
-	if lt.arm == eval.ArmQompack {
-		id := *lt.plugin
-		rec.Plugin = &id
+	if id := lt.plugin(); id != nil {
+		own := *id
+		rec.Plugin = &own
 		rec.Install = o.install
 		switch o.install {
 		case liveInstallPluginDir:
-			extraArgs = append(extraArgs, "--plugin-dir", o.bundle)
+			extraArgs = append(extraArgs, "--plugin-dir", id.BundleDir)
 		case liveInstallMarketplace:
-			undo, instErr := env.marketplaceInstall(ctx, project, o.bundle, work)
+			undo, instErr := env.marketplaceInstall(ctx, project, id.BundleDir, work)
 			cleanup = append(cleanup, undo)
 			if instErr != nil {
 				rec.HarnessError = "marketplace install: " + instErr.Error()
@@ -587,7 +777,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 			Bin:            env.claudeBin,
 			Args:           liveSessionArgs(o.model, task, lt.set.Defaults, sessionID, extraArgs),
 			Dir:            project,
-			Env:            liveSessionEnv(o.idleExit),
+			Env:            sessionEnv,
 			Messages:       liveMessages(task),
 			StepTimeout:    o.stepTimeout,
 			SessionTimeout: o.sessionTimeout,
@@ -608,7 +798,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		_ = os.WriteFile(filepath.Join(trialDir, "stderr.txt"), proc.Stderr, liveFilePerm)
 	}
 
-	if lt.arm == eval.ArmQompack {
+	if state.Plugin {
 		how, stopErr := env.stopDaemon(project, filepath.Join(trialDir, "harness-spool"))
 		rec.Notes = append(rec.Notes, "trial daemon: "+how)
 		if stopErr != nil {
@@ -618,8 +808,8 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 	for i := len(cleanup) - 1; i >= 0; i-- {
 		guard.Leftovers = append(guard.Leftovers, cleanup[i]()...)
 	}
-	if lt.arm == eval.ArmQompack && o.install == liveInstallMarketplace {
-		guard.Leftovers = append(guard.Leftovers, env.removeOrphanedMarketplaceCache(before, lt.plugin.BundleSHA256)...)
+	if id := lt.plugin(); id != nil && o.install == liveInstallMarketplace {
+		guard.Leftovers = append(guard.Leftovers, env.removeOrphanedMarketplaceCache(before, id.BundleSHA256)...)
 	}
 	guard.Leftovers = append(guard.Leftovers, env.removeCreatedPluginData(before, trialStart)...)
 
@@ -657,6 +847,13 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 		rec.HostModel = stream.Init.Model
 		if stream.Init.Model != "" && stream.Init.Model != rec.Model {
 			rec.Notes = append(rec.Notes, "host reported model "+stream.Init.Model)
+		}
+		if v := stream.Init.ClaudeCodeVersion; v != lt.plan.ClaudeCLIVersion {
+			rec.ConfigurationError = joinErr(rec.ConfigurationError, fmt.Sprintf(
+				"the host's init line reports Claude Code %s, not the pinned %s", orUnknown(v), lt.plan.ClaudeCLIVersion))
+		}
+		if problem := lt.pluginListProblem(rec, stream); problem != "" {
+			rec.ConfigurationError = joinErr(rec.ConfigurationError, problem)
 		}
 	}
 	if rec.SessionID != "" && rec.SessionID != sessionID {
@@ -701,7 +898,16 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 		}
 	}
 	rec.HookProblems = eval.MergeHookProblems(streamProblems, transcriptProblems, stderrProblems)
-	if lt.arm == eval.ArmQompack {
+	if lt.state.ModSteering {
+		// A treatment outcome, judged against the session the stream reported (or the one requested
+		// when the host never said): counted as assigned whatever it says.
+		sid := rec.SessionID
+		if sid == "" {
+			sid = sessionID
+		}
+		rec.Hello = judgeLiveHello(project, sid)
+	}
+	if lt.state.Plugin {
 		q := &eval.LiveQompackEvidence{MCPToolCalls: eval.MCPToolCalls(stream, liveMCPToolPrefix)}
 		if stream.Init != nil {
 			for _, m := range stream.Init.MCPServers {
@@ -739,20 +945,17 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 }
 
 // recordPlugins decides whether the trial ran with its arm's plugin and names anything else the host
-// loaded. On the qompack arm the plugin counts only when the host loaded it from the arm's own
+// loaded. On a Qompack arm the plugin counts only when the host loaded it from the arm's own
 // install — the inline --plugin-dir source or the disposable marketplace — because a Qompack copy
 // from anywhere else (an operator install, another lane's marketplace) is not the frozen bundle the
 // trial is about. On the stock arm any Qompack plugin, from any source, contradicts the arm.
 func (lt liveTrialRun) recordPlugins(rec *eval.LiveTrial, stream eval.HostStream) {
-	if lt.arm != eval.ArmQompack {
+	if !lt.state.Plugin {
 		rec.PluginLoaded = stream.PluginLoaded(livePluginName)
 		rec.ForeignPlugins = stream.ForeignPlugins("")
 		return
 	}
-	want := livePluginName + "@" + liveInlineSource
-	if lt.opts.install == liveInstallMarketplace {
-		want = livePluginName + "@" + liveMarketplaceName
-	}
+	want := lt.ownPluginSource()
 	rec.ForeignPlugins = stream.ForeignPlugins(want)
 	pl, ok := stream.PluginFrom(livePluginName, want)
 	rec.PluginLoaded = ok
@@ -770,6 +973,56 @@ func (lt liveTrialRun) recordPlugins(rec *eval.LiveTrial, stream eval.HostStream
 				pl.Version, rec.Plugin.Version))
 		}
 	}
+}
+
+// ownPluginSource is the source the host lists the arm's own Qompack install under.
+func (lt liveTrialRun) ownPluginSource() string {
+	if lt.opts.install == liveInstallMarketplace {
+		return livePluginName + "@" + liveMarketplaceName
+	}
+	return livePluginName + "@" + liveInlineSource
+}
+
+// pluginListProblem is the configuration check on the host's own list of loaded plugins (W6 item 4):
+// exactly one Qompack, from the arm's install, on a Qompack arm, and none on stock. "" when it holds.
+// It is called only when the host printed that list; a trial whose host never did is a harness
+// failure, scored as one.
+func (lt liveTrialRun) pluginListProblem(rec *eval.LiveTrial, stream eval.HostStream) string {
+	var sources []string
+	for _, pl := range stream.Init.Plugins {
+		if strings.EqualFold(pl.Name, livePluginName) {
+			sources = append(sources, orUnknown(pl.Source))
+		}
+	}
+	switch {
+	case !lt.state.Plugin && len(sources) > 0:
+		return fmt.Sprintf("the host loaded Qompack (%s) on the %s arm, which loads none", strings.Join(sources, ", "), lt.arm)
+	case lt.state.Plugin && (len(sources) != 1 || !rec.PluginLoaded):
+		return fmt.Sprintf("the host loaded %d Qompack plugin(s) (%s), not exactly one from the %s arm's install (%s)",
+			len(sources), strings.Join(sources, ", "), lt.arm, lt.ownPluginSource())
+	}
+	return ""
+}
+
+// checkConfiguration is the arm-state check made before the session starts (W6 item 4): the arm's
+// bundle still hashes to the identity the plan recorded and carries the mod sources exactly when the
+// arm is steer, the project is the arm's own (store, CLAUDE.md), and the session environment is the
+// arm's. A failure is a configuration error.
+func (lt liveTrialRun) checkConfiguration(project, fixture string, sessionEnv []string) error {
+	if id := lt.plugin(); id != nil {
+		cur, err := readLiveBundle(id.BundleDir, lt.state.Bundle, []string{lt.arm}, lt.state.Bundle == eval.LiveBundleMods)
+		if err != nil {
+			return err
+		}
+		if cur.BundleSHA256 != id.BundleSHA256 {
+			return fmt.Errorf("the %s arm's bundle now hashes to %s, not the plan's %s", lt.arm,
+				shortHash(cur.BundleSHA256), shortHash(id.BundleSHA256))
+		}
+	}
+	if err := checkLiveArmProject(project, fixture, lt.state, lt.set.Analysis.GenericCompactInstructions); err != nil {
+		return err
+	}
+	return checkLiveArmEnv(lt.state, lt.opts.idleExit, sessionEnv)
 }
 
 // liveSessionArgs is the host command line for one trial, identical across arms except extra.
@@ -792,17 +1045,8 @@ func liveSessionArgs(model string, t eval.LiveTask, d eval.LiveTaskDefaults, ses
 	return append(args, extra...)
 }
 
-// liveSessionEnv is the environment both arms add. ENABLE_CLAUDEAI_MCP_SERVERS=false keeps the
-// operator's claude.ai-hosted MCP servers out of both arms alike; the idle-exit setting is inert on
-// the stock arm and makes the qompack arm's daemon exit on its own after the session.
-func liveSessionEnv(idleExit int) []string {
-	return []string{
-		"ENABLE_CLAUDEAI_MCP_SERVERS=false",
-		fmt.Sprintf("QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=%d", idleExit),
-	}
-}
-
-// liveMessages is each step's user message.
+// liveMessages is each step's user message. Every arm sends the same ones, compaction instructions
+// included (W6 item 3); generic's difference is in its project's CLAUDE.md, not in a message.
 func liveMessages(t eval.LiveTask) []string {
 	out := make([]string, 0, len(t.Steps))
 	for _, s := range t.Steps {
@@ -820,14 +1064,20 @@ func loadLiveRates(path string) (eval.LiveRateTable, error) {
 }
 
 // readLiveBundle verifies a bundle directory against its own BUNDLE.json and returns its identity.
-func readLiveBundle(dir string) (eval.LivePluginIdentity, error) {
+// flag is the live-eval flag that named it and arms the arms that load it, for the messages; mods says
+// which shape the arms need: the mod sources all listed (a --mods build), or none of them.
+func readLiveBundle(dir, flag string, arms []string, mods bool) (eval.LivePluginIdentity, error) {
 	if dir == "" {
-		return eval.LivePluginIdentity{}, errors.New("live-eval: the qompack arm needs --bundle <dir> " +
-			"(assemble one with `go run ./tools/devtool bundle --target " + runtime.GOOS + "/" + runtime.GOARCH + "`)")
+		how := "`go run ./tools/devtool bundle --target " + runtime.GOOS + "/" + runtime.GOARCH + "`"
+		if mods {
+			how = "`go run ./tools/devtool bundle --mods --target " + runtime.GOOS + "/" + runtime.GOARCH + "`"
+		}
+		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: the %s arm(s) need --%s <dir> (assemble one with %s)",
+			strings.Join(arms, " and "), flag, how)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, identityFileName))
 	if err != nil {
-		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: reading the bundle identity: %w", err)
+		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: reading the --%s identity: %w", flag, err)
 	}
 	var id bundleIdentity
 	if err := json.Unmarshal(raw, &id); err != nil {
@@ -837,10 +1087,26 @@ func readLiveBundle(dir string) (eval.LivePluginIdentity, error) {
 		return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: bundle is for %s/%s, this host is %s/%s",
 			id.Target.OS, id.Target.Arch, runtime.GOOS, runtime.GOARCH)
 	}
+	listed := make(map[string]bool, len(id.Files))
 	for _, f := range id.Files {
 		sum, _, hashErr := hashFile(filepath.Join(dir, filepath.FromSlash(f.Path)))
 		if hashErr != nil || sum != f.SHA256 {
 			return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: bundle file %s does not match BUNDLE.json", f.Path)
+		}
+		listed[f.Path] = true
+	}
+	modFiles, err := liveModFiles(runtime.GOOS)
+	if err != nil {
+		return eval.LivePluginIdentity{}, err
+	}
+	for _, m := range modFiles {
+		switch {
+		case mods && !listed[m]:
+			return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: --%s lacks the mod source %s, which the %s arm "+
+				"loads: assemble it with `devtool bundle --mods`", flag, m, strings.Join(arms, " and "))
+		case !mods && listed[m]:
+			return eval.LivePluginIdentity{}, fmt.Errorf("live-eval: --%s carries the mod sources (%s), which the %s "+
+				"arm(s) must run without: assemble it without --mods", flag, m, strings.Join(arms, " and "))
 		}
 	}
 	abs, err := filepath.Abs(dir)
@@ -849,8 +1115,24 @@ func readLiveBundle(dir string) (eval.LivePluginIdentity, error) {
 	}
 	return eval.LivePluginIdentity{
 		BundleDir: abs, Version: id.Version, Commit: id.Source.Commit, Dirty: id.Source.Dirty,
-		BundleSHA256: sha256Hex(raw),
+		BundleSHA256: sha256Hex(raw), Mods: mods,
 	}, nil
+}
+
+// orUnknown renders an empty value as "unknown".
+func orUnknown(s string) string {
+	if s == "" {
+		return "unknown"
+	}
+	return s
+}
+
+// shortHash abbreviates a hex digest for a message.
+func shortHash(h string) string {
+	if len(h) > 12 {
+		return h[:12]
+	}
+	return orUnknown(h)
 }
 
 // liveStoreStats sizes a project's .qompack/ tree and counts index lines and checkpoints.
@@ -1027,8 +1309,21 @@ func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 		"(pre-registered `%s`), arms %s, install `%s`, Claude Code %s. %s.\n\n", p.TaskSet, p.TaskSetSHA256,
 		p.FixtureTreeDirs, p.FixtureTreeSHA256, p.Model, p.PreregisteredModel,
 		strings.Join(p.Arms, ", "), p.Install, p.ClaudeCLIVersion, p.Agent)
-	if p.Plugin != nil {
-		fmt.Fprintf(&b, "The bundle's known open defects: %s — the operator's statement when the run was planned, not "+
+	for _, bundle := range []struct {
+		flag string
+		id   *eval.LivePluginIdentity
+	}{{eval.LiveBundleClassic, p.Plugin}, {eval.LiveBundleMods, p.PluginMods}} {
+		if id := bundle.id; id != nil {
+			fmt.Fprintf(&b, "--%s: %s at commit `%s` (dirty=%t), %s sha256 `%s`.\n\n", bundle.flag, id.Version, id.Commit,
+				id.Dirty, identityFileName, id.BundleSHA256)
+		}
+	}
+	if len(p.ArmTrials) > 0 {
+		fmt.Fprintf(&b, "Trials per task: %s; order seed %d; daemon idle exit %d s.\n\n", liveCountsText(p.ArmTrials, p.Arms),
+			p.OrderSeed, p.DaemonIdleExitSeconds)
+	}
+	if p.Plugin != nil || p.PluginMods != nil {
+		fmt.Fprintf(&b, "The bundles' known open defects: %s — the operator's statement when the run was planned, not "+
 			"machine-checked (preregistration section 9 counts only a run with none as the confirmatory run).\n\n",
 			knownDefectsText(p.KnownDefects))
 	}
