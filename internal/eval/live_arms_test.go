@@ -72,9 +72,19 @@ func TestLiveTaskSet_V7ShapeValidation(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &m))
 		return m
 	}
-	analysis := func(m map[string]any) map[string]any { return m["analysis"].(map[string]any) }
-	counts := func(m map[string]any) map[string]any { return analysis(m)["arm_trials_per_task"].(map[string]any) }
-	task := func(m map[string]any) map[string]any { return m["tasks"].([]any)[0].(map[string]any) }
+	obj := func(v any) map[string]any {
+		m, ok := v.(map[string]any)
+		require.True(t, ok, "%T is not an object", v)
+		return m
+	}
+	arr := func(v any) []any {
+		a, ok := v.([]any)
+		require.True(t, ok, "%T is not an array", v)
+		return a
+	}
+	analysis := func(m map[string]any) map[string]any { return obj(m["analysis"]) }
+	counts := func(m map[string]any) map[string]any { return obj(analysis(m)["arm_trials_per_task"]) }
+	task := func(m map[string]any) map[string]any { return obj(arr(m["tasks"])[0]) }
 
 	for name, c := range map[string]struct {
 		mutate func(m map[string]any)
@@ -88,8 +98,8 @@ func TestLiveTaskSet_V7ShapeValidation(t *testing.T) {
 		"blank text G": {func(m map[string]any) { analysis(m)["generic_compact_instructions"] = "  " }, "generic_compact_instructions"},
 		"no recovery check": {func(m map[string]any) {
 			var kept []any
-			for _, c := range task(m)["checks"].([]any) {
-				if c.(map[string]any)["outcome"] != "recovery" {
+			for _, c := range arr(task(m)["checks"]) {
+				if obj(c)["outcome"] != "recovery" {
 					kept = append(kept, c)
 				}
 			}
