@@ -20,24 +20,28 @@ import (
 // set where. It is informational and keeps three rules:
 //
 //   - Raw values only. Each layer's keys are reported as written, and every modelSettings entry is
-//     listed beside the top-level key, never resolved against it. Doctor computes no effective
-//     window: it does not know the session's model, flags or environment.
+//     listed beside the top-level key, never resolved against it. A layer's `env` entries for the
+//     variables below are listed the same way, never resolved against the process environment or
+//     another layer. Doctor computes no effective window: it does not know the session's model,
+//     flags or environment.
 //   - Status is ok (read) or unknown (could not be read as documented), nothing else, and nothing
 //     here changes the exit code.
 //   - The server-managed cache and a managed configuration profile are reported present or absent,
 //     never decoded.
 
 // The settings keys reported per layer, in report order: the window, each model's window under
-// modelSettings, then the two switches (GT/settings-reference.md:2757, 2776-2791, 2964-2976).
+// modelSettings, the two switches, then each of contextEnvVars under env
+// (GT/settings-reference.md:2757, 2776-2791, 2878-2899, 2964-2976).
 const (
 	ccKeyWindow  = "autoCompactWindow"
 	ccKeyModels  = "modelSettings"
 	ccKeyEnabled = "autoCompactEnabled"
 	ccKeyIdle    = "idleCompaction"
+	ccKeyEnv     = "env"
 )
 
-// contextEnvVars are the compaction variables reported as this process sees them
-// (GT/env-vars.md:202, 220, 236, 322, 449, 450).
+// contextEnvVars are the compaction variables reported as this process sees them, and as each
+// settings layer's env sets them (GT/env-vars.md:202, 220, 236, 322, 449, 450).
 var contextEnvVars = []string{
 	"CLAUDE_CODE_AUTO_COMPACT_WINDOW",
 	"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
@@ -91,7 +95,8 @@ func contextCostRows(o hostperm.Options, getenv func(string) string) []doctorRow
 		}
 		rows = append(rows, doctorRow{
 			ID: "context.env." + name, Status: doctorOK, Observed: observed,
-			Detail: "as seen by this doctor process; the Claude Code session's own environment can differ",
+			Detail: "as seen by this doctor process; the Claude Code session's own environment can differ, " +
+				"and a settings file's env can set it too (see that layer's row)",
 		})
 	}
 	rows = append(rows, doctorRow{
@@ -166,6 +171,17 @@ func contextLayerItems(data []byte) (items []string, problem string) {
 	for _, k := range []string{ccKeyEnabled, ccKeyIdle} {
 		if raw, ok := top[k]; ok {
 			items = append(items, k+"="+ccRaw(raw))
+		}
+	}
+	if raw, ok := top[ccKeyEnv]; ok {
+		var env map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &env); err != nil || env == nil {
+			return nil, ccKeyEnv + " is not an object"
+		}
+		for _, name := range contextEnvVars {
+			if v, ok := env[name]; ok {
+				items = append(items, ccKeyEnv+"."+name+"="+ccRaw(v))
+			}
 		}
 	}
 	return items, ""
