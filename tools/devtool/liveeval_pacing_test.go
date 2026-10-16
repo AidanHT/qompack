@@ -167,7 +167,7 @@ func TestRunLiveEval_LimitedTrialIsSetAsideAndRerun(t *testing.T) {
 // into the same limit.
 func TestRunLiveEval_LimitWithNoResetPauses(t *testing.T) {
 	env, _, home := pacedEnv(t)
-	limitResult := `{"type":"result","subtype":"success","is_error":true,"num_turns":0,"result":"Claude AI usage limit reached|1790116800","total_cost_usd":0.003,"usage":{},"modelUsage":{},"permission_denials":[]}`
+	limitResult := `{"type":"result","subtype":"success","is_error":true,"num_turns":0,"result":"Claude AI usage limit reached","total_cost_usd":0.003,"usage":{},"modelUsage":{},"permission_denials":[]}`
 	env.run = perSession(t, home, func(int, liveProcSpec) pilotHostOpts { return pilotHostOpts{streamTail: limitResult} })
 	o := stockRun(t, 2)
 	var log bytes.Buffer
