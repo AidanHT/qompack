@@ -114,7 +114,7 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	// The Claude Code mod's switches (ADR 0015, decision 5): both off until an evaluation supports
 	// turning them on. While enabled is off every `qompack mod` verb answers refused; while steering
 	// is off a hello answers steering false and a brief is refused. A brief's instructions are
-	// capped at the wire contract's ceiling (modwire.BriefMaxChars, which internal/cli holds equal
+	// capped at the wire contract's ceiling (modwire.BriefMaxChars, which internal/daemon holds equal
 	// to config.ModBriefMaxCharsCeiling).
 	require.Equal(t, config.ModCfg{Enabled: false, Steering: false, BriefMaxChars: 4000}, rt.Mod)
 	require.Equal(t, 4000, config.ModBriefMaxCharsCeiling)
