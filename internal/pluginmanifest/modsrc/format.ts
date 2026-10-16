@@ -91,6 +91,16 @@ export function helloLogLine(r: HelloResponse): string {
   return 'qompack mod hello: ' + r.reason + (r.detail !== undefined && r.detail !== '' ? ' (' + r.detail + ')' : '')
 }
 
+/**
+ * One diagnostic line saying what a brief came to, for the host's debug log: the outcome, and for a
+ * served brief its length and fact-id count. The brief's text never goes into the log.
+ */
+export function briefLogLine(r: BriefResponse): string {
+  if (r.ok && r.instructions === '') return 'qompack mod brief: served empty'
+  if (r.ok) return 'qompack mod brief: served, ' + r.instructions.length + ' chars, ' + r.fact_ids.length + ' fact ids'
+  return 'qompack mod brief: ' + r.reason + (r.detail !== undefined && r.detail !== '' ? ' (' + r.detail + ')' : '')
+}
+
 const encoder = new TextEncoder()
 
 // Built from the published alphabet, as the Go validator is. Every allowed byte is ASCII, so the
