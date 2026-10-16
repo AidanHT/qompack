@@ -882,6 +882,11 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		return rec, nil
 	}
 	defer func() {
+		if r := recover(); r != nil {
+			// A panic leaves no record at all: a trial.json written now would be an ungraded failure
+			// that --resume counts as scored. The slot stays open and the panic goes on.
+			panic(r)
+		}
 		rec.ApplyHarnessFailure(task)
 		// A configuration error outranks a limit: the attempt was not the arm's, whatever cut it short.
 		kind := ""

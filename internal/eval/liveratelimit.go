@@ -311,6 +311,9 @@ const (
 	// RateBasisReset: the window's period changed since the reading before the trial, so the delta
 	// counts from zero.
 	RateBasisReset = "reset"
+	// RateBasisUnknown: one end of the trial has no utilization for the window (a new period was
+	// announced without one), so there is no delta.
+	RateBasisUnknown = "unknown"
 )
 
 // LiveRateDelta is one window's utilization change over a trial.
@@ -363,6 +366,11 @@ func LiveRateUse(before LiveRateSnapshot, evs []HostRateLimit) map[string]LiveRa
 			} else {
 				d.Before, d.Basis = f.Utilization, RateBasisFirstEvent
 			}
+		}
+		if d.After == nil || d.Before == nil {
+			// A window whose period changed with no utilization reported for it has no delta to give.
+			out[name] = LiveRateDelta{After: d.After, Basis: RateBasisUnknown}
+			continue
 		}
 		delta := *d.After - *d.Before
 		d.Delta = &delta
