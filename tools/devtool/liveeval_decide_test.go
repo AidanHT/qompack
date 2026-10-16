@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -332,4 +333,59 @@ func TestRunLiveEval_TheStepTimeoutIsPinned(t *testing.T) {
 	require.ErrorContains(t, runLiveEval(context.Background(), r, fakeLiveEnv(t, nil), &w), "is not the plan's 600000 ms")
 	r.stepTimeoutGiven = false
 	require.NoError(t, runLiveEval(context.Background(), r, fakeLiveEnv(t, nil), &w))
+}
+
+// TestRunLiveEval_SizeFromAPilotSummary (W6 item 2, decision D-d): --size-from starts nothing and
+// needs no night window; from the pilot's summary and the task set's Δs and ICC_int it prints each
+// test's n before and after inflation, each arm's n rounded to the task count, the Sonnet check's
+// n_H1, a calendar estimate and the efficiency tests' power. A set too small for its ICC_int is
+// refused with the plan's advice, and --resume cannot take it.
+func TestRunLiveEval_SizeFromAPilotSummary(t *testing.T) {
+	pilot := eval.LiveSummary{RunID: "pilot-1", Arms: map[string]eval.ArmSummary{}}
+	eff := &eval.LiveArmEfficiency{LogSDWithinCost: 0.25, LogSDWithinTime: 0.35}
+	use := map[string]eval.LiveRateUseStats{"five_hour": {Trials: 4, Mean: 0.02}, "seven_day": {Trials: 4, Mean: 0.004}}
+	for arm, rec := range map[string]int{"stock": 40, "classic": 60, "generic": 70, "steer": 85} {
+		pilot.Arms[arm] = eval.ArmSummary{
+			Arm: arm, Recovery: eval.Proportion{K: rec, N: 100}, TaskSuccess: eval.Proportion{K: 90, N: 100},
+			MeanWallMS: 15 * 60 * 1000, RateUse: use, Efficiency: eff,
+		}
+	}
+	steer := pilot.Arms["steer"]
+	steer.Brief = &eval.LiveBriefStats{Compactions: 40, UnservedShare: 0.05}
+	pilot.Arms["steer"] = steer
+	dir := t.TempDir()
+	summary := filepath.Join(dir, "summary.json")
+	raw, err := json.Marshal(pilot)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(summary, raw, 0o600))
+
+	// The test set has one task, too few for ICC_int 0.10; a copy with ICC_int 0 sizes.
+	set, err := os.ReadFile(liveTestTasksV7)
+	require.NoError(t, err)
+	copyDir := t.TempDir()
+	for _, d := range []string{"fixtures/pilot", "hidden/pilot"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(copyDir, d), 0o755))
+	}
+	noICC := filepath.Join(copyDir, "tasks.json")
+	require.NoError(t, os.WriteFile(noICC, []byte(strings.Replace(string(set), `"icc_int": 0.1`, `"icc_int": 0`, 1)), 0o600))
+
+	o, err := parseLiveFlags([]string{"--size-from", summary, "--tasks", noICC})
+	require.NoError(t, err, "the sizing step starts nothing, so it names no night window")
+	var w bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, fakeLiveEnv(t, nil), &w))
+	for _, want := range []string{
+		"live-eval: --size-from " + summary, "nothing is started", "u 0.050",
+		"H1 (steer, classic, stock): p₀ 0.536 → p₁ 0.786", "H2 (steer, generic)", "S (steer, classic): p 0.855",
+		"per-arm n, each the largest of its tests rounded up to a multiple of 1:",
+		"Sonnet check (plan §9.8)", "calendar (planning figure)", "night(s) of 9.0 h",
+		"efficiency power at the planned steer and classic n", "cost: σ_w 0.250", "active_time: σ_w 0.350",
+	} {
+		require.Contains(t, w.String(), want)
+	}
+
+	o, err = parseLiveTest([]string{"--size-from", summary, "--tasks", liveTestTasksV7})
+	require.NoError(t, err)
+	require.ErrorContains(t, runLiveEval(context.Background(), o, fakeLiveEnv(t, nil), &w), "add tasks")
+	_, err = parseLiveTest([]string{"--resume", dir, "--size-from", summary})
+	require.ErrorContains(t, err, "--size-from")
 }
