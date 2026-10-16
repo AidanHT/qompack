@@ -306,7 +306,9 @@ func TestDecideStageA_ClassicVsStockIsALabel(t *testing.T) {
 // TestDecideStageA_AnotherModelDecidesOnlyHarm (plan §9.8): a run on a model other than the
 // pre-registered one (the Sonnet check) reports its benefit intervals but decides only harm.
 func TestDecideStageA_AnotherModelDecidesOnlyHarm(t *testing.T) {
-	trials := mainRun(49, 1.0, 1.0)
+	// With no true harm a dataset still shows a false task-success harm about 2.5 % of the time; this
+	// seed's does not, so the run isolates the model rule.
+	trials := mainRun(53, 1.0, 1.0)
 	for i := range trials {
 		trials[i].PreregisteredModel = false
 	}

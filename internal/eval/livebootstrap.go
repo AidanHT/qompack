@@ -10,7 +10,6 @@ package eval
 
 import (
 	"math"
-	"math/rand/v2"
 	"slices"
 	"sort"
 )
@@ -21,7 +20,7 @@ const (
 	LiveBootstrapSeed = uint64(20261016)
 )
 
-// liveDrawStream is the PCG stream the draws use beside the seed.
+// liveDrawStream is mixed into the seed so the draws are a stream of their own.
 const liveDrawStream = 0x5157_7061_636b_4236
 
 // LiveDraws is a paired task bootstrap's draw matrix: Idx[b] is resample b's K task indices into
@@ -41,13 +40,13 @@ func NewLiveDraws(tasks []string, b int, seed uint64) LiveDraws {
 	if k == 0 || b <= 0 {
 		return d
 	}
-	rng := rand.New(rand.NewPCG(seed, liveDrawStream))
+	rng := liveSplitMix{state: seed ^ liveDrawStream}
 	d.Idx = make([][]int32, b)
 	flat := make([]int32, b*k)
 	for i := range d.Idx {
 		row := flat[i*k : (i+1)*k]
 		for j := range row {
-			row[j] = int32(rng.IntN(k))
+			row[j] = int32(rng.intN(uint64(k)))
 		}
 		d.Idx[i] = row
 	}
@@ -254,4 +253,28 @@ func quantileSorted(s []float64, p float64) float64 {
 		return s[len(s)-1]
 	}
 	return s[lo] + (h-float64(lo))*(s[lo+1]-s[lo])
+}
+
+// liveSplitMix is splitmix64 (Steele, Lea and Flood 2014), written out here rather than taken from
+// math/rand: gosec's G404 forbids math/rand outside test files (internal/dag/dagtest and
+// internal/sketch/sketchtest answer it the same way), and arithmetic that lives in this file cannot
+// drift with a Go release, so a seed draws the same matrix on every platform and toolchain.
+type liveSplitMix struct{ state uint64 }
+
+func (r *liveSplitMix) next() uint64 {
+	r.state += 0x9e3779b97f4a7c15
+	z := r.state
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
+	z = (z ^ (z >> 27)) * 0x94d049bb133111eb
+	return z ^ (z >> 31)
+}
+
+// intN is uniform on [0, n), by rejecting the few values that would bias the modulus.
+func (r *liveSplitMix) intN(n uint64) uint64 {
+	threshold := -n % n
+	for {
+		if v := r.next(); v >= threshold {
+			return v % n
+		}
+	}
 }
