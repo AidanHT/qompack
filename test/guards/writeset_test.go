@@ -35,17 +35,55 @@ var hookSubcommands = [][]string{
 }
 
 // modSubcommands is every `qompack mod` verb the guard drives, in argv form. Each runs with
-// runtime.mod.enabled switched on for the invocation, so it is served and writes what it writes; a
-// refused verb would write nothing and prove nothing. Its stdin is a valid request for the
-// guard's project (modRequest).
+// runtime.mod.enabled (and, for brief, runtime.mod.steering) switched on for the invocation, so it
+// is not refused and writes what it writes; a refused verb would write nothing and prove nothing.
+// Its stdin is a valid request for the guard's project (modRequest).
 var modSubcommands = [][]string{
 	{"mod", "hello", "--set", "runtime.mod.enabled=true"},
+	{"mod", "brief", "--set", "runtime.mod.enabled=true", "--set", "runtime.mod.steering=true"},
 }
 
 // modRequests builds, per verb, the request the mod would send for the guard's project.
 var modRequests = map[string]func(root string) map[string]any{
 	"hello": func(root string) map[string]any {
 		return map[string]any{"v": 1, "session_id": "s-writeset", "cwd": root, "host_version": "2.1.300"}
+	},
+	"brief": func(root string) map[string]any {
+		return map[string]any{
+			"v": 1, "session_id": "s-writeset", "cwd": root, "host_version": "2.1.300", "trigger": "auto",
+			"user_instructions_present": false, "max_chars": 0,
+		}
+	},
+}
+
+// modProofs proves, per verb, that the run did the work it is there to cover, so the guard cannot
+// pass on a verb that wrote nothing. Hello must be served, and its hello file written. The guard's
+// cli.Env has no Self, so no daemon runs or is started and a brief is cold: a cold brief writes only
+// its record, so its proof is that record's line, with outcome cold.
+var modProofs = map[string]func(t *testing.T, root string, stdout []byte){
+	"hello": func(t *testing.T, root string, stdout []byte) {
+		var status struct {
+			OK bool `json:"ok"`
+		}
+		require.NoError(t, json.Unmarshal(bytes.TrimSpace(stdout), &status), "hello: %q", stdout)
+		require.True(t, status.OK, "hello must be served, or it proves nothing: %s", stdout)
+		require.FileExists(t, filepath.Join(root, dotQompack, "state", "mod-hello-s-writeset.json"),
+			"mod hello wrote its hello file, so the guard covered a real write")
+	},
+	"brief": func(t *testing.T, root string, stdout []byte) {
+		var status struct {
+			OK     bool   `json:"ok"`
+			Reason string `json:"reason"`
+		}
+		require.NoError(t, json.Unmarshal(bytes.TrimSpace(stdout), &status), "brief: %q", stdout)
+		require.Equal(t, "cold", status.Reason, "with no daemon the brief is cold: %s", stdout)
+		b, err := os.ReadFile(filepath.Join(root, dotQompack, "state", "mod-brief-s-writeset.jsonl"))
+		require.NoError(t, err, "mod brief wrote its record, so the guard covered a real write")
+		var rec struct {
+			Outcome string `json:"outcome"`
+		}
+		require.NoError(t, json.Unmarshal(bytes.TrimSpace(b), &rec), "record: %q", b)
+		require.Equal(t, "cold", rec.Outcome)
 	},
 }
 
@@ -144,14 +182,10 @@ func TestGuard_WriteSetConfinedToQompack(t *testing.T) {
 		}, &out, &errw)
 		require.Equal(t, 0, code, "%v must exit 0: %s", sub, errw.String())
 
-		var status struct {
-			OK bool `json:"ok"`
-		}
-		require.NoError(t, json.Unmarshal(bytes.TrimSpace(out.Bytes()), &status), "%v: %q", sub, out.String())
-		require.True(t, status.OK, "%v must be served, or it proves nothing: %s", sub, out.String())
+		prove, ok := modProofs[sub[1]]
+		require.True(t, ok, "no guard proof for mod verb %q", sub[1])
+		prove(t, root, out.Bytes())
 	}
-	require.FileExists(t, filepath.Join(root, dotQompack, "state", "mod-hello-s-writeset.json"),
-		"mod hello wrote its hello file, so the guard covered a real write")
 
 	after := snapshotTree(t, root, home)
 
