@@ -1525,6 +1525,9 @@ func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 	}
 	fmt.Fprintf(&b, "Every cost figure is a list-price-equivalent ESTIMATE from the %s rate table; the sessions ran on a "+
 		"subscription, which has no per-token cash charge.\n\n", p.RateTableDate)
+	if s.Paused != "" {
+		fmt.Fprintf(&b, "**Paused:** %s. The run continues with `devtool live-eval --resume <run-dir>`.\n\n", s.Paused)
+	}
 	fmt.Fprintf(&b, "**Decision (pre-registered rule, primary outcome):** %s — %s\n\n", s.Decision.Verdict, s.Decision.Reason)
 	if s.ConstraintRegression != "" {
 		fmt.Fprintf(&b, "**Regression (H2):** %s\n\n", s.ConstraintRegression)
@@ -1543,6 +1546,7 @@ func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 		}
 	}
 	renderHostHookTable(&b, s.Arms)
+	renderLiveSubscription(&b, s)
 	if len(s.ByVariant) > 0 {
 		b.WriteString("\n## By variant\n\nReported, not decided (preregistration section 8).\n\n")
 		b.WriteString("| variant | arm | trials | task success (95% CI) | constraint-clean (95% CI) | recovery (95% CI) |\n")
@@ -1606,6 +1610,37 @@ func renderHostHookTable(b *strings.Builder, arms map[string]eval.ArmSummary) {
 		for _, name := range liveSortedKeys(hooks) {
 			h := hooks[name]
 			fmt.Fprintf(b, "| %s | %s | %d | %d | %d | %d |\n", arm, name, h.N, h.P50, h.P95, h.Max)
+		}
+	}
+}
+
+// renderLiveSubscription writes each arm's per-trial use of the subscription's windows and the
+// limited trials with their sensitivity analysis (W6 item 8); nothing when the run has neither.
+func renderLiveSubscription(b *strings.Builder, s eval.LiveSummary) {
+	have := false
+	for _, as := range s.Arms {
+		have = have || len(as.RateUse) > 0
+	}
+	if have {
+		b.WriteString("\n## Subscription use per trial\n\nEach trial's utilization delta per window, from the newest " +
+			"rate_limit_event before it to its last; the input to the calendar estimate. Reported, not decided.\n\n")
+		b.WriteString("| arm | window | trials | mean delta | max delta |\n|---|---|---|---|---|\n")
+		for _, arm := range liveSortedKeys(s.Arms) {
+			use := s.Arms[arm].RateUse
+			for _, w := range liveSortedKeys(use) {
+				fmt.Fprintf(b, "| %s | %s | %d | %.4f | %.4f |\n", arm, w, use[w].Trials, use[w].Mean, use[w].Max)
+			}
+		}
+	}
+	if len(s.LimitedTrials) > 0 {
+		b.WriteString("\n## Limited trials\n\nTrials a subscription limit cut short, set aside and run again; excluded " +
+			"from the analysis above. The sensitivity analysis counts each as a failure on every outcome; reported, " +
+			"not decided.\n\n")
+		b.WriteString("| arm | limited | task success with them as failures | recovery with them as failures |\n|---|---|---|---|\n")
+		for _, arm := range liveSortedKeys(s.LimitedSensitivity) {
+			sens := s.LimitedSensitivity[arm]
+			fmt.Fprintf(b, "| %s | %d | %s | %s |\n", arm, s.LimitedTrials[arm], fmtProportion(sens.TaskSuccess),
+				fmtProportion(sens.Recovery))
 		}
 	}
 }
