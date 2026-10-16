@@ -96,7 +96,8 @@ export async function steerCompaction(
   let instructions: string | undefined
   try {
     instructions = await briefedInstructions($, e)
-  } catch {
+  } catch (err) {
+    debugLog($, briefLogLine(unservedBrief(REASON_ERROR, failureDetail('session', err))))
     instructions = e.instructions
   }
   if (instructions === e.instructions) return next(e)
