@@ -312,7 +312,14 @@ func TestRunLiveEval_APanicLeavesNoScoredRecord(t *testing.T) {
 			r := fmt.Sprint(recover())
 			require.True(t, strings.HasPrefix(r, "boom\n"), r)
 			require.Contains(t, r, "goroutine", "the re-panic keeps the original stack (re-review N4)")
-			require.Contains(t, r, "TestRunLiveEval_APanicLeavesNoScoredRecord", "the stack reaches the panic's own site")
+			// The panicking stopDaemon closure (func1) and the trial code that called it are frames of the
+			// reported stack, below the runtime's panic: the original site, not just the test's own frame
+			// (re-review N7).
+			site := strings.Index(r, "TestRunLiveEval_APanicLeavesNoScoredRecord.func1(")
+			require.Positive(t, site, "the panic site is in the reported stack")
+			require.Positive(t, strings.Index(r, "panic("), r)
+			require.Less(t, strings.Index(r, "panic("), site, "the site is below the runtime's panic frame")
+			require.Contains(t, r[site:], "liveTrialRun.run(", "the caller of the panicking closure follows it")
 		}()
 		var log bytes.Buffer
 		_ = runLiveEval(context.Background(), o, env, &log)
