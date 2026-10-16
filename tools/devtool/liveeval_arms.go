@@ -59,8 +59,9 @@ var liveAttemptFiles = []string{
 
 // planLiveTrials orders the trials in balanced blocks of rounds (W6 item 1). The run has as many
 // rounds as the largest per-arm count; an arm with n of R trials runs its k-th trial in round
-// ceil(k·R/n), so a short arm's trials spread over the whole schedule instead of bunching at its
-// start, and arm is not confounded with week. Each round is one block, and the order inside a block
+// ceil((2k-1)·R/(2n)), the middle of its k-th share of the schedule, so a short arm's trials spread
+// over the whole schedule with their mean near the schedule's middle, neither bunched at its start
+// nor pushed late, and arm is not confounded with week. Each round is one block, and the order inside a block
 // is shuffled from seed, so no arm or task always goes first.
 func planLiveTrials(tasks []eval.LiveTask, arms []string, counts map[string]int, seed int64) []eval.LivePlannedTrial {
 	rounds := 0
@@ -71,7 +72,7 @@ func planLiveTrials(tasks []eval.LiveTask, arms []string, counts map[string]int,
 	for _, a := range arms {
 		n := counts[a]
 		for k := 1; k <= n; k++ {
-			r := (k*rounds + n - 1) / n // ceil(k·R/n), in 1..R
+			r := ((2*k-1)*rounds + 2*n - 1) / (2 * n) // ceil((2k-1)·R/(2n)), in 1..R
 			for _, t := range tasks {
 				blocks[r-1] = append(blocks[r-1], eval.LivePlannedTrial{Task: t.ID, Arm: a, Trial: k})
 			}
