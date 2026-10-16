@@ -131,6 +131,8 @@ type liveOptions struct {
 	fiveHourGate    float64
 	sevenDayCeiling float64
 	night           liveNightWindow
+	// resume is the run directory --resume continues (W6 item 13).
+	resume string
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -184,8 +186,22 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"the run pauses while the seven-day window's utilization is at or above this (the owner keeps the rest)")
 	night := fs.String("night-window", "", "HH:MM-HH:MM, local time: trials start only inside it, and the run pauses "+
 		"cleanly outside it (default: no window)")
+	fs.StringVar(&o.resume, "resume", "", "continue the run in this directory from its plan.json: verify its hashes and host, "+
+		"skip every slot that holds a scored trial, run the rest, and decide over every session's trials")
 	if err := fs.Parse(args); err != nil {
 		return o, err
+	}
+	if o.resume != "" {
+		var conflicts []string
+		fs.Visit(func(f *flag.Flag) {
+			if !liveResumeFlags[f.Name] {
+				conflicts = append(conflicts, "--"+f.Name)
+			}
+		})
+		if len(conflicts) > 0 {
+			return o, fmt.Errorf("live-eval: --resume continues the plan its directory holds, so %s cannot change it",
+				strings.Join(conflicts, ", "))
+		}
 	}
 	if *night != "" {
 		n, err := parseNightWindow(*night)
@@ -295,6 +311,9 @@ func knownDefectsText(a *eval.LiveDefectAttestation) string {
 
 // runLiveEval is the whole run: validate, plan, gate, execute, summarize.
 func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) error {
+	if o.resume != "" {
+		return resumeLiveEval(ctx, o, env, w)
+	}
 	ts, raw, err := eval.LoadLiveTaskSet(o.tasksFile)
 	if err != nil {
 		return err

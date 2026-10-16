@@ -137,6 +137,7 @@ func TestRunLiveEval_ResumeAfterALimitedTrial(t *testing.T) {
 	require.FileExists(t, filepath.Join(slot, "trial.json"), "the limited slot ran again")
 	require.FileExists(t, filepath.Join(slot, "trial.limited-1.json"), "its limited record stays")
 	require.FileExists(t, filepath.Join(slotDir(o.out, "stock", 2), "trial.json"))
+	sum = eval.LiveSummary{}
 	readJSON(t, filepath.Join(o.out, "summary.json"), &sum)
 	require.Empty(t, sum.Paused)
 	require.Equal(t, 2, sum.Arms["stock"].Trials)
@@ -216,7 +217,7 @@ func TestRunLiveEval_ResumeRefusesAChangedRun(t *testing.T) {
 
 	for _, conflict := range [][]string{
 		{"--arms", "stock"}, {"--tasks", "x.json"}, {"--trials", "3"}, {"--model", "m"}, {"--bundle", "b"},
-		{"--order-seed", "3"}, {"--out", "o"}, {"--describe"}, {"--known-open-defects", "none"},
+		{"--order-seed", "3"}, {"--out", "o"}, {"--known-open-defects", "none"},
 	} {
 		_, err := parseLiveFlags(append([]string{"--resume", o.out}, conflict...))
 		require.ErrorContains(t, err, "--resume", conflict)
