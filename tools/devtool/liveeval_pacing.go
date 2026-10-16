@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/qompack/qompack/internal/eval"
@@ -429,24 +428,25 @@ func (o liveOptions) livePacing() eval.LivePacing {
 	return p
 }
 
-// liveSignals are the signals that stop live-eval and live-check: each cancels the run's context, so
-// the running host's whole tree is killed and the run stops without scoring the cut attempt
-// (re-review N5). SIGTERM is never delivered on Windows, where the console's interrupt is.
-var liveSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
-
-// liveSignalContext is the run's context, cancelled by any of liveSignals.
+// liveSignalContext is the run's context, cancelled by any of liveSignals (liveeval_signals_*.go):
+// each cancels the run's context, the running host's tree is killed through its Cancel, and the run
+// stops without scoring the cut attempt (re-review N5).
 func liveSignalContext() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), liveSignals...)
 }
 
-// liveInterrupted is the stop an interrupt makes, or nil while ctx runs.
-func liveInterrupted(ctx context.Context, tool string) error {
+// liveInterrupted is the stop an interrupt makes, or nil while ctx runs. after says what became of
+// an attempt the interrupt cut, or is empty when none was running; it claims no kill, since how the
+// host ended is the attempt's own record (re-review F8).
+func liveInterrupted(ctx context.Context, tool, after string) error {
 	if ctx.Err() == nil {
 		return nil
 	}
-	return fmt.Errorf("%s: interrupted (%v): the running host's process tree was killed and the cut attempt is "+
-		"not scored; the run stopped and continues with --resume", tool, context.Cause(ctx))
+	return fmt.Errorf("%s: interrupted (%v)%s; the run stopped and continues with --resume", tool, context.Cause(ctx), after)
 }
+
+// liveCutAttempt is liveInterrupted's note for an attempt the interrupt cut.
+const liveCutAttempt = "; the cut attempt was stopped, not graded, and set aside as interrupted"
 
 // sleepContext waits d or until ctx ends.
 func sleepContext(ctx context.Context, d time.Duration) error {

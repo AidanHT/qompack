@@ -47,7 +47,9 @@ const liveConfigErrorLimit = 3
 const (
 	liveSlotDiscarded = "discarded"
 	liveSlotLimited   = "limited"
-	liveScoredRecord  = "trial.json"
+	// liveSlotInterrupted is an attempt an interrupt cut (re-review F6).
+	liveSlotInterrupted = "interrupted"
+	liveScoredRecord    = "trial.json"
 )
 
 // liveAttemptFiles are the files a trial attempt writes into its slot beside its record, and the

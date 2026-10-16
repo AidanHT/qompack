@@ -218,17 +218,24 @@ checks:
 	for _, c := range suite.Checks {
 		for n := 1; n <= c.Runs(o.tier); n++ {
 			for {
-				if err := liveInterrupted(ctx, "live-check"); err != nil {
+				if err := liveInterrupted(ctx, "live-check", ""); err != nil {
 					stop = err
 					break checks
 				}
 				if v := env.cliVersion(ctx); v != r.manifest.ClaudeCodeVersion {
+					if err := liveInterrupted(ctx, "live-check", ""); err != nil {
+						stop = err
+						break checks
+					}
 					stop = fmt.Errorf("live-check: the host reports Claude Code %s, not %s, before %s run %d", v,
 						r.manifest.ClaudeCodeVersion, c.ID, n)
 					break checks
 				}
 				why, paceErr := pacer.before(ctx, env, w)
 				if paceErr != nil {
+					if err := liveInterrupted(ctx, "live-check", ""); err != nil {
+						paceErr = err
+					}
 					stop = paceErr
 					break checks
 				}
@@ -237,7 +244,18 @@ checks:
 					break checks
 				}
 				run, evs, model, guardErr := r.runOnce(ctx, c, n)
-				if err := liveInterrupted(ctx, "live-check"); err != nil {
+				// The run's events reach pacing.json first, an interrupted run's included (re-review F1).
+				if err := pacer.observe(env, evs); err != nil && guardErr == nil {
+					guardErr = err
+				}
+				over := run.Stopped
+				if over == "" {
+					over = liveOverage(evs)
+				}
+				if err := liveInterrupted(ctx, "live-check", liveCutAttempt); err != nil {
+					if over != "" {
+						err = fmt.Errorf("%w; before it, %s", err, over)
+					}
 					stop = errors.Join(err, guardErr) // the interrupted run is not graded or kept
 					break checks
 				}
@@ -245,18 +263,11 @@ checks:
 				if model != "" {
 					hostModels[model] = true
 				}
-				if err := pacer.observe(env, evs); err != nil && guardErr == nil {
-					guardErr = err
-				}
 				fmt.Fprintf(w, "live-check: %s run %d: passed=%t limited=%q harness_error=%q\n", c.ID, n, run.Passed,
 					run.Limited, run.HarnessError)
 				if guardErr != nil {
 					stop = guardErr
 					break checks
-				}
-				over := run.Stopped
-				if over == "" {
-					over = liveOverage(evs)
 				}
 				if over != "" {
 					stop = fmt.Errorf("live-check: after %s run %d: %s", c.ID, n, over)
@@ -442,6 +453,22 @@ func (r *liveCheckRun) runOnce(ctx context.Context, c eval.LiveSuiteCheck, n int
 			run.HarnessError = joinErr(run.HarnessError, "parsing the stream: "+perr.Error())
 		}
 		stream, lines = parsed, eval.CountStreamLines(proc.Stream)
+	}
+	if project != "" && ctx.Err() != nil {
+		// Interrupted: the stream's evidence is kept, nothing is graded (re-review F7), and the run's
+		// files are set aside as interrupted (F6).
+		run.Run, run.HarnessError = n, joinErr(run.HarnessError, "interrupted")
+		run.Stopped = proc.Stopped
+		if _, err := liveSetAsideRecord(dir, liveSlotInterrupted, "run.json", liveCheckAttemptFiles, run); err != nil && guardErr == nil {
+			guardErr = err
+		}
+		model := ""
+		if stream.Init != nil {
+			model = stream.Init.Model
+		}
+		return run, stream.RateLimits, model, guardErr
+	}
+	if project != "" {
 		commands := map[string]eval.CommandOutcome{}
 		for i, p := range c.Pass {
 			if p.Kind == eval.CheckCommand {
@@ -462,9 +489,6 @@ func (r *liveCheckRun) runOnce(ctx context.Context, c eval.LiveSuiteCheck, n int
 	model := ""
 	if stream.Init != nil {
 		model = stream.Init.Model
-	}
-	if ctx.Err() != nil {
-		return run, stream.RateLimits, model, guardErr // interrupted: nothing is written
 	}
 	if run.Limited != "" {
 		if _, err := liveSetAsideRecord(dir, liveSlotLimited, "run.json", liveCheckAttemptFiles, run); err != nil && guardErr == nil {

@@ -15,6 +15,7 @@ import (
 // liveSetProcessGroup starts cmd in a process group of its own, so its whole tree can be ended.
 func liveSetProcessGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	livePdeath(cmd.SysProcAttr)
 }
 
 // liveProcPin keeps nothing on Unix: the group is killed by its id, and a group that is gone answers

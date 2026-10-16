@@ -554,17 +554,25 @@ slots:
 			continue // scored in an earlier session of this run
 		}
 		for {
-			if err := liveInterrupted(ctx, "live-eval"); err != nil {
+			if err := liveInterrupted(ctx, "live-eval", ""); err != nil {
 				stop(err)
 				break slots
 			}
 			if v := env.cliVersion(ctx); v != plan.ClaudeCLIVersion {
+				if err := liveInterrupted(ctx, "live-eval", ""); err != nil {
+					stop(err) // the interrupt cut the version check (re-review F8)
+					break slots
+				}
 				stop(fmt.Errorf("live-eval: the host reports Claude Code %s, not the pinned %s, before %s/%s/%d; "+
 					"no trial starts on another host version", v, plan.ClaudeCLIVersion, p.Task, p.Arm, p.Trial))
 				break slots
 			}
 			why, paceErr := pacer.before(ctx, env, w)
 			if paceErr != nil {
+				if err := liveInterrupted(ctx, "live-eval", ""); err != nil {
+					stop(err) // the interrupt cut a pacing wait (re-review F8)
+					break slots
+				}
 				stop(paceErr)
 				markLiveOverageStop(o.out, env, paceErr.Error())
 				break slots
@@ -578,13 +586,26 @@ slots:
 				runID: plan.RunID, rates: rates, plan: &plan, rateBefore: pacer.snap,
 			}
 			rec, guardErr := lt.run(ctx)
-			if err := liveInterrupted(ctx, "live-eval"); err != nil {
-				// The interrupted attempt wrote no record (lt.run), so its slot runs again on --resume.
-				stop(errors.Join(err, guardErr))
-				break slots
-			}
+			// The attempt's rate-limit evidence is kept before anything else, an interrupted attempt's
+			// included: its events reach pacing.json and an overage it reported writes the marker, so a
+			// resumed session neither paces on a stale reading nor skips --overage-checked (re-review F1).
 			if err := pacer.observe(env, rec.RateLimits); err != nil && guardErr == nil {
 				guardErr = err
+			}
+			over := rec.Stopped
+			if over == "" {
+				over = liveOverage(rec.RateLimits)
+			}
+			if over != "" {
+				markLiveOverageStop(o.out, env, over)
+			}
+			if err := liveInterrupted(ctx, "live-eval", liveCutAttempt); err != nil {
+				// The interrupted attempt was set aside (lt.run), so its slot runs again on --resume.
+				if over != "" {
+					err = fmt.Errorf("%w; before it, %s", err, over)
+				}
+				stop(errors.Join(err, guardErr))
+				break slots
 			}
 			switch {
 			case rec.ConfigurationError != "":
@@ -604,14 +625,7 @@ slots:
 					orUnknown(rec.OverageStatus), orUnknown(rec.OverageDisabledReason))
 			}
 			// The driver's own stop is the overage stop, whatever the cut stream parses to, and its marker
-			// is written before the guard is looked at (re-review N1).
-			over := rec.Stopped
-			if over == "" {
-				over = liveOverage(rec.RateLimits)
-			}
-			if over != "" {
-				markLiveOverageStop(o.out, env, over)
-			}
+			// was written above, before the guard is looked at (re-review N1).
 			if guardErr != nil {
 				stop(guardErr)
 				break slots
@@ -1001,8 +1015,13 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 			panic(fmt.Sprintf("%v\n%s", r, debug.Stack()))
 		}
 		if ctx.Err() != nil {
-			// An interrupt killed the host: the cut attempt is neither scored nor set aside, and its
-			// slot runs again on --resume (re-review N5).
+			// An interrupt cut the attempt: it is never scored, and it is set aside as interrupted with
+			// its files, so the slot runs again on --resume and the re-run neither overwrites nor reuses
+			// them (re-review N5, F6).
+			if _, err := liveSetAside(trialDir, liveSlotInterrupted, rec); err != nil && guardErr == nil {
+				guardErr = fmt.Errorf("live-eval: setting the interrupted attempt of %s/%s/%d aside: %w", task.ID, lt.arm,
+					lt.trial, err)
+			}
 			return
 		}
 		rec.ApplyHarnessFailure(task)
@@ -1142,12 +1161,12 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		}
 	}
 
-	lt.assemble(&rec, proc, project, trialDir, fixtureHashes, sessionID)
+	lt.assemble(ctx, &rec, proc, project, trialDir, fixtureHashes, sessionID)
 	return rec, guardErr
 }
 
 // assemble parses what the session left and grades it into rec.
-func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, project, trialDir string,
+func (lt liveTrialRun) assemble(ctx context.Context, rec *eval.LiveTrial, proc liveProcResult, project, trialDir string,
 	fixtureHashes map[string]string, sessionID string,
 ) {
 	task, env := lt.task, lt.env
@@ -1166,6 +1185,12 @@ func (lt liveTrialRun) assemble(rec *eval.LiveTrial, proc liveProcResult, projec
 		rec.Limited = "the session was stopped: " + proc.Stopped
 	}
 	rec.OverageStatus, rec.OverageDisabledReason = eval.LiveOverageState(stream.RateLimits)
+	if ctx.Err() != nil {
+		// Interrupted: the rate-limit evidence above is kept, and nothing is graded, so shutdown is quick
+		// (re-review F7).
+		rec.HarnessError = joinErr(rec.HarnessError, "interrupted")
+		return
+	}
 	if reset, ok := eval.LiveUsageLimitReset(stream); ok && rec.Limited != "" {
 		rec.LimitResetsAt = reset.Unix()
 	}

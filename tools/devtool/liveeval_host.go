@@ -488,14 +488,14 @@ func (e *liveEnv) marketplaceInstall(ctx context.Context, project, bundle, work 
 	}
 	id := livePluginName + "@" + liveMarketplaceName
 	// The undo runs even after an interrupt cancelled ctx: the operator's configuration is restored
-	// whatever ended the trial.
-	ctx = context.WithoutCancel(ctx)
+	// whatever ended the trial. The add and install are cut by an interrupt (re-review F7).
+	undoCtx := context.WithoutCancel(ctx)
 	undo := func() []string {
 		var left []string
-		if r := e.cli(ctx, project, "plugin", "uninstall", id, "--scope", "local", "-y"); r.Code != 0 {
+		if r := e.cli(undoCtx, project, "plugin", "uninstall", id, "--scope", "local", "-y"); r.Code != 0 {
 			left = append(left, "plugin uninstall "+id+": "+r.combined())
 		}
-		if r := e.cli(ctx, project, "plugin", "marketplace", "remove", liveMarketplaceName); r.Code != 0 {
+		if r := e.cli(undoCtx, project, "plugin", "marketplace", "remove", liveMarketplaceName); r.Code != 0 {
 			left = append(left, "marketplace remove "+liveMarketplaceName+": "+r.combined())
 		}
 		return left

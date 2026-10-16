@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 // liveSetProcessGroup prepares cmd so its whole tree can be ended: nothing on Windows, where taskkill
@@ -25,15 +27,17 @@ func liveSetProcessGroup(*exec.Cmd) {}
 // never names a pid the harness no longer owns, and the handle says whether the process has already
 // exited (re-review N6).
 type liveProcPin struct {
-	mu sync.Mutex
-	h  syscall.Handle
-	ok bool
+	mu       sync.Mutex
+	h        syscall.Handle
+	pinned   bool // the handle is open
+	released bool // Wait has returned: the pid is no longer the harness's
 }
 
-// synchronizeRight is SYNCHRONIZE, which with the limited query right keeps a waitable handle.
+// synchronizeRight is SYNCHRONIZE: the pin waits on the handle to learn whether the process exited.
 const synchronizeRight = 0x00100000
 
-// pin opens the handle; a failure leaves the pin empty and the kill falls back to the direct child.
+// pin opens the handle; a failure leaves the process unpinned, and the kill then relies on Go's own
+// handle, which pins the pid until Wait.
 func (p *liveProcPin) pin(cmd *exec.Cmd) {
 	if cmd.Process == nil {
 		return
@@ -43,7 +47,7 @@ func (p *liveProcPin) pin(cmd *exec.Cmd) {
 		return
 	}
 	p.mu.Lock()
-	p.h, p.ok = h, true
+	p.h, p.pinned = h, true
 	p.mu.Unlock()
 }
 
@@ -51,32 +55,43 @@ func (p *liveProcPin) pin(cmd *exec.Cmd) {
 func (p *liveProcPin) release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.ok {
+	if p.pinned {
 		_ = syscall.CloseHandle(p.h)
-		p.ok = false
+		p.pinned = false
 	}
+	p.released = true
 }
 
-// exited reports that the pinned process has exited, or that the pin was released after Wait.
+// exited reports that the pinned process has exited, by waiting on its handle with no timeout: an
+// exit code of 259 is STILL_ACTIVE's value and would read as running (re-review F4). Unpinned, it
+// says no, unless Wait has returned.
 func (p *liveProcPin) exited() bool {
-	if !p.ok {
+	if p.released {
 		return true
 	}
-	var code uint32
-	if err := syscall.GetExitCodeProcess(p.h, &code); err != nil {
+	if !p.pinned {
 		return false
 	}
-	return code != stillActive
+	ev, err := syscall.WaitForSingleObject(p.h, 0)
+	return err == nil && ev == syscall.WAIT_OBJECT_0
 }
 
-// liveTaskkillPath is taskkill's absolute path under %SystemRoot%: it is never looked up on PATH, so
-// a taskkill earlier on PATH cannot stand in for it (re-review N9).
+// liveTaskkillPath is taskkill's absolute path in the system directory: %SystemRoot%\System32 when
+// SystemRoot is an absolute path, else the system directory Windows reports, else %windir%\System32.
+// It is never looked up on PATH, so a taskkill earlier on PATH cannot stand in for it (re-review N9,
+// F2).
 func liveTaskkillPath() (string, error) {
-	root := os.Getenv("SystemRoot")
-	if root == "" || !filepath.IsAbs(root) {
-		return "", errors.New("SystemRoot is not set to an absolute path, so taskkill.exe cannot be named")
+	if root := os.Getenv("SystemRoot"); root != "" && filepath.IsAbs(root) {
+		return filepath.Join(root, "System32", "taskkill.exe"), nil
 	}
-	return filepath.Join(root, "System32", "taskkill.exe"), nil
+	if sys, err := windows.GetSystemDirectory(); err == nil && filepath.IsAbs(sys) {
+		return filepath.Join(sys, "taskkill.exe"), nil
+	}
+	if win := os.Getenv("windir"); win != "" && filepath.IsAbs(win) {
+		return filepath.Join(win, "System32", "taskkill.exe"), nil
+	}
+	return "", errors.New("neither SystemRoot, the reported system directory nor windir names an absolute path, so " +
+		"taskkill.exe cannot be named")
 }
 
 // liveTaskkill ends the tree under pid with taskkill /T /F. A variable so a test can watch whether it
@@ -96,36 +111,36 @@ var liveTaskkill = func(pid int) error {
 // liveKillTree ends the process the harness started and every process it started in turn: the
 // default host is npm's claude.cmd shim, so the direct child is cmd.exe and claude.exe its child,
 // which a kill of the direct child alone leaves running. taskkill /T only walks down from the given
-// pid, so it touches nothing the harness did not start. Once the pinned process has exited, or the
-// pin was released after Wait, nothing is killed and os.ErrProcessDone tells exec not to report a
-// cancellation, so a kill racing a normal exit never turns a clean trial into a harness error.
+// pid, so it touches nothing the harness did not start.
+//
+// Once the process has exited, or Wait has returned, nothing is killed and os.ErrProcessDone tells exec
+// not to report a cancellation, so a kill racing a normal exit never turns a clean trial into a
+// harness error. Before the pin is taken the tree is still walked: Go's own handle pins the pid until
+// Wait. If the walk fails, the direct child is killed and the walk's error is returned with it, so a
+// degraded kill is never silent (re-review F2).
 func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 	if cmd.Process == nil {
 		return nil
 	}
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
-	if pin.ok || pinReleased(pin) {
-		if pin.exited() {
-			return os.ErrProcessDone
-		}
-		if err := liveTaskkill(cmd.Process.Pid); err == nil {
-			return nil
-		}
+	if pin.exited() {
+		return os.ErrProcessDone
 	}
-	// No pin was taken (opening the process failed), or the tree walk failed: end the direct child,
-	// whose handle Go still holds until Wait returns.
-	if err := cmd.Process.Kill(); err != nil {
-		if errors.Is(err, os.ErrProcessDone) {
-			return os.ErrProcessDone
-		}
-		return err
+	walkErr := liveTaskkill(cmd.Process.Pid)
+	if walkErr == nil {
+		return nil
 	}
-	return nil
+	if pin.exited() {
+		// The root exited between the check and the walk (re-review F4).
+		return os.ErrProcessDone
+	}
+	degraded := fmt.Errorf("the process tree could not be ended, so only the direct child was killed: %w", walkErr)
+	if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return errors.Join(degraded, err)
+	}
+	return degraded
 }
-
-// pinReleased reports a pin that was taken and has since been released after Wait.
-func pinReleased(p *liveProcPin) bool { return p.h != 0 && !p.ok }
 
 // errNoSuchProcess is ERROR_INVALID_PARAMETER, what OpenProcess answers for a pid no process has.
 const errNoSuchProcess = syscall.Errno(87)
