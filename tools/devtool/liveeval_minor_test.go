@@ -292,8 +292,14 @@ func TestRunLiveEval_InterruptStopsWithoutScoring(t *testing.T) {
 	require.Equal(t, 1, sessions)
 	slot := slotDir(o.out, "stock", 1)
 	require.NoFileExists(t, filepath.Join(slot, "trial.json"))
-	matches, _ := filepath.Glob(filepath.Join(slot, "trial.*-*.json"))
-	require.Empty(t, matches, "nothing set aside either")
+	// The cut attempt and its files are set aside as interrupted, so a re-run neither overwrites nor
+	// reuses them (re-review F6), and it was not graded (F7).
+	var cut eval.LiveTrial
+	readJSON(t, filepath.Join(slot, "trial.interrupted-1.json"), &cut)
+	require.Empty(t, cut.Checks, "an interrupted attempt is not graded")
+	require.FileExists(t, filepath.Join(slot, "stream.interrupted-1.jsonl"))
+	require.NoFileExists(t, filepath.Join(slot, "stream.jsonl"))
+	require.NotContains(t, err.Error(), "tree was killed", "the stop claims no kill it cannot vouch for (F8)")
 	var sum eval.LiveSummary
 	readJSON(t, filepath.Join(o.out, "summary.json"), &sum)
 	require.Contains(t, strings.Join(sum.Notes, "\n"), "interrupted")
@@ -319,6 +325,8 @@ func TestLiveCheck_InterruptStopsWithoutGrading(t *testing.T) {
 	require.ErrorContains(t, runLiveCheck(ctx, o, env, &log), "interrupted")
 	require.Len(t, specs, 1)
 	require.NoFileExists(t, filepath.Join(o.out, "checks", "compact-recall", "01", "run.json"))
+	require.FileExists(t, filepath.Join(o.out, "checks", "compact-recall", "01", "run.interrupted-1.json"), "set aside (F6)")
+	require.FileExists(t, filepath.Join(o.out, "checks", "compact-recall", "01", "stream.interrupted-1.jsonl"))
 	_, r := readCheckRun(t, o.out)
 	require.Contains(t, r.Stopped, "interrupted")
 	require.Empty(t, r.Checks[0].Runs)
@@ -344,4 +352,99 @@ func TestLiveCheck_PacingLinesSayLiveCheck(t *testing.T) {
 	err = runLiveCheck(context.Background(), o2, env, &log)
 	require.Error(t, err)
 	require.True(t, strings.HasPrefix(err.Error(), "live-check:"), err.Error())
+}
+
+// TestRunLiveEval_InterruptKeepsTheRateEvidence: an interrupt after a session that reported paid
+// overage still writes overage-stop.json, and the cut attempt's events still reach pacing.json, so a
+// resumed session neither skips --overage-checked nor paces on a stale reading (re-review F1).
+func TestRunLiveEval_InterruptKeepsTheRateEvidence(t *testing.T) {
+	for _, overage := range []bool{true, false} {
+		env, _, home := pacedEnv(t)
+		line := rateLine("allowed", 0.97, 0.1, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), overage)
+		scripted := scriptedPilotHostWith(t, home, pilotHostOpts{streamExtra: []string{line}})
+		ctx, cancel := context.WithCancel(context.Background())
+		env.run = func(c context.Context, spec liveProcSpec) liveProcResult {
+			res := scripted(c, spec)
+			cancel()
+			return res
+		}
+		checks := 0
+		env.check = func(string, []string) eval.CommandOutcome { checks++; return eval.CommandOutcome{} }
+		o := stockRun(t, 2)
+		var log bytes.Buffer
+		err := runLiveEval(ctx, o, env, &log)
+		cancel()
+		require.ErrorContains(t, err, "interrupted")
+		var st livePacingState
+		readJSON(t, filepath.Join(o.out, livePacingFile), &st)
+		require.InDelta(t, 0.97, *st.Snapshot.Windows["five_hour"].Utilization, 1e-9, "overage=%t", overage)
+		if overage {
+			require.FileExists(t, filepath.Join(o.out, liveOverageStopFile))
+			require.ErrorContains(t, err, "overage")
+		} else {
+			require.NoFileExists(t, filepath.Join(o.out, liveOverageStopFile))
+		}
+		require.Zero(t, checks, "the cut attempt's check commands are not run (F7)")
+	}
+}
+
+// TestLiveCheck_InterruptKeepsTheRateEvidence: the same for live-check: the cut run's events reach
+// pacing.json and an overage it reported is named in the stop (re-review F1).
+func TestLiveCheck_InterruptKeepsTheRateEvidence(t *testing.T) {
+	env, _, _ := pacedEnv(t)
+	var specs []liveProcSpec
+	host := recordedHost(t, &specs, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	env.run = func(c context.Context, spec liveProcSpec) liveProcResult {
+		res := host(c, spec)
+		cancel()
+		return res
+	}
+	o := checkRun(t, "quick")
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveCheck(ctx, o, env, &log), "interrupted")
+	var st livePacingState
+	readJSON(t, filepath.Join(o.out, livePacingFile), &st)
+	require.InDelta(t, 0.68, *st.Snapshot.Windows["seven_day"].Utilization, 1e-9, "the recorded stream's reading is kept")
+}
+
+// TestRunLiveEval_InterruptMessages: an interrupt during the --version check or a pacing wait stops
+// the run as interrupted, not as a host-version mismatch or a failed wait (re-review F8).
+func TestRunLiveEval_InterruptMessages(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	env.run = scriptedPilotHost(t, home)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	calls := 0
+	inner := env.cli
+	env.cli = func(c context.Context, dir string, args ...string) liveCLIResult {
+		if len(args) > 0 && args[0] == "--version" {
+			calls++
+			if calls == 2 { // the check before the first trial
+				cancel()
+				return liveCLIResult{Code: -1}
+			}
+		}
+		return inner(c, dir, args...)
+	}
+	var log bytes.Buffer
+	err := runLiveEval(ctx, stockRun(t, 1), env, &log)
+	require.ErrorContains(t, err, "interrupted")
+	require.NotContains(t, err.Error(), "reports Claude Code")
+
+	env2, clk, home2 := pacedEnv(t)
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	env2.run = scriptedPilotHostWith(t, home2, pilotHostOpts{
+		streamExtra: []string{rateLine("allowed", 0.95, 0.1, fakeNow.Add(time.Hour), fakeNow.Add(80*time.Hour), false)},
+	})
+	env2.sleep = func(c context.Context, d time.Duration) error {
+		_ = clk.sleep(c, d)
+		cancel2()
+		return c.Err()
+	}
+	err = runLiveEval(ctx2, stockRun(t, 2), env2, &log)
+	require.ErrorContains(t, err, "interrupted")
+	require.NotContains(t, err.Error(), "waiting for the rate-limit reset")
 }

@@ -25,11 +25,33 @@ const (
 	liveHelperEnv     = "QOMPACK_LIVE_HELPER"
 	liveHelperBinEnv  = "QOMPACK_LIVE_HELPER_BIN"
 	liveHelperPIDFile = "QOMPACK_LIVE_HELPER_PIDFILE"
+	liveHelperModeEnv = "QOMPACK_LIVE_HELPER_MODE"
 )
+
+// liveHelperCmd is the helper process in mode, started directly (no shim), with a context so the tree
+// kill can be its Cancel.
+func liveHelperCmd(t *testing.T, mode string) *exec.Cmd {
+	t.Helper()
+	bin, err := os.Executable()
+	require.NoError(t, err)
+	cmd := exec.CommandContext(context.Background(), bin, "-test.run=^TestLiveHelperProcess$")
+	cmd.Env = append(os.Environ(), liveHelperEnv+"=1", liveHelperModeEnv+"="+mode)
+	return cmd
+}
 
 func TestLiveHelperProcess(t *testing.T) {
 	if os.Getenv(liveHelperEnv) != "1" {
 		return
+	}
+	switch os.Getenv(liveHelperModeEnv) {
+	case "exit259":
+		os.Exit(259) // the exit code that reads as STILL_ACTIVE
+	case "sleep":
+		deadline := time.Now().Add(2 * time.Minute)
+		for time.Now().Before(deadline) {
+			time.Sleep(100 * time.Millisecond)
+		}
+		os.Exit(0)
 	}
 	_ = os.WriteFile(os.Getenv(liveHelperPIDFile), []byte(strconv.Itoa(os.Getpid())), 0o600)
 	fmt.Println(`{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1790116800,` +
