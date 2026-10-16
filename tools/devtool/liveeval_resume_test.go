@@ -217,7 +217,7 @@ func TestRunLiveEval_ResumeRefusesAChangedRun(t *testing.T) {
 
 	for _, conflict := range [][]string{
 		{"--arms", "stock"}, {"--tasks", "x.json"}, {"--trials", "3"}, {"--model", "m"}, {"--bundle", "b"},
-		{"--order-seed", "3"}, {"--out", "o"}, {"--known-open-defects", "none"},
+		{"--order-seed", "3"}, {"--out", "o"}, {"--describe"}, {"--known-open-defects", "none"},
 	} {
 		_, err := parseLiveFlags(append([]string{"--resume", o.out}, conflict...))
 		require.ErrorContains(t, err, "--resume", conflict)
