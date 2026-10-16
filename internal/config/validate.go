@@ -24,6 +24,13 @@ import (
 //nomagic:allow validation bound restated from internal/cli, not a config default (§11.3)
 const HookCaptureHardCapBytes = 4 << 20
 
+// ModBriefMaxCharsCeiling is the largest runtime.mod.briefMaxChars, and its default: the mod wire
+// contract's ceiling on a brief's instructions (modwire.BriefMaxChars), restated here because config
+// may not import modwire (§3.2). A test in internal/cli holds the two equal. A configured value
+// above it is clamped to it by the loader, as a §11.3 violation, and both sides of the bridge clamp
+// it again when they use it.
+const ModBriefMaxCharsCeiling = 4000
+
 // Validate checks every rule below against c and returns one Violation per failing leaf. It
 // never panics: a malformed Config (for example one built by hand in a test, or one that Load
 // produced from adversarial input) can only ever produce a slice of Violations, never a crash.

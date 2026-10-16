@@ -227,6 +227,30 @@ var ruleCases = []ruleCase{
 	{"phase7.retrieval.maxRemindersPerSession negative", func(c *config.Config) { c.Runtime.Phase7.Retrieval.MaxRemindersPerSession = -1 }, "runtime.phase7.retrieval.maxRemindersPerSession"},
 	{"phase7.retrieval.maxAttemptsPerTrigger at 0", func(c *config.Config) { c.Runtime.Phase7.Retrieval.MaxAttemptsPerTrigger = 0 }, "runtime.phase7.retrieval.maxAttemptsPerTrigger"},
 	{"phase7.retrieval.maxQueueDepth at 0", func(c *config.Config) { c.Runtime.Phase7.Retrieval.MaxQueueDepth = 0 }, "runtime.phase7.retrieval.maxQueueDepth"},
+
+	// runtime.mod.briefMaxChars ∈ [1, ModBriefMaxCharsCeiling]
+	{"mod.briefMaxChars at 0", func(c *config.Config) { c.Runtime.Mod.BriefMaxChars = 0 }, "runtime.mod.briefMaxChars"},
+	{"mod.briefMaxChars above the ceiling", func(c *config.Config) {
+		c.Runtime.Mod.BriefMaxChars = config.ModBriefMaxCharsCeiling + 1
+	}, "runtime.mod.briefMaxChars"},
+}
+
+// TestLoad_ClampsAnOverCeilingBriefMaxChars: a configured brief cap above the wire contract's
+// ceiling does not survive the load, and the substitution is reported.
+func TestLoad_ClampsAnOverCeilingBriefMaxChars(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.ProjectRoot, `{"runtime":{"mod":{"briefMaxChars":9000}}}`)
+
+	cfg, _, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Equal(t, config.ModBriefMaxCharsCeiling, cfg.Runtime.Mod.BriefMaxChars)
+	require.True(t, namesKey(warns, "runtime.mod.briefMaxChars"), "the clamp must be reported: %+v", warns)
+
+	writeConfigFile(t, env.ProjectRoot, `{"runtime":{"mod":{"briefMaxChars":1500}}}`)
+	cfg, _, warns, err = config.Load(env)
+	require.NoError(t, err)
+	require.Equal(t, 1500, cfg.Runtime.Mod.BriefMaxChars, "a value under the ceiling is kept")
+	require.False(t, namesKey(warns, "runtime.mod.briefMaxChars"))
 }
 
 func TestValidate_EveryRule(t *testing.T) {
