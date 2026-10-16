@@ -43,39 +43,58 @@ func TestParseLiveFlags_StageAArms(t *testing.T) {
 }
 
 // TestPlanLiveTrials_BalancedInterleaving: with unequal per-arm counts every (task, arm) pair runs
-// exactly its count; each arm's trials are spread over the whole schedule, not bunched at its start
-// (a short arm's last trial sits in the last block); trial numbers of a pair run in order; and the
-// order within each block is a seeded shuffle, the same for the same seed.
+// exactly its count; an arm with n of R trials runs its k-th trial in round ceil((2k-1)R/(2n)), the
+// middle of its share of the schedule, so no arm is pushed early or late and each arm's mean round is
+// within one round of the schedule's; trial numbers of a pair run in order; and the order within each
+// block (one round) is a seeded shuffle, the same for the same seed.
 func TestPlanLiveTrials_BalancedInterleaving(t *testing.T) {
 	tasks := []eval.LiveTask{{ID: "a"}, {ID: "b"}, {ID: "c"}}
 	arms := []string{"stock", "classic", "generic", "steer"}
 	counts := map[string]int{"stock": 3, "classic": 14, "generic": 10, "steer": 14}
+	const rounds = 14
 	plan := planLiveTrials(tasks, arms, counts, 42)
+
+	roundOf := func(arm string, k int) int {
+		n := counts[arm]
+		return ((2*k-1)*rounds + 2*n - 1) / (2 * n)
+	}
+	wantRounds := func(arm string) []int {
+		var out []int
+		for k := 1; k <= counts[arm]; k++ {
+			out = append(out, roundOf(arm, k))
+		}
+		return out
+	}
+	require.Equal(t, []int{3, 7, 12}, wantRounds("stock"), "stock's three trials sit mid-share")
+	require.Equal(t, []int{1, 3, 4, 5, 7, 8, 10, 11, 12, 14}, wantRounds("generic"))
+	overall := float64(rounds+1) / 2
+	for _, arm := range arms {
+		sum := 0
+		for _, r := range wantRounds(arm) {
+			sum += r
+		}
+		mean := float64(sum) / float64(counts[arm])
+		require.InDelta(t, overall, mean, 1, "%s's mean round %.2f is within one round of %.2f", arm, mean, overall)
+	}
 
 	require.Len(t, plan, 3*(3+14+10+14))
 	got := map[string]int{}
 	last := map[string]int{}
-	firstAt, lastAt := map[string]int{}, map[string]int{}
-	for i, p := range plan {
+	prevRound := 0
+	for _, p := range plan {
 		key := p.Task + "/" + p.Arm
 		got[key]++
 		require.Equal(t, last[key]+1, p.Trial, "%s runs its trials in order", key)
 		last[key] = p.Trial
-		if _, ok := firstAt[p.Arm]; !ok {
-			firstAt[p.Arm] = i
-		}
-		lastAt[p.Arm] = i
+		r := roundOf(p.Arm, p.Trial)
+		require.GreaterOrEqual(t, r, prevRound, "%s/%d runs in round %d, block by block", key, p.Trial, r)
+		prevRound = r
 	}
 	for _, task := range tasks {
 		for _, arm := range arms {
 			require.Equal(t, counts[arm], got[task.ID+"/"+arm], "%s/%s", task.ID, arm)
 		}
 	}
-	// 14 rounds; a block holds one round. Stock's three trials land in rounds 5, 10 and 14.
-	blockLen := len(plan) / 14
-	require.GreaterOrEqual(t, firstAt["stock"], blockLen, "stock's first trial is not in the first block")
-	require.GreaterOrEqual(t, lastAt["stock"], len(plan)-3*4, "stock's last trial is in the last block")
-	require.GreaterOrEqual(t, lastAt["generic"], len(plan)-3*4, "generic's last trial is in the last block")
 
 	require.Equal(t, plan, planLiveTrials(tasks, arms, counts, 42), "the same seed gives the same order")
 	require.NotEqual(t, plan, planLiveTrials(tasks, arms, counts, 43), "another seed gives another order")
