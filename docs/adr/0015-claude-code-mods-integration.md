@@ -84,10 +84,11 @@ rejecting when the program cannot start or outlives its timeout, with no shell.
   free-form field carries a small envelope, `ipc.ModCall`: the verb, the daemon's budget in
   milliseconds (decision 6), the CLI's `runtime.mod.briefMaxChars` (the daemon renders to the
   smaller of it and its own live value, so a layer only the CLI loaded still applies) and the mod's
-  request, which only the daemon decodes. The envelope is
-  internal to the CLI and the daemon; the mod never sees it. The daemon's answer is the verb's
-  `modwire` response, and the CLI passes it on unchanged once it has checked it against the
-  contract.
+  request, which only the daemon decodes. The envelope is internal to the CLI and the daemon; the
+  mod never sees it. The daemon's answer is the verb's `modwire` response, and the CLI passes it on
+  unchanged once it has checked it against the contract. Nothing compares the daemon's build with
+  the CLI's, so a daemon of an older build still resident after an upgrade answers every brief
+  `unknown op: mod`, recorded as `error`, until it exits.
 
 ### 3. The wire contract (`internal/modwire`)
 
@@ -200,16 +201,17 @@ because Stage B adds further features with switches of their own. The mod calls 
 after a hello answered `steering: true`. Hello fires once per mod load, so the mod caches the
 answer for the process, together with the session id it said hello for, and says hello again
 before a brief when no served answer is cached or when `$.session.id()` differs from the cached
-hello's, so a brief is never decided by another session's answer. Mods can also be off for reasons Qompack cannot see (the host's `disableAllHooks`, safe
-mode, bare mode, managed policy, or a remote rollout switch); in each case the classic path runs
-as today.
+hello's, so a brief is never decided by another session's answer. Mods can also be off for
+reasons Qompack cannot see (the host's `disableAllHooks`, safe mode, bare mode, managed policy, or
+a remote rollout switch); in each case the classic path runs as today.
 
 ### 6. Provisional timing defaults
 
 Three layers, each inside the one around it:
 
 - The mod waits `modwire.TimeoutMs` (**provisionally 2,000 ms**) for a child, and the host kills a
-  child that outlives it. A child killed this way leaves no record.
+  child that outlives it. A child killed this way normally leaves no record; one killed between
+  writing its record and writing its answer leaves a record of a brief the mod did not apply.
 - A verb that asks the daemon (`brief`) waits for the daemon's answer until `TimeoutMs`, less the
   time since its process started, less `modwire.RecordMarginMs` (100 ms). The dial counts against
   that wait. The margin leaves the CLI time to write its record and its answer before the mod gives
