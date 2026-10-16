@@ -489,3 +489,28 @@ func TestModBrief_IsNotAHookEntryPoint(t *testing.T) {
 	}
 	require.True(t, found, "`qompack mod brief` is registered")
 }
+
+// TestModBrief_TheEnvelopeCarriesTheCLIsCap: the daemon is told the cap the CLI's configuration
+// sets, --set included, so it never serves a brief the CLI would refuse as over the cap.
+func TestModBrief_TheEnvelopeCarriesTheCLIsCap(t *testing.T) {
+	for name, tc := range map[string]struct {
+		extra []string
+		want  int
+	}{
+		"default": {want: modwire.BriefMaxChars},
+		"--set":   {extra: []string{"--set", "runtime.mod.briefMaxChars=1500"}, want: 1500},
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := newModProject(t, true)
+			d := &briefDaemon{}
+			d.serve(t, p.root, func(ipc.ModCall) ipc.Response { return briefData(t, servedBrief()) })
+
+			code, _, stderr := runMod(t, p.briefEnv(briefRequestFor(t, p.root, "2.1.300", "auto"), 0),
+				briefArgs(tc.extra...)...)
+			require.Equal(t, ExitOK, code, stderr)
+			_, calls := d.received()
+			require.Len(t, calls, 1)
+			require.Equal(t, tc.want, calls[0].MaxChars)
+		})
+	}
+}

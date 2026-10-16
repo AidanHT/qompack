@@ -29,6 +29,7 @@ var updateGolden = func() func() bool {
 var goldenModCall = ipc.ModCall{
 	Verb:     "brief",
 	BudgetMs: 1400,
+	MaxChars: 4000,
 	Req: json.RawMessage(`{"v":1,"session_id":"3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b",` +
 		`"cwd":"/home/dev/project","host_version":"2.1.300","trigger":"auto",` +
 		`"user_instructions_present":false,"max_chars":0}`),
@@ -69,6 +70,7 @@ func TestDecodeModCall_RoundTrips(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, goldenModCall.Verb, call.Verb)
 	require.Equal(t, goldenModCall.BudgetMs, call.BudgetMs)
+	require.Equal(t, goldenModCall.MaxChars, call.MaxChars)
 	require.JSONEq(t, string(goldenModCall.Req), string(call.Req))
 }
 

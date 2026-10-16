@@ -21,6 +21,11 @@ type ModCall struct {
 	// timeout less the CLI's two margins. The CLI computes it for each request from the mod's timeout
 	// and its own start-up time; a budget that is not positive is already over.
 	BudgetMs int64 `json:"budget_ms"`
+	// MaxChars is the cap on the brief's instructions as the CLI's own configuration sets it
+	// (runtime.mod.briefMaxChars, with any --set or environment layer the daemon never saw). The daemon
+	// renders to the smaller of it and its own live value, so the CLI never refuses a brief over a cap
+	// the daemon did not know. Zero means none.
+	MaxChars int `json:"max_chars,omitempty"`
 	// Req is the verb's request object.
 	Req json.RawMessage `json:"req"`
 }

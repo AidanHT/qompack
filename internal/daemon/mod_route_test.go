@@ -261,3 +261,29 @@ func TestHandleMod_TheDeadlineNeverOutlivesTheCLIsWait(t *testing.T) {
 	require.Equal(t, time.UnixMilli(int64(req.TS)).Add(layer1), p.deadline,
 		"the deadline is the CLI's start plus the daemon's layer, not receipt plus the budget")
 }
+
+// TestHandleMod_TheCLIsCapLowersTheLiveOne: the envelope carries the cap the CLI's own configuration
+// set; the route renders to the smaller of it and its live value, whichever side holds the lower one.
+func TestHandleMod_TheCLIsCapLowersTheLiveOne(t *testing.T) {
+	const cap80 = 80
+	for name, tc := range map[string]struct{ live, cli int }{
+		"the CLI's is lower": {live: modwire.BriefMaxChars, cli: cap80},
+		"the live is lower":  {live: cap80, cli: modwire.BriefMaxChars},
+		"the CLI sent none":  {live: cap80, cli: 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dd, _ := newModRouteDaemon(t, func(c *config.Config) { c.Runtime.Mod.BriefMaxChars = tc.live })
+			b, err := json.Marshal(modBriefRequest(modwire.TriggerPrecompute))
+			require.NoError(t, err)
+			req, err := ipc.ModRequest(modRouteSession, core.NowMilli(core.SystemClock()), ipc.ModCall{
+				Verb: "brief", BudgetMs: modGenerousBudgetMs, MaxChars: tc.cli, Req: b,
+			})
+			require.NoError(t, err)
+
+			got := modAnswer(t, dd.dispatchOp(context.Background(), req))
+
+			require.Equal(t, []string{"inv_1"}, got.FactIDs, "only the item that fits the smaller cap")
+			require.LessOrEqual(t, modwire.CharCount(got.Instructions), cap80)
+		})
+	}
+}
