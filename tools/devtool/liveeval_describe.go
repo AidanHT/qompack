@@ -105,7 +105,11 @@ func (d liveDescription) render() string {
 	b.WriteString("\n## Tasks\n")
 	for _, t := range d.tasks {
 		fmt.Fprintf(&b, "\n### `%s`: %s\n\n", t.ID, t.Title)
-		fmt.Fprintf(&b, "Category `%s`, variant `%s`, held out %s. Fixture `%s`", t.Category, t.Variant, yn[t.HeldOut], t.Fixture)
+		fmt.Fprintf(&b, "Category `%s`, variant `%s`", t.Category, t.Variant)
+		if t.Domain != "" {
+			fmt.Fprintf(&b, ", domain `%s`", t.Domain)
+		}
+		fmt.Fprintf(&b, ", held out %s. Fixture `%s`", yn[t.HeldOut], t.Fixture)
 		if t.HiddenFixture != "" {
 			fmt.Fprintf(&b, "; hidden fixture `%s`, copied over the project after the session and before any check", t.HiddenFixture)
 		}

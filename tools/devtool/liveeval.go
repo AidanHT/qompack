@@ -1001,7 +1001,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 	o, env, task, state := lt.opts, lt.env, lt.task, lt.state
 	rec = eval.LiveTrial{
 		Schema: eval.LiveTrialSchema, RunID: lt.runID, TaskID: task.ID, Arm: lt.arm, Trial: lt.trial,
-		Category: task.Category, Variant: task.Variant, HeldOut: task.HeldOut, Model: o.model,
+		Category: task.Category, Variant: task.Variant, Domain: task.Domain, HeldOut: task.HeldOut, Model: o.model,
 		Install: "none", StartedAt: env.now().UTC().Format(time.RFC3339),
 		PluginExpected:     state.Plugin,
 		PreregisteredModel: liveRunsPreregisteredModel(lt.set, o.model),
@@ -1737,6 +1737,17 @@ func renderLiveSummary(p eval.LivePlan, s eval.LiveSummary) string {
 		for _, v := range liveSortedKeys(s.ByVariant) {
 			for _, as := range s.ByVariant[v] {
 				fmt.Fprintf(&b, "| %s | %s | %d | %s | %s | %s |\n", v, as.Arm, as.Trials,
+					fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), fmtProportion(as.Recovery))
+			}
+		}
+	}
+	if len(s.ByDomain) > 0 {
+		b.WriteString("\n## By domain\n\nReported, not decided (W6 item 6).\n\n")
+		b.WriteString("| domain | arm | trials | task success (95% CI) | constraint-clean (95% CI) | recovery (95% CI) |\n")
+		b.WriteString("|---|---|---|---|---|---|\n")
+		for _, d := range liveSortedKeys(s.ByDomain) {
+			for _, as := range s.ByDomain[d] {
+				fmt.Fprintf(&b, "| %s | %s | %d | %s | %s | %s |\n", d, as.Arm, as.Trials,
 					fmtProportion(as.TaskSuccess), fmtProportion(as.ConstraintClean), fmtProportion(as.Recovery))
 			}
 		}

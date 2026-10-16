@@ -6,7 +6,7 @@ Written by `devtool live-eval --describe` from the files and settings a run with
 
 ## Run
 
-- Task set: `../../testdata/eval/live/tasks-v7-harness-test.json` (sha256 `85ca4024c0d52591cc4c35539bf00c5cdf05aea224ee67aa24c6042e740d46c4`), 1 task(s) declared, 1 selected; held-out tasks left out.
+- Task set: `../../testdata/eval/live/tasks-v7-harness-test.json` (sha256 `97c26c765fbb05afee191acf0fb59a4c16cd856ff4f94059fe550873ba363c21`), 1 task(s) declared, 1 selected; held-out tasks left out.
 - Fixture tree [fixtures hidden], manifest sha256 `30cf769d243776645506eb43b7e0b336d2fed9a6e2ea29b4fb70a1f2b4054276`.
 - Model: `claude-opus-5-5` (pre-registered `claude-opus-5-5`).
 - Host: Claude Code 2.1.280 at `claude-fake`, pinned: before every trial the host's version is compared with this one and a difference stops the run; every session and every `claude` command runs with `DISABLE_AUTOUPDATER=1`.
@@ -56,7 +56,7 @@ When compacting, reproduce verbatim every identifier, file path, number, error m
 
 ### `pilot-codeword`: Harness validation: a program's output recalled after /compact
 
-Category `harness-validation`, variant `base`, held out no. Fixture `fixtures/pilot`; hidden fixture `hidden/pilot`, copied over the project after the session and before any check. At most 6 turns per message; allowed tools: `Read`, `Edit`, `Write`, `Glob`, `Grep`, `Bash(go:*)`, `Bash(git status:*)`, `Bash(git diff:*)`, `PowerShell(go:*)`, `mcp__plugin_qompack_qompack`.
+Category `harness-validation`, variant `base`, domain `harness-validation`, held out no. Fixture `fixtures/pilot`; hidden fixture `hidden/pilot`, copied over the project after the session and before any check. At most 6 turns per message; allowed tools: `Read`, `Edit`, `Write`, `Glob`, `Grep`, `Bash(go:*)`, `Bash(git status:*)`, `Bash(git diff:*)`, `PowerShell(go:*)`, `mcp__plugin_qompack_qompack`.
 
 Steps, each sent by every arm:
 

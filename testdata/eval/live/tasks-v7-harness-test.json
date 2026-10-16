@@ -35,6 +35,7 @@
       "title": "Harness validation: a program's output recalled after /compact",
       "category": "harness-validation",
       "variant": "base",
+      "domain": "harness-validation",
       "held_out": false,
       "fixture": "fixtures/pilot",
       "hidden_fixture": "hidden/pilot",

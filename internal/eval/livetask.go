@@ -116,6 +116,9 @@ type LiveTask struct {
 	Category string `json:"category"`
 	// Variant is "base" or "changing-requirement".
 	Variant string `json:"variant"`
+	// Domain labels the domain the task comes from (W6 item 6): the summary breaks outcomes down by
+	// it, reported and not decided. Every task of a four-arm set names one; the two-arm sets carry none.
+	Domain string `json:"domain,omitempty"`
 	// HeldOut marks a task reserved for the confirmatory run: it is never run while the harness or
 	// the product is being tuned.
 	HeldOut bool `json:"held_out"`
@@ -278,6 +281,9 @@ func (ts LiveTaskSet) Validate() error {
 			// Stage A decides on recovery, so every trial must carry a recovery verdict (W6 item 3).
 			return fmt.Errorf("eval: task %s declares no recovery check; every task of a four-arm set needs one", t.ID)
 		}
+		if ts.Analysis.fourArm() && t.Domain == "" {
+			return fmt.Errorf("eval: task %s declares no domain; every task of a four-arm set names one (W6 item 6)", t.ID)
+		}
 	}
 	return nil
 }
@@ -338,6 +344,9 @@ func (t LiveTask) validate() error {
 	}
 	if strings.TrimSpace(t.Category) == "" {
 		return fmt.Errorf("category is empty")
+	}
+	if t.Domain != "" && !liveIDPattern.MatchString(t.Domain) {
+		return fmt.Errorf("domain %q is not a plain identifier", t.Domain)
 	}
 	if err := cleanRelative(t.Fixture); err != nil {
 		return fmt.Errorf("fixture: %w", err)

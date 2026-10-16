@@ -38,8 +38,10 @@ type LiveTrial struct {
 	Trial    int    `json:"trial"`
 	Category string `json:"category"`
 	Variant  string `json:"variant"`
-	HeldOut  bool   `json:"held_out"`
-	Model    string `json:"model"`
+	// Domain is the task's domain label (W6 item 6); empty for the two-arm sets.
+	Domain  string `json:"domain,omitempty"`
+	HeldOut bool   `json:"held_out"`
+	Model   string `json:"model"`
 	// Install is how the plugin reached the host: "none", "plugin-dir" or "marketplace".
 	Install           string `json:"install"`
 	ClaudeCodeVersion string `json:"claude_code_version"`
@@ -504,6 +506,9 @@ type LiveSummary struct {
 	// ByVariant is each arm's outcomes per task variant ("base", "changing-requirement") and over the
 	// held-out tasks (VariantHeldOut); reported, not decided (preregistration section 8).
 	ByVariant map[string][]ArmSummary `json:"by_variant,omitempty"`
+	// ByDomain is each arm's outcomes per task domain (W6 item 6), built the way ByVariant is;
+	// reported, not decided. nil when no trial's task names a domain.
+	ByDomain map[string][]ArmSummary `json:"by_domain,omitempty"`
 	// TaskSigns is, for each task both arms ran, the sign of qompack's task-success rate minus
 	// stock's: 1, 0 or -1. Reported, not decided.
 	TaskSigns map[string]int `json:"task_signs,omitempty"`
@@ -547,6 +552,7 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 	byArm := map[string][]LiveTrial{}
 	byTaskArm := map[string]map[string][]LiveTrial{}
 	byVariantArm := map[string]map[string][]LiveTrial{}
+	byDomainArm := map[string]map[string][]LiveTrial{}
 	group := func(g map[string]map[string][]LiveTrial, key string, t LiveTrial) {
 		if g[key] == nil {
 			g[key] = map[string][]LiveTrial{}
@@ -562,6 +568,9 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 		if t.HeldOut {
 			group(byVariantArm, VariantHeldOut, t)
 		}
+		if t.Domain != "" {
+			group(byDomainArm, t.Domain, t)
+		}
 		if !t.Completed || t.pluginMismatch() || t.HarnessError != "" {
 			sum.Failed = append(sum.Failed, fmt.Sprintf("%s/%s/%d: completed=%t plugin_expected=%t "+
 				"plugin_loaded=%t harness_error=%q", t.TaskID, t.Arm, t.Trial, t.Completed,
@@ -574,6 +583,9 @@ func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 	sum.ByTask = summarizeGroups(byTaskArm, z)
 	if len(byVariantArm) > 0 {
 		sum.ByVariant = summarizeGroups(byVariantArm, z)
+	}
+	if len(byDomainArm) > 0 {
+		sum.ByDomain = summarizeGroups(byDomainArm, z)
 	}
 	for id, arms := range sum.ByTask {
 		if sign, ok := taskSign(arms); ok {
