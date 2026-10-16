@@ -142,14 +142,30 @@ type LivePlan struct {
 	// FixtureTreeSHA256 is TreeManifestSHA256 over FixtureTreeDirs, the top-level directories
 	// (beside the task file) the task set's fixtures and hidden tests live in: the identity of every
 	// byte a trial starts from or is graded against, which the task-set hash alone does not cover.
-	FixtureTreeSHA256  string              `json:"fixture_tree_sha256"`
-	FixtureTreeDirs    []string            `json:"fixture_tree_dirs"`
-	Model              string              `json:"model"`
-	PreregisteredModel string              `json:"preregistered_model"`
-	Arms               []string            `json:"arms"`
-	TrialsPerArm       int                 `json:"trials_per_arm"`
-	Install            string              `json:"install"`
-	Plugin             *LivePluginIdentity `json:"plugin,omitempty"`
+	FixtureTreeSHA256  string   `json:"fixture_tree_sha256"`
+	FixtureTreeDirs    []string `json:"fixture_tree_dirs"`
+	Model              string   `json:"model"`
+	PreregisteredModel string   `json:"preregistered_model"`
+	Arms               []string `json:"arms"`
+	// TrialsPerArm is the trials per task of every arm when all arms run the same number; 0 when
+	// they differ, and ArmTrials then holds each arm's.
+	TrialsPerArm int `json:"trials_per_arm"`
+	// ArmTrials is each arm's trials per task (W6 item 1); nil in a plan written before it existed.
+	ArmTrials map[string]int `json:"arm_trials_per_task,omitempty"`
+	// ArmStates is each arm's declared state, in Arms order: what every trial of it was set up with
+	// and checked against.
+	ArmStates []LiveArmState `json:"arm_states,omitempty"`
+	// OrderSeed seeds the shuffle of each block of rounds in Trials, so the order can be re-derived.
+	OrderSeed int64 `json:"order_seed,omitempty"`
+	// DaemonIdleExitSeconds is the idle exit every Qompack arm's daemon ran with.
+	DaemonIdleExitSeconds int    `json:"daemon_idle_exit_seconds,omitempty"`
+	Install               string `json:"install"`
+	// Plugin is the --bundle build (the classic shape, for classic and generic) and PluginMods the
+	// --bundle-mods build (for steer); both are built from one commit. ArmPlugins names which one
+	// each Qompack arm loads.
+	Plugin     *LivePluginIdentity            `json:"plugin,omitempty"`
+	PluginMods *LivePluginIdentity            `json:"plugin_mods,omitempty"`
+	ArmPlugins map[string]*LivePluginIdentity `json:"arm_plugins,omitempty"`
 	// KnownDefects is the operator's statement of which known defects Plugin still carries; nil
 	// when the run was planned without one (a stock-only run, or a plan written before it existed).
 	KnownDefects     *LiveDefectAttestation `json:"known_defects,omitempty"`

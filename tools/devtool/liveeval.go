@@ -334,7 +334,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 			p.Version, p.Commit, p.Dirty, identityFileName, p.BundleSHA256, p.BundleDir)
 	}
 	// What makes this the confirmatory run is mostly fixed now; say it before any session is spent.
-	departures := eval.LivePlanDepartures(plan, ts.Analysis.TrialsPerArm)
+	departures := eval.LivePlanDepartures(plan, ts.Analysis)
 	if len(departures) == 0 {
 		fmt.Fprintln(w, "live-eval: confirmatory preconditions at plan time: met. Still to be shown by the trials: "+
 			"every planned trial runs, no plugin but the arm's own loads on either arm, and a contingency alias "+

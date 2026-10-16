@@ -138,6 +138,9 @@ type LivePluginIdentity struct {
 	Dirty   bool   `json:"dirty"`
 	// BundleSHA256 is the SHA-256 of BUNDLE.json, which itself lists every file's hash.
 	BundleSHA256 string `json:"bundle_json_sha256"`
+	// Mods is that the bundle's file list carries the mod sources (a --bundle-mods build); BUNDLE.json
+	// has no flag of its own, so this is read from its listing.
+	Mods bool `json:"mods,omitempty"`
 	// HostVersion is the plugin version the host reported loading.
 	HostVersion string `json:"host_version,omitempty"`
 	// HostSource and HostPath are where the host said it loaded the plugin from: the source must be

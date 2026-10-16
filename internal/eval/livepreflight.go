@@ -18,11 +18,12 @@ import (
 // sections 2 and 3, amendments A1 and A7) and a set that was not superseded, the operator's
 // known-defect statement (section 9, amendment A5), the pre-registered model or its one contingency
 // alias (section 3, amendment A6), both arms (section 3), every task including the held-out ones and
-// the pre-registered trials per arm (sections 4 and 7), and a bundle built from a clean tree.
-// trialsPerArm is the task set's pre-registered trials per arm. An empty result is not a
+// the pre-registered trials per arm (sections 4 and 7), and bundles built from a clean tree.
+// a is the task set's analysis block, which pre-registers the trials per task of each arm. An empty
+// result is not a
 // confirmatory run yet: what only the trials can show — every planned trial ran, no foreign plugin
 // loaded on either arm, an alias resolved to one model — is judged from the run's summary.
-func LivePlanDepartures(p LivePlan, trialsPerArm int) []string {
+func LivePlanDepartures(p LivePlan, a LiveAnalysis) []string {
 	var out []string
 	pre, ok := LivePreregistrations[p.TaskSet]
 	if !ok {
@@ -51,15 +52,35 @@ func LivePlanDepartures(p LivePlan, trialsPerArm int) []string {
 	case len(tasks) != p.TaskSetTasks:
 		out = append(out, fmt.Sprintf("it planned %d of the task set's %d tasks", len(tasks), p.TaskSetTasks))
 	}
-	if trialsPerArm > 0 && p.TrialsPerArm != trialsPerArm {
-		out = append(out, fmt.Sprintf("it ran %d trials per arm per task, not the pre-registered %d",
-			p.TrialsPerArm, trialsPerArm))
-	}
+	out = append(out, trialDepartures(p, a)...)
 	switch {
-	case p.Plugin == nil:
+	case p.Plugin == nil && p.PluginMods == nil:
 		out = append(out, "its plan names no plugin bundle")
-	case p.Plugin.Dirty:
+	case p.Plugin != nil && p.Plugin.Dirty:
 		out = append(out, "its bundle was assembled from a worktree with uncommitted changes, not a frozen candidate")
+	}
+	if p.PluginMods != nil && p.PluginMods.Dirty {
+		out = append(out, "its --bundle-mods was assembled from a worktree with uncommitted changes, not a frozen candidate")
+	}
+	return out
+}
+
+// trialDepartures names every arm whose planned trials per task differ from a's. A plan that records
+// per-arm counts is compared arm by arm; an older plan has one count for every arm.
+func trialDepartures(p LivePlan, a LiveAnalysis) []string {
+	if p.ArmTrials == nil {
+		if a.TrialsPerArm > 0 && p.TrialsPerArm != a.TrialsPerArm {
+			return []string{fmt.Sprintf("it ran %d trials per arm per task, not the pre-registered %d",
+				p.TrialsPerArm, a.TrialsPerArm)}
+		}
+		return nil
+	}
+	var out []string
+	for _, arm := range p.Arms {
+		if got, want := p.ArmTrials[arm], a.TrialsFor(arm); got != want {
+			out = append(out, fmt.Sprintf("it ran %d trials per task on the %s arm, not the pre-registered %d",
+				got, arm, want))
+		}
 	}
 	return out
 }

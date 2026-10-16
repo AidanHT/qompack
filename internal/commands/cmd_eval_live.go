@@ -148,7 +148,7 @@ const liveFailedTreatment = "each is in every denominator of the decision (inten
 // own on either arm (sections 3 and 7). Failed trials are not among them: under intention to treat
 // they are failures the analysis counts, not a reason to set the run aside.
 func notConfirmatory(p eval.LivePlan, s eval.LiveSummary, r *LiveEvalReport) []string {
-	out := eval.LivePlanDepartures(p, s.Analysis.TrialsPerArm)
+	out := eval.LivePlanDepartures(p, s.Analysis)
 	out = append(out, modelResolutionDepartures(p, s)...)
 	if r.Trials.Skipped > 0 {
 		out = append(out, fmt.Sprintf("%d planned trial(s) did not run", r.Trials.Skipped))
