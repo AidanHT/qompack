@@ -1,6 +1,9 @@
 package eval_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -128,4 +131,88 @@ func TestLivePlanDepartures_PerArmTrials(t *testing.T) {
 	p = plan()
 	p.Plugin = nil
 	require.Empty(t, trialsText(p), "a steer-only plan has the mods bundle alone")
+}
+
+// stageAEntry registers a test-only four-arm pre-registration of the test task set for the length of
+// the test (task 1 review m-1): the Stage A entry shape — four arms with per-arm trials, two bundles,
+// claude-opus-5-5 with the contingency alias opus.
+func stageAEntry(t *testing.T) (eval.LiveTaskSet, eval.LivePlan) {
+	t.Helper()
+	ts, raw, err := eval.LoadLiveTaskSet(liveTaskFile(liveTasksV7Test))
+	require.NoError(t, err)
+	sum := sha256.Sum256(raw)
+	tree, err := eval.TreeManifestSHA256(filepath.Dir(liveTaskFile(liveTasksV7Test)), ts.FixtureTreeDirs()...)
+	require.NoError(t, err)
+	eval.LivePreregistrations[ts.ID] = eval.LivePreregistration{
+		Document: "test-only", TaskSetFile: "testdata/eval/live/" + liveTasksV7Test,
+		TaskSetSHA256: hex.EncodeToString(sum[:]), FixtureTreeSHA256: tree, Install: "plugin-dir",
+		Model: "claude-opus-5-5", ModelContingency: "opus", RequiredFixed: []string{"C1.12"},
+		Arms: eval.LiveArms, ArmTrialsPerTask: ts.Analysis.ArmTrialsPerTask,
+		Bundles: []string{eval.LiveBundleClassic, eval.LiveBundleMods},
+	}
+	t.Cleanup(func() { delete(eval.LivePreregistrations, ts.ID) })
+	p := eval.LivePlan{
+		TaskSet: ts.ID, TaskSetSHA256: hex.EncodeToString(sum[:]), TaskSetTasks: len(ts.Tasks),
+		FixtureTreeSHA256: tree, Model: "claude-opus-5-5", PreregisteredModel: ts.Analysis.Model,
+		Arms: eval.LiveArms, ArmTrials: map[string]int{}, Install: "plugin-dir",
+		Plugin:          &eval.LivePluginIdentity{Install: "plugin-dir", Version: "0.4.0", Commit: "c0ffee"},
+		PluginMods:      &eval.LivePluginIdentity{Install: "plugin-dir", Version: "0.4.0", Commit: "c0ffee", Mods: true},
+		KnownDefects:    &eval.LiveDefectAttestation{Open: []string{}},
+		HeldOutIncluded: true,
+	}
+	for arm, n := range ts.Analysis.ArmTrialsPerTask {
+		p.ArmTrials[arm] = n
+		for k := 1; k <= n; k++ {
+			p.Trials = append(p.Trials, eval.LivePlannedTrial{Task: ts.Tasks[0].ID, Arm: arm, Trial: k})
+		}
+	}
+	return ts, p
+}
+
+// TestLivePlanDepartures_StageAEntry: with a four-arm pre-registration entry, a plan of its whole
+// design departs in nothing (on the model and on its alias), and each Stage A departure is named on
+// its own: a missing arm, an arm's trials per task, a missing bundle, two bundles from two commits.
+func TestLivePlanDepartures_StageAEntry(t *testing.T) {
+	ts, p := stageAEntry(t)
+	require.Empty(t, eval.LivePlanDepartures(p, ts.Analysis))
+	p.Model = "opus"
+	require.Empty(t, eval.LivePlanDepartures(p, ts.Analysis), "the entry's contingency alias is the pre-registered model")
+
+	for name, c := range map[string]struct {
+		mutate func(*eval.LivePlan)
+		want   string
+	}{
+		"three arms": {func(p *eval.LivePlan) { p.Arms = []string{"stock", "classic", "steer"} },
+			"did not run every arm of the design (stock, classic, generic, steer; arms: stock, classic, steer, missing generic)"},
+		"steer trials":   {func(p *eval.LivePlan) { p.ArmTrials["steer"] = 3 }, "ran 3 trials per task on the steer arm, not the pre-registered 2"},
+		"no mods bundle": {func(p *eval.LivePlan) { p.PluginMods = nil }, "names no --bundle-mods"},
+		"no bundle":      {func(p *eval.LivePlan) { p.Plugin = nil }, "names no --bundle,"},
+		"two commits":    {func(p *eval.LivePlan) { p.PluginMods.Commit = "beef" }, "not built from one commit"},
+		"another model":  {func(p *eval.LivePlan) { p.Model = "sonnet" }, "not the pre-registered model claude-opus-5-5"},
+	} {
+		_, p := stageAEntry(t)
+		c.mutate(&p)
+		require.Contains(t, strings.Join(eval.LivePlanDepartures(p, ts.Analysis), "\n"), c.want, name)
+	}
+
+	// The per-arm n is the entry's: a task set whose analysis disagreed would be departing anyway (its
+	// hash), and the entry's counts are what the plan is held to.
+	_, p = stageAEntry(t)
+	a := ts.Analysis
+	a.ArmTrialsPerTask = map[string]int{"stock": 9, "classic": 9, "generic": 9, "steer": 9}
+	require.Empty(t, eval.LivePlanDepartures(p, a))
+}
+
+// TestLivePlanDepartures_FourArmSetWithoutEntry: a four-arm task set with no pre-registration is held
+// to the four Stage A arms, not the two-arm design's stock and qompack.
+func TestLivePlanDepartures_FourArmSetWithoutEntry(t *testing.T) {
+	ts, _, err := eval.LoadLiveTaskSet(liveTaskFile(liveTasksV7Test))
+	require.NoError(t, err)
+	p := eval.LivePlan{TaskSet: ts.ID, Arms: eval.LiveArms}
+	got := strings.Join(eval.LivePlanDepartures(p, ts.Analysis), "\n")
+	require.Contains(t, got, "has no pre-registration")
+	require.NotContains(t, got, "both arms")
+	require.NotContains(t, got, "every arm of the design")
+	p.Arms = []string{"stock", "classic"}
+	require.Contains(t, strings.Join(eval.LivePlanDepartures(p, ts.Analysis), "\n"), "missing generic, steer")
 }
