@@ -57,8 +57,10 @@ func modUnservedDetail(f ipc.SendFailure) string {
 	return "the exchange with the daemon failed (" + string(f) + ")"
 }
 
-// sendModRequest sends req to root's daemon and waits at most replyDeadline for its answer, after a
-// dial of at most modConnectDeadline(st). st is the client state the verb works under (for a verb
+// sendModRequest sends req to root's daemon and waits for its answer until replyDeadline has passed
+// since the call, the dial included: the dial takes at most modConnectDeadline(st), and whatever it
+// takes comes out of the wait (ipc.ClientOptions.ReplyBy), so a caller whose own deadline is
+// absolute is answered inside it. st is the client state the verb works under (for a verb
 // with a loaded configuration, daemonClientState(root, cfg)).
 //
 // When the daemon answered, whatever it answered, the status is modwire.Served() and resp is its
@@ -75,7 +77,8 @@ func modUnservedDetail(f ipc.SendFailure) string {
 // verb sends a Reply request, so it never meets one.
 //
 // In runtime mode off the client dials nothing and Send answers OK with Mode off, which arrives here
-// as an answer; the verb reads resp.Mode.
+// as an answer with no Data. Brief has refused a project in mode off before it gets here, so it
+// meets one only if the mode changed in between, and reads it as an answer that breaks the contract.
 //
 // A mod request is never spooled: its client gets nopSpool, because an answer replayed later has no
 // caller to reach. The client's own lazy spawn is off, so only a cold exchange spawns.
@@ -95,6 +98,7 @@ func sendModRequest(ctx context.Context, env Env, root string, st ipc.State, req
 	c := ipc.NewClientWithOptions(addr, nopSpool{}, logging.Nop(), nil, ipc.ClientOptions{
 		ProjectRoot: root, State: st, Clock: clk,
 		ConnectDeadline: modConnectDeadline(st),
+		ReplyBy:         time.Now().Add(replyDeadline),
 		OnFailure:       func(f ipc.SendFailure) { failure = f },
 	})
 	defer func() { _ = c.Close() }()

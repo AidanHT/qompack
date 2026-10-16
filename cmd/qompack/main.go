@@ -17,15 +17,20 @@ import (
 )
 
 func main() {
+	// First, so a `qompack mod` verb can count its deadline from the spawn (cli.Env.Started).
+	clk := core.SystemClock()
+	started := clk.Now()
+
 	// Best-effort: an error here means "cannot self-locate", which cli.Env.Self's own contract
 	// already treats as "disable lazy spawn" rather than a fatal condition.
 	self, _ := os.Executable()
 
 	env := cli.Env{
-		Getenv: os.Getenv,
-		Stdin:  os.Stdin,
-		Clock:  core.SystemClock(),
-		Self:   self,
+		Getenv:  os.Getenv,
+		Stdin:   os.Stdin,
+		Clock:   clk,
+		Self:    self,
+		Started: started,
 	}
 	os.Exit(cli.Dispatch(context.Background(), cli.All(), os.Args, env, os.Stdout, os.Stderr))
 }

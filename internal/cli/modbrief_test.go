@@ -296,6 +296,7 @@ func TestModBrief_TheDaemonsTimeoutIsForwardedAndRecorded(t *testing.T) {
 
 	code, stdout, stderr := runMod(t, p.briefEnv(briefRequestFor(t, p.root, "2.1.300", "auto"), 0), briefArgs()...)
 	require.Equal(t, ExitOK, code, stderr)
+	timeout.FactIDs = []string{} // the wire always carries an array
 	require.Equal(t, timeout, decodeBriefOut(t, stdout))
 	recs := p.briefRecords(t)
 	require.Len(t, recs, 1)
