@@ -107,6 +107,18 @@ func renderCommandDocFrom(specs []commands.Spec, installed map[string]pluginmani
 	b.WriteString("artifacts, and `/qompack:recall` with no query, look like that. Run the same\n")
 	b.WriteString("`qompack` command in a terminal to see its full message and exit code.\n\n")
 
+	var userOnly []string
+	for _, s := range specs {
+		if installed[s.Name].UserOnly {
+			userOnly = append(userOnly, "`/qompack:"+s.Name+"`")
+		}
+	}
+	if len(userOnly) > 0 {
+		b.WriteString("**Commands only you run.** " + englishList(userOnly) + " carry\n")
+		b.WriteString("`disable-model-invocation: true`, so Claude Code leaves them out of the model's\n")
+		b.WriteString("command list and Claude does not see or run them on its own.\n\n")
+	}
+
 	b.WriteString("| Command | Subcommand | Arguments | Description |\n")
 	b.WriteString("|---|---|---|---|\n")
 	for _, s := range specs {
@@ -146,4 +158,15 @@ func codeOrDash(s string) string {
 		return "—"
 	}
 	return "`" + s + "`"
+}
+
+// englishList joins items as "a, b and c".
+func englishList(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
