@@ -50,6 +50,10 @@ func LivePlanDepartures(p LivePlan, a LiveAnalysis) []string {
 	case len(tasks) != p.TaskSetTasks:
 		out = append(out, fmt.Sprintf("it planned %d of the task set's %d tasks", len(tasks), p.TaskSetTasks))
 	}
+	if e := a.Efficiency; e != nil && p.StepTimeoutMS != 0 && p.StepTimeoutMS != e.StepTimeoutMS {
+		out = append(out, fmt.Sprintf("it ran with a step timeout of %d ms, not the pre-registered %d ms at which active "+
+			"time counts a step with no result (amendment 4)", p.StepTimeoutMS, e.StepTimeoutMS))
+	}
 	if pre.ArmTrialsPerTask != nil {
 		a.TrialsPerArm, a.ArmTrialsPerTask = 0, pre.ArmTrialsPerTask
 	}

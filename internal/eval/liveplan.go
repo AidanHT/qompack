@@ -175,6 +175,10 @@ type LivePlan struct {
 	ArmStates []LiveArmState `json:"arm_states,omitempty"`
 	// OrderSeed seeds the shuffle of each block of rounds in Trials, so the order can be re-derived.
 	OrderSeed int64 `json:"order_seed,omitempty"`
+	// StepTimeoutMS is the --step-timeout the run's sessions use: the cap active time T counts a reached
+	// step with no result at, which a task set's efficiency block pins (amendment 4). 0 in a plan
+	// written before it was recorded.
+	StepTimeoutMS int64 `json:"step_timeout_ms,omitempty"`
 	// DaemonIdleExitSeconds is the idle exit every Qompack arm's daemon ran with.
 	DaemonIdleExitSeconds int    `json:"daemon_idle_exit_seconds,omitempty"`
 	Install               string `json:"install"`

@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/qompack/qompack/internal/eval"
 )
@@ -107,6 +108,17 @@ func verifyLiveResume(ctx context.Context, o *liveOptions, env *liveEnv, plan ev
 			rates.Date, plan.RateTableDate)
 	}
 
+	if plan.StepTimeoutMS > 0 {
+		// The step timeout is where active time caps a step with no result; a task set's efficiency
+		// block pins it, so a resumed session keeps the plan's (amendment 4).
+		switch got := o.stepTimeout.Milliseconds(); {
+		case !o.stepTimeoutGiven:
+			o.stepTimeout = time.Duration(plan.StepTimeoutMS) * time.Millisecond
+		case ts.Analysis.Efficiency != nil && got != plan.StepTimeoutMS:
+			return ts, nil, none, fmt.Errorf("--step-timeout %s is not the plan's %d ms, which the task set's efficiency "+
+				"block pins", o.stepTimeout, plan.StepTimeoutMS)
+		}
+	}
 	o.arms, o.model, o.install, o.out = plan.Arms, plan.Model, plan.Install, o.resume
 	o.idleExit, o.includeHeldOut, o.orderSeed = plan.DaemonIdleExitSeconds, plan.HeldOutIncluded, plan.OrderSeed
 	if len(plan.ArmStates) != len(plan.Arms) {

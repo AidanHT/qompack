@@ -145,6 +145,9 @@ type liveOptions struct {
 	// overageChecked is the operator's word that an earlier overage stop of this run was looked into
 	// (review M1).
 	overageChecked bool
+	// stepTimeoutGiven says --step-timeout was given; when it was not, a task set's efficiency block
+	// pins the step timeout (amendment 4).
+	stepTimeoutGiven bool
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -228,6 +231,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		switch f.Name {
 		case "five-hour-gate", "seven-day-ceiling", "night-window":
 			o.pacingGiven[f.Name] = true
+		case "step-timeout":
+			o.stepTimeoutGiven = true
 		}
 	})
 	if *night != "" {
@@ -361,6 +366,9 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 	if o.model == "" {
 		o.model = ts.Analysis.Model
 	}
+	if e := ts.Analysis.Efficiency; e != nil && !o.stepTimeoutGiven {
+		o.stepTimeout = time.Duration(e.StepTimeoutMS) * time.Millisecond
+	}
 	counts, err := liveArmCounts(ts, o)
 	if err != nil {
 		return err
@@ -399,6 +407,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		HeldOutIncluded: o.includeHeldOut, Host: runtime.GOOS + "/" + runtime.GOARCH,
 		Agent: "agent-executed on the real installed host (owner decision D3); not human UAT",
 	}
+	plan.StepTimeoutMS = o.stepTimeout.Milliseconds()
 	if err := planLiveBundles(&o, &plan, stateList); err != nil {
 		return err
 	}
