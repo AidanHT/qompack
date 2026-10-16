@@ -227,6 +227,58 @@ func TestDoctorContextCost_SectionKeepsTheExitCode(t *testing.T) {
 	require.Equal(t, "unset", doctorFindRow(t, doc, "context", "context.env.DISABLE_COMPACT")["observed"])
 }
 
+// TestDoctorContextCost_ReportsSettingsEnvRaw: a settings file's `env` sets the same variables
+// (GT/settings-reference.md:2878-2899), so each layer reports env.<NAME> for the six, as written,
+// and the process-environment rows are not resolved against them.
+func TestDoctorContextCost_ReportsSettingsEnvRaw(t *testing.T) {
+	e := newCCEnv(t)
+	ccWrite(t, filepath.Join(e.managed, "managed-settings.json"), `{"env":{"DISABLE_COMPACT":"1"}}`)
+	ccWrite(t, filepath.Join(e.home, ".claude", "settings.json"),
+		`{"autoCompactWindow":400000,"env":{"OTHER":"x","DISABLE_AUTO_COMPACT":"1",`+
+			`"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"500000"}}`)
+	ccWrite(t, filepath.Join(e.root, ".claude", "settings.local.json"),
+		`{"env":{"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":50}}`)
+	ccWrite(t, filepath.Join(e.root, ".claude", "settings.json"), `{"env":{"OTHER":"x"}}`)
+
+	rows := e.rows()
+	ccRequireVocabulary(t, rows)
+	for id, want := range map[string]string{
+		"context.layer.managed": `env.DISABLE_COMPACT="1"`,
+		"context.layer.user": `autoCompactWindow=400000; env.CLAUDE_CODE_AUTO_COMPACT_WINDOW="500000"; ` +
+			`env.DISABLE_AUTO_COMPACT="1"`,
+		"context.layer.local":   "env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50",
+		"context.layer.project": "no context-size keys set",
+	} {
+		r := ccRow(t, rows, id)
+		require.Equal(t, doctorOK, r.Status, "%+v", r)
+		require.Equal(t, want, r.Observed, "each env entry is reported as written, in the section's order")
+	}
+	for _, name := range []string{"CLAUDE_CODE_AUTO_COMPACT_WINDOW", "DISABLE_AUTO_COMPACT", "DISABLE_COMPACT"} {
+		r := ccRow(t, rows, "context.env."+name)
+		require.Equal(t, "unset", r.Observed, "the process row is not resolved against a settings env")
+		require.Contains(t, r.Detail, "env", "the process row points at the settings env")
+	}
+}
+
+func TestDoctorContextCost_MalformedEnvReadsUnknown(t *testing.T) {
+	for _, env := range []string{`"DISABLE_COMPACT=1"`, `["DISABLE_COMPACT"]`, `null`, `1`} {
+		t.Run(env, func(t *testing.T) {
+			e := newCCEnv(t)
+			ccWrite(t, filepath.Join(e.home, ".claude", "settings.json"),
+				`{"autoCompactWindow":400000,"env":`+env+`}`)
+			ccWrite(t, filepath.Join(e.root, ".claude", "settings.json"), `{"env":{"DISABLE_COMPACT":"1"}}`)
+
+			rows := e.rows()
+			ccRequireVocabulary(t, rows)
+			user := ccRow(t, rows, "context.layer.user")
+			require.Equal(t, doctorUnknown, user.Status, "an env that is not an object cannot be read as documented")
+			require.Equal(t, "env is not an object", user.Observed)
+			require.Equal(t, `env.DISABLE_COMPACT="1"`, ccRow(t, rows, "context.layer.project").Observed,
+				"one broken layer does not hide the others")
+		})
+	}
+}
+
 func TestDoctorContextCost_UnreadableSettingsFileReadsUnknown(t *testing.T) {
 	e := newCCEnv(t)
 	require.NoError(t, os.MkdirAll(paths.Long(filepath.Join(e.home, ".claude", "settings.json")), 0o700))
