@@ -81,8 +81,10 @@ func modBrief(ctx context.Context, env Env, stdin io.Reader, errw io.Writer) any
 //
 // Timing (modwire's three layers): the reply wait is modwire.TimeoutMs less the time since the
 // process started less modwire.RecordMarginMs, so the record and the answer are written before the
-// mod gives up on this process; the wait counts the dial too (sendModRequest). The daemon is sent a
-// budget of the reply wait less modwire.DaemonReplyMarginMs, which it counts from receipt. A budget
+// mod gives up on this process. The instant it ends is taken where the wait is computed, so the
+// steps before the send and the dial, which it also bounds, come out of it (sendModRequest). The
+// daemon is sent a budget of the reply wait less modwire.DaemonReplyMarginMs, which it counts from
+// receipt and never past this process's start plus its own layer (the request's TS). A budget
 // that is not positive is a timeout, and the daemon is not asked.
 //
 // The daemon's answer is passed on unchanged when it is a valid brief within the cap (the configured
