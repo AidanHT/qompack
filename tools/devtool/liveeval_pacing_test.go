@@ -294,3 +294,22 @@ func TestRenderLiveSummary_ShowsSubscriptionUseAndLimited(t *testing.T) {
 		require.Contains(t, md, want)
 	}
 }
+
+// TestRunLiveEval_APanicLeavesNoScoredRecord: a panic inside a trial unwinds through its deferred
+// record write without writing trial.json, so the slot stays open for --resume instead of holding an
+// ungraded failure (review C1).
+func TestRunLiveEval_APanicLeavesNoScoredRecord(t *testing.T) {
+	env, _, home := pacedEnv(t)
+	env.run = scriptedPilotHost(t, home)
+	env.stopDaemon = func(string, string) (string, error) { panic("boom") }
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic"}, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1800, trials: 1, defectsAttested: true,
+	}
+	func() {
+		defer func() { require.Equal(t, "boom", recover()) }()
+		var log bytes.Buffer
+		_ = runLiveEval(context.Background(), o, env, &log)
+	}()
+	require.NoFileExists(t, filepath.Join(slotDir(o.out, "classic", 1), "trial.json"))
+}

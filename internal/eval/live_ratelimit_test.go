@@ -188,3 +188,23 @@ func TestLiveRateUse(t *testing.T) {
 	require.Empty(t, eval.LiveRateUse(before, parseLines(t, rlNoUtil).RateLimits), "no utilization, no delta")
 	require.Empty(t, eval.LiveRateUse(before, nil))
 }
+
+// TestLiveRateUse_NeverPanics: schema-valid events that leave a window with no utilization at one
+// end — a new period announced without one, or a top-level resetsAt that disagrees with the window's
+// own — give an entry with no delta and basis unknown, never a nil dereference (review C1).
+func TestLiveRateUse_NeverPanics(t *testing.T) {
+	var before eval.LiveRateSnapshot
+	before.Apply(parseLines(t, rlSmoke).RateLimits[0])
+	newPeriod := `{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1790134800,"rateLimitType":"five_hour"}}`
+	use := eval.LiveRateUse(before, parseLines(t, rlLater, newPeriod).RateLimits)
+	require.Nil(t, use["five_hour"].Delta)
+	require.Equal(t, eval.RateBasisUnknown, use["five_hour"].Basis)
+	require.InDelta(t, 0.02, *use["seven_day"].Delta, 1e-9, "the other window still has its delta")
+
+	disagree := `{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1790134800,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.3,"resetsAt":1790116800}}}}`
+	use = eval.LiveRateUse(eval.LiveRateSnapshot{}, parseLines(t, disagree).RateLimits)
+	require.Nil(t, use["five_hour"].Delta)
+	require.Equal(t, eval.RateBasisUnknown, use["five_hour"].Basis)
+	use = eval.LiveRateUse(before, parseLines(t, disagree).RateLimits)
+	require.Nil(t, use["five_hour"].Delta)
+}
