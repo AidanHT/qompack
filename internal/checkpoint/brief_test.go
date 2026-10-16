@@ -8,9 +8,11 @@ package checkpoint_test
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -211,6 +213,10 @@ func (s *sealingSegments) Unencoded(ctx context.Context, sess core.SessionID) ([
 // TestBriefSnapshot_ConcurrentWithAnIdleAdvanceEncodesEachSegmentOnce: the snapshot's catch-up takes
 // no lock of its own (Q22): Advance is idempotent per sequence number, so a brief racing the idle
 // frontier's Advance over the same closed segments encodes each of them exactly once.
+//
+// The overlap is forced: the brief lists the two segments as unencoded, the advancer is held until
+// that listing is made, and the brief hands its listing to its own Advance only once the advancer is
+// inside Advance. So both offer the same two segments to the one draft.
 func TestBriefSnapshot_ConcurrentWithAnIdleAdvanceEncodesEachSegmentOnce(t *testing.T) {
 	f := newFx(t)
 	f.prompt(0, "Fix the intermittent 500s.", false)
@@ -218,8 +224,15 @@ func TestBriefSnapshot_ConcurrentWithAnIdleAdvanceEncodesEachSegmentOnce(t *test
 	f.tool("toolu_br_0002", 5, "Read", "src/db.ts", "export function connect() {}", false)
 	f.closedSeg(1, 0, 3)
 	f.closedSeg(2, 4, 6)
+	race := &racingSegments{SegmentLog: f.src.Segments, listed: make(chan struct{}), inAdvance: make(chan struct{})}
+	f.src.Segments = race
 	f.publishSources()
-	adv := checkpoint.NewFrontierAdvancer(f.w, func() (checkpoint.SourceSet, error) { return f.src, nil })
+	adv := checkpoint.NewFrontierAdvancer(f.w, func() (checkpoint.SourceSet, error) {
+		if !waitFor(race.listed) {
+			return checkpoint.SourceSet{}, errors.New("the brief never listed its catch-up")
+		}
+		return f.src, nil
+	})
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
@@ -239,6 +252,8 @@ func TestBriefSnapshot_ConcurrentWithAnIdleAdvanceEncodesEachSegmentOnce(t *test
 	for err := range errs {
 		require.NoError(t, err)
 	}
+	require.Equal(t, []core.SegmentID{1, 2}, race.offered, "the brief offered both segments the advancer was encoding")
+	require.True(t, race.overlapped, "the brief's listing was handed over while the advancer was inside Advance")
 
 	d := f.w.DraftFor(f.sess)
 	require.NotNil(t, d)
@@ -253,6 +268,135 @@ func TestBriefSnapshot_ConcurrentWithAnIdleAdvanceEncodesEachSegmentOnce(t *test
 		require.NoError(t, err)
 		require.Equal(t, d.Seq(), seg.CheckpointSeq, "segment %d is held by the live draft's sequence", id)
 	}
+}
+
+// racingSegments forces a brief's catch-up and an idle Advance to overlap: the brief's listing
+// (Unencoded) closes listed and then waits for inAdvance, which the first Get closes. Only the
+// advancer calls Get while the brief waits, because the brief's own Advance starts after its listing
+// returns.
+type racingSegments struct {
+	store.SegmentLog
+	listed, inAdvance chan struct{}
+	listOnce, getOnce sync.Once
+	offered           []core.SegmentID
+	overlapped        bool
+}
+
+func (s *racingSegments) Unencoded(ctx context.Context, sess core.SessionID) ([]store.Segment, error) {
+	segs, err := s.SegmentLog.Unencoded(ctx, sess)
+	first := false
+	s.listOnce.Do(func() {
+		first = true
+		for _, seg := range segs {
+			s.offered = append(s.offered, seg.ID)
+		}
+		close(s.listed)
+	})
+	if first {
+		s.overlapped = waitFor(s.inAdvance)
+	}
+	return segs, err
+}
+
+func (s *racingSegments) Get(ctx context.Context, id core.SegmentID) (store.Segment, error) {
+	s.getOnce.Do(func() { close(s.inAdvance) })
+	return s.SegmentLog.Get(ctx, id)
+}
+
+// waitFor reports whether ch closes within a bound no co-loaded host exhausts; false fails the row
+// that asked rather than hanging it.
+func waitFor(ch <-chan struct{}) bool {
+	t := time.NewTimer(30 * time.Second)
+	defer t.Stop()
+	select {
+	case <-ch:
+		return true
+	case <-t.C:
+		return false
+	}
+}
+
+// TestBriefSnapshot_BriefsTheSealedDraftWhileItsSealIsStillWriting is review finding I2: a seal
+// closes the draft first and opens its successor only after its writes, so a brief whose catch-up
+// meets ErrDraftSealed inside that window finds the same sealed draft on its retry. It briefs from
+// that draft's items, whose refreshes the seal already ran, instead of failing.
+func TestBriefSnapshot_BriefsTheSealedDraftWhileItsSealIsStillWriting(t *testing.T) {
+	f := newFx(t)
+	f.pins.invs = []pins.Invariant{{ID: "inv_0123456789ab", Text: "Never log access tokens.", Source: "user"}}
+	f.prompt(0, "Fix the intermittent 500s.", false)
+	f.publishSources()
+	first := f.begin()
+	f.closedSeg(1, 0, 3) // closed after Begin, so the brief's catch-up offers it to the sealed draft
+
+	writing, release := make(chan struct{}), make(chan struct{})
+	var entered, released sync.Once
+	letGo := func() { released.Do(func() { close(release) }) }
+	t.Cleanup(letGo)
+	checkpoint.SetBarriersForTest(f.w, paths.Barriers{SyncFile: func(file *os.File) error {
+		entered.Do(func() { close(writing) })
+		<-release
+		return file.Sync()
+	}})
+	sealed := make(chan error, 1)
+	go func() {
+		_, err := f.w.Finalize(context.WithoutCancel(f.ctx()), first, 0)
+		sealed <- err
+	}()
+	require.True(t, waitFor(writing), "fixture sanity: the seal is held inside its artifact write")
+	require.Same(t, first, f.w.DraftFor(f.sess), "fixture sanity: the sealed draft is still the live one")
+
+	b, err := f.w.BriefSnapshot(f.ctx(), f.sess)
+	letGo()
+	require.NoError(t, <-sealed)
+
+	require.NoError(t, err, "the brief is served from the sealed draft, not failed")
+	require.True(t, b.Retried)
+	require.True(t, b.Sealed, "it says it briefed a draft whose seal was in flight")
+	_, ok := item(b, "inv_0123456789ab")
+	require.True(t, ok, "the pins are briefed")
+	orig, ok := item(b, checkpoint.BriefIDIntentOriginal)
+	require.True(t, ok, "the sealed draft's intent is briefed")
+	require.Equal(t, "Fix the intermittent 500s.", orig.Text)
+}
+
+// TestBriefSnapshot_ADeadlineThatPassesAfterTheCatchUpSkipsTheRefreshes: once the context ends the
+// snapshot starts no further step. The catch-up has run; the refreshes and the pin re-read do not,
+// and the items are the draft's own.
+func TestBriefSnapshot_ADeadlineThatPassesAfterTheCatchUpSkipsTheRefreshes(t *testing.T) {
+	f := newFx(t)
+	f.prompt(0, "Fix the intermittent 500s.", false)
+	ctx, cancel := context.WithCancel(f.ctx())
+	defer cancel()
+	cut := &cutAfterCatchUp{SegmentLog: f.src.Segments}
+	f.src.Segments = cut
+	f.begin()
+	f.closedSeg(1, 0, 3)
+	f.pins.invs = []pins.Invariant{{ID: "inv_ba5eba11c0de", Text: "Keep the public API stable.", Source: "user"}}
+	cut.cancel = cancel // armed now: the frontier read Begin made is behind us
+
+	b, err := f.w.BriefSnapshot(ctx, f.sess)
+
+	require.NoError(t, err, "the draft was in hand; its items are answered")
+	require.False(t, b.PinsReread, "the pin re-read did not start")
+	_, ok := item(b, "inv_ba5eba11c0de")
+	require.False(t, ok, "a pin made after Begin is not seen without the re-read")
+	w, _ := f.persisted()
+	require.Equal(t, []core.SegmentID{1}, w.Encoded, "the catch-up ran before the deadline")
+}
+
+// cutAfterCatchUp ends the brief's context at the frontier read that closes the catch-up's Advance,
+// once cancel is set.
+type cutAfterCatchUp struct {
+	store.SegmentLog
+	cancel context.CancelFunc
+}
+
+func (s *cutAfterCatchUp) Frontier(ctx context.Context, sess core.SessionID) (core.TurnIndex, error) {
+	fr, err := s.SegmentLog.Frontier(ctx, sess)
+	if s.cancel != nil {
+		s.cancel()
+	}
+	return fr, err
 }
 
 // TestBriefSnapshot_StartsNoWorkOnceItsDeadlineHasPassed: an abandoned brief must not compete with
