@@ -55,6 +55,16 @@ func TestLiveTaskSet_V7ShapeCarriesPerArmTrialsAndTextG(t *testing.T) {
 	require.Zero(t, ts.Analysis.TrialsFor("nope"))
 	require.Contains(t, ts.Analysis.GenericCompactInstructions, "When compacting, reproduce verbatim")
 	require.Equal(t, "harness-validation", ts.Tasks[0].Domain, "every task of a four-arm set names its domain (W6 item 6)")
+	require.Equal(t, &eval.LiveEfficiency{
+		Margin: 0.10, Metrics: []string{"cost", "active_time"},
+		Guards: []eval.LiveEfficiencyGuard{
+			{Treated: "steer", Comparator: "classic", Gated: true}, {Treated: "classic", Comparator: "stock", Gated: false},
+		},
+		H3ShipCondition: false, StepTimeoutMS: 600000, PilotRedesignRatio: 1.25,
+	}, ts.Analysis.Efficiency, "amendment 4's efficiency block, in the hashed analysis block")
+	require.InDelta(t, 0.25, ts.Analysis.DeltaH1, 1e-12)
+	require.InDelta(t, 0.15, ts.Analysis.DeltaH2, 1e-12)
+	require.InDelta(t, 0.10, ts.Analysis.ICCInt, 1e-12)
 
 	v2, _, err := eval.LoadLiveTaskSet(liveTaskFile(liveTasksV2))
 	require.NoError(t, err)
@@ -91,14 +101,30 @@ func TestLiveTaskSet_V7ShapeValidation(t *testing.T) {
 		mutate func(m map[string]any)
 		want   string
 	}{
-		"legacy arm":   {func(m map[string]any) { counts(m)["qompack"] = 1 }, `arm_trials_per_task names "qompack"`},
-		"zero count":   {func(m map[string]any) { counts(m)["steer"] = 0 }, "must be positive"},
-		"no count":     {func(m map[string]any) { delete(analysis(m), "arm_trials_per_task") }, "trials_per_arm or arm_trials_per_task"},
-		"both counts":  {func(m map[string]any) { analysis(m)["trials_per_arm"] = 2 }, "not both"},
-		"no text G":    {func(m map[string]any) { delete(analysis(m), "generic_compact_instructions") }, "generic_compact_instructions"},
-		"blank text G": {func(m map[string]any) { analysis(m)["generic_compact_instructions"] = "  " }, "generic_compact_instructions"},
-		"no domain":    {func(m map[string]any) { delete(task(m), "domain") }, "declares no domain"},
-		"bad domain":   {func(m map[string]any) { task(m)["domain"] = "two words" }, "domain"},
+		"legacy arm":          {func(m map[string]any) { counts(m)["qompack"] = 1 }, `arm_trials_per_task names "qompack"`},
+		"zero count":          {func(m map[string]any) { counts(m)["steer"] = 0 }, "must be positive"},
+		"no count":            {func(m map[string]any) { delete(analysis(m), "arm_trials_per_task") }, "trials_per_arm or arm_trials_per_task"},
+		"both counts":         {func(m map[string]any) { analysis(m)["trials_per_arm"] = 2 }, "not both"},
+		"no text G":           {func(m map[string]any) { delete(analysis(m), "generic_compact_instructions") }, "generic_compact_instructions"},
+		"blank text G":        {func(m map[string]any) { analysis(m)["generic_compact_instructions"] = "  " }, "generic_compact_instructions"},
+		"no efficiency block": {func(m map[string]any) { delete(analysis(m), "efficiency") }, "pre-registers analysis.efficiency"},
+		"zero margin":         {func(m map[string]any) { obj(analysis(m)["efficiency"])["margin"] = 0 }, "efficiency.margin"},
+		"unknown metric": {func(m map[string]any) {
+			obj(analysis(m)["efficiency"])["metrics"] = []any{"cost", "tokens"}
+		}, `"tokens" is not one of`},
+		"metric twice": {func(m map[string]any) {
+			obj(analysis(m)["efficiency"])["metrics"] = []any{"cost", "cost"}
+		}, "named twice"},
+		"no guard": {func(m map[string]any) { obj(analysis(m)["efficiency"])["guards"] = []any{} }, "names no guard"},
+		"guard on one arm": {func(m map[string]any) {
+			obj(analysis(m)["efficiency"])["guards"] = []any{map[string]any{"treated": "steer", "comparator": "steer", "gated": true}}
+		}, "not a pair of two Stage A arms"},
+		"no step timeout": {func(m map[string]any) { delete(obj(analysis(m)["efficiency"]), "step_timeout_ms") }, "step_timeout_ms"},
+		"redesign ratio":  {func(m map[string]any) { obj(analysis(m)["efficiency"])["pilot_redesign_ratio"] = 1 }, "pilot_redesign_ratio"},
+		"delta above 1":   {func(m map[string]any) { analysis(m)["delta_h1"] = 1.2 }, "delta_h1"},
+		"negative icc":    {func(m map[string]any) { analysis(m)["icc_int"] = -0.1 }, "icc_int"},
+		"no domain":       {func(m map[string]any) { delete(task(m), "domain") }, "declares no domain"},
+		"bad domain":      {func(m map[string]any) { task(m)["domain"] = "two words" }, "domain"},
 		"no recovery check": {func(m map[string]any) {
 			var kept []any
 			for _, c := range arr(task(m)["checks"]) {
