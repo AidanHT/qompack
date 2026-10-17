@@ -101,8 +101,8 @@ const LiveSizingMinDF = 10
 // livePlanningSigmaW is the efficiency design's planning band for σ_w (DESIGN §4.9, pessimistic, from
 // R5): cost 0.25 to 0.40, active time 0.35 to 0.55.
 var livePlanningSigmaW = map[string][2]float64{
-	LiveMetricCost:       {0.25, 0.40},
-	LiveMetricActiveTime: {0.35, 0.55},
+	LiveMetricCost:       {0.25, 0.40}, //nomagic:allow DESIGN §4.9's planning σ_w, not a config default
+	LiveMetricActiveTime: {0.35, 0.55}, //nomagic:allow DESIGN §4.9's planning σ_w, not a config default
 }
 
 // LivePowerRow is the power at one σ_w: SE ≈ √(2σ_w²/(K·m) + τ²/K) on the log ratio; HarmAt125 is
