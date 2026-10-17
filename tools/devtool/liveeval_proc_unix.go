@@ -59,7 +59,9 @@ func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 		pin.mu.Unlock()
 		return pin.walkErr
 	}
-	if leaderExited {
+	// A leader already exiting on its own when the kill landed is an exit too, not a cancellation
+	// (R56 refinement).
+	if leaderExited || liveLeaderExitedOnItsOwn(cmd.Process.Pid) {
 		return os.ErrProcessDone
 	}
 	return nil
