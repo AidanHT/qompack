@@ -24,7 +24,10 @@ func renderLiveStageA(b *strings.Builder, s eval.LiveSummary) {
 			"across arms. Newcombe intervals are reported beside, never decided.\n\n", heading, 100*st.Confidence, st.B,
 			st.Tasks, st.Seed)
 		fmt.Fprintf(b, "**%s:** %s.\n\n", outcome, st.Outcome)
-		renderLiveTests(b, st.Tests, true)
+		if len(st.Tests) > 0 {
+			// A record that could not be decided has no tests; its outcome says why (review R2-N1).
+			renderLiveTests(b, st.Tests, true)
+		}
 		renderLiveSensitivities(b, st.Tests)
 		for _, n := range st.Notes {
 			fmt.Fprintf(b, "\n- %s\n", n)
@@ -104,26 +107,13 @@ func renderLiveEfficiency(b *strings.Builder, s eval.LiveSummary) {
 			continue
 		}
 		// A missing duration_ms counts at the cap in a decision's treated arm, so a harm verdict it causes has
-		// its cause in view (review S-R1-N3); the estimate ratio is eval's, over trials with both values
-		// (review H-NEW-1).
+		// its cause in view (review S-R1-N3); the estimate ratio is eval's, over trials with both values, and
+		// its text eval's too (reviews H-NEW-1, R2-N3).
 		fmt.Fprintf(b, "| %s | %d | %d / %d / %d | %.4f | %.1f | %.1f | %.1f | %d | %d | %d | %.0f / %.0f | %.0f | %s |\n", arm,
 			e.Trials, e.CostComplete, e.CostPartial, e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000,
 			e.MeanLocalMS/1000, e.TimedOutSteps, e.DurationMissing, e.Compactions, e.CompactionMS.P50, e.CompactionMS.P95,
-			e.PostTokens.P50, liveEstimateRatioText(e))
+			e.PostTokens.P50, eval.EstimateRatioText(s.Arms[arm]))
 	}
-}
-
-// liveEstimateRatioText renders eval's estimate-over-host ratio with its trial count and lower-bound
-// mark, or says no estimate was recorded.
-func liveEstimateRatioText(e *eval.LiveArmEfficiency) string {
-	if e.EstimateRatioN == 0 {
-		return "n/a (no estimate recorded)"
-	}
-	bound := ""
-	if e.EstimateLowerBound {
-		bound = ", a lower bound"
-	}
-	return fmt.Sprintf("%.3f over %d trial(s)%s", e.EstimateRatio, e.EstimateRatioN, bound)
 }
 
 // renderLiveBriefs writes each arm's brief outcomes (W6 item 5): compactions by class, the unserved

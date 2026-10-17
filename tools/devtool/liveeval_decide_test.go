@@ -347,7 +347,9 @@ func TestRunLiveEval_TheStepTimeoutIsPinned(t *testing.T) {
 // refused with the plan's advice, and --resume cannot take it.
 func TestRunLiveEval_SizeFromAPilotSummary(t *testing.T) {
 	pilot := eval.LiveSummary{RunID: "pilot-1", Arms: map[string]eval.ArmSummary{}}
-	eff := &eval.LiveArmEfficiency{LogSDWithinCost: 0.25, LogSDWithinTime: 0.35, MeanCostUSD: 2, MeanActiveMS: 600000}
+	eff := &eval.LiveArmEfficiency{
+		LogSDWithinCost: 0.25, LogSDWithinTime: 0.35, CostComplete: 100, MeanCostUSD: 2, MeanActiveMS: 600000,
+	}
 	use := map[string]eval.LiveRateUseStats{"five_hour": {Trials: 4, Mean: 0.02}, "seven_day": {Trials: 4, Mean: 0.004}}
 	for arm, rec := range map[string]int{"stock": 40, "classic": 60, "generic": 70, "steer": 85} {
 		pilot.Arms[arm] = eval.ArmSummary{
@@ -386,7 +388,7 @@ func TestRunLiveEval_SizeFromAPilotSummary(t *testing.T) {
 		"night(s) of 9.0 h", "with the Sonnet check's",
 		"efficiency power at the planned steer and classic n", "the pilot summary records no df for its σ_w",
 		"power from the planning band (no df recorded)", "σ_w 0.400, SE", "σ_w 0.550, SE",
-		"efficiency power of the Sonnet check's guards", "pilot steer/classic ratio of mean C",
+		"efficiency power of the Sonnet check's guards", "pilot steer/classic ratio of mean C 1.000 and of mean T 1.000",
 	} {
 		require.Contains(t, w.String(), want)
 	}
