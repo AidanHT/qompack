@@ -384,8 +384,8 @@ func TestRunLiveEval_SizeFromAPilotSummary(t *testing.T) {
 		"per-arm n, each the largest of its tests rounded up to a multiple of 1:",
 		"Sonnet check (plan §9.8), from this pilot's rates, a planning stand-in", "calendar (planning figure)",
 		"night(s) of 9.0 h", "with the Sonnet check's",
-		"efficiency power at the planned steer and classic n", "the pilot's σ_w 0.000 on 0 df",
-		"power from the planning band (the pilot's df 0 < 10)", "σ_w 0.400, SE", "σ_w 0.550, SE",
+		"efficiency power at the planned steer and classic n", "the pilot summary records no df for its σ_w",
+		"power from the planning band (no df recorded)", "σ_w 0.400, SE", "σ_w 0.550, SE",
 		"efficiency power of the Sonnet check's guards", "pilot steer/classic ratio of mean C",
 	} {
 		require.Contains(t, w.String(), want)
