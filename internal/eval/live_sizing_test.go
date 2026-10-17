@@ -32,11 +32,12 @@ func TestSizing_PinsThePlanArithmetic(t *testing.T) {
 
 // pilotSummary is a pilot's summary: classic recovers 60 of 100, generic 70 of 100, classic succeeds
 // on 90 of 100 tasks; steer's unserved share is u; each arm's trial takes 15 minutes and 2 % of the
-// five-hour and 0.5 % of the seven-day window; σ_w is 0.25 for cost and 0.35 for time.
+// five-hour and 0.5 % of the seven-day window; σ_w is 0.25 for cost and 0.35 for time; every trial's C
+// is complete, at a mean of 2.0 USD.
 func pilotSummary(u float64) eval.LiveSummary {
 	eff := &eval.LiveArmEfficiency{
 		LogSDWithinCost: 0.25, LogSDWithinTime: 0.35, LogSDWithinCostDF: 12, LogSDWithinTimeDF: 12,
-		MeanCostUSD: 2.0, MeanActiveMS: 600000,
+		CostComplete: 100, MeanCostUSD: 2.0, MeanActiveMS: 600000,
 	}
 	use := map[string]eval.LiveRateUseStats{"five_hour": {Trials: 10, Mean: 0.02}, "seven_day": {Trials: 10, Mean: 0.005}}
 	arm := func(name string, rec, succ eval.Proportion) eval.ArmSummary {
