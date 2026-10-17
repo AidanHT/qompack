@@ -116,6 +116,10 @@ func TestLiveTaskSet_V7ShapeValidation(t *testing.T) {
 			obj(analysis(m)["efficiency"])["metrics"] = []any{"cost", "cost"}
 		}, "named twice"},
 		"no guard": {func(m map[string]any) { obj(analysis(m)["efficiency"])["guards"] = []any{} }, "names no guard"},
+		// Review S-R1-N5: the gate needs cost as well as active time.
+		"time only": {func(m map[string]any) {
+			obj(analysis(m)["efficiency"])["metrics"] = []any{"active_time"}
+		}, "gated steer vs classic guard"},
 		"guard on one arm": {func(m map[string]any) {
 			obj(analysis(m)["efficiency"])["guards"] = []any{map[string]any{"treated": "steer", "comparator": "steer", "gated": true}}
 		}, "not a pair of two Stage A arms"},
