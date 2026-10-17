@@ -150,6 +150,8 @@ type liveOptions struct {
 	stepTimeoutGiven bool
 	// sizeFrom is the pilot summary the sizing step reads (W6 item 2, decision D-d).
 	sizeFrom string
+	// sizeSonnet is the Sonnet pilot summary that sizes the §9.8 check (review STATS-6).
+	sizeSonnet string
 }
 
 // taskLiveEval implements `devtool live-eval`.
@@ -215,6 +217,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		"host pin, trial order, model, flags and pacing); start nothing")
 	fs.StringVar(&o.sizeFrom, "size-from", "", "the sizing step: from this pilot summary.json and the task set's Δs and "+
 		"ICC_int, print each arm's n for the main run, a calendar estimate and the efficiency tests' power; start nothing")
+	fs.StringVar(&o.sizeSonnet, "size-sonnet", "", "with --size-from: the Sonnet pilot's summary.json, which sizes the plan §9.8 "+
+		"check (default: this pilot's rates, as a planning stand-in)")
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
@@ -256,6 +260,9 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		if v.val <= 0 || v.val > 1 {
 			return o, fmt.Errorf("live-eval: %s %g is not a utilization in (0, 1]", v.name, v.val)
 		}
+	}
+	if o.sizeSonnet != "" && o.sizeFrom == "" {
+		return o, errors.New("live-eval: --size-sonnet sizes the Sonnet check beside --size-from, which it needs")
 	}
 	if fs.NArg() > 0 {
 		return o, fmt.Errorf("live-eval: unexpected argument %q", fs.Arg(0))

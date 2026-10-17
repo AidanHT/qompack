@@ -19,6 +19,7 @@ package eval
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -92,31 +93,75 @@ type LiveSizingTest struct {
 	N  int `json:"n"`
 }
 
-// LiveEfficiencyPower is one efficiency test's approximate power at the planned n (amendment 4 item
-// 8): SE ≈ √(2σ_w²/(K·m) + τ²/K) on the log ratio.
-type LiveEfficiencyPower struct {
-	Metric string  `json:"metric"`
-	SigmaW float64 `json:"sigma_w"`
-	SE     float64 `json:"se"`
-	// HarmAt125 is P(harm shown) at a true ratio of 1.25; FalseHarmAt1 at 1.0; NIAt1 the chance the
-	// non-inferiority bound (H3 for cost, the reported time row for T) holds at 1.0.
+// LiveSizingMinDF is the fewest degrees of freedom a pilot's within-task log-SD needs before the
+// efficiency power uses it; below it the power uses §4.9's planning σ_w band (review I-4). The pilot
+// runs about one trial per task per arm (plan §9.3 item 1), which leaves 0.
+const LiveSizingMinDF = 10
+
+// livePlanningSigmaW is the efficiency design's planning band for σ_w (DESIGN §4.9, pessimistic, from
+// R5): cost 0.25 to 0.40, active time 0.35 to 0.55.
+var livePlanningSigmaW = map[string][2]float64{
+	LiveMetricCost:       {0.25, 0.40},
+	LiveMetricActiveTime: {0.35, 0.55},
+}
+
+// LivePowerRow is the power at one σ_w: SE ≈ √(2σ_w²/(K·m) + τ²/K) on the log ratio; HarmAt125 is
+// P(harm shown) at a true ratio of 1.25, FalseHarmAt1 at 1.0, and NIAt1 the chance the
+// non-inferiority bound (H3 for cost, the reported time row for T) holds at 1.0.
+type LivePowerRow struct {
+	SigmaW       float64 `json:"sigma_w"`
+	SE           float64 `json:"se"`
 	HarmAt125    float64 `json:"harm_at_1_25"`
 	FalseHarmAt1 float64 `json:"false_harm_at_1"`
 	NIAt1        float64 `json:"non_inferiority_at_1"`
 }
 
+// LiveEfficiencyPower is one efficiency metric's approximate power at a planned n (amendment 4 item
+// 8). PilotSigmaW and PilotDF are the pilot's pooled within-task log-SD over steer and classic and its
+// degrees of freedom; when PilotDF is below LiveSizingMinDF the rows use the planning band's two ends
+// (Planning), else the pilot's σ_w.
+type LiveEfficiencyPower struct {
+	Metric      string         `json:"metric"`
+	N           int            `json:"n"`
+	PilotSigmaW float64        `json:"pilot_sigma_w"`
+	PilotDF     int            `json:"pilot_df"`
+	Planning    bool           `json:"planning"`
+	Rows        []LivePowerRow `json:"rows"`
+}
+
 // LiveCalendar is the sizing's calendar estimate from the pilot's per-trial wall time and
 // subscription use.
 type LiveCalendar struct {
-	Trials int     `json:"trials"`
-	Hours  float64 `json:"hours"`
-	Nights float64 `json:"nights"`
+	// Trials counts the main run's trials and the §9.8 Sonnet check's (SonnetTrials of them).
+	Trials       int     `json:"trials"`
+	SonnetTrials int     `json:"sonnet_trials"`
+	Hours        float64 `json:"hours"`
+	Nights       float64 `json:"nights"`
 	// FiveHourWindows is the five-hour windows' worth of allowance the trials use at the gate, and
 	// SevenDayWeeks the weeks of seven-day allowance at the ceiling; 0 when the pilot recorded none.
 	FiveHourWindows float64 `json:"five_hour_windows"`
 	SevenDayWeeks   float64 `json:"seven_day_weeks"`
 	// Weeks is the larger of the nights over seven and the seven-day weeks.
 	Weeks float64 `json:"weeks"`
+}
+
+// LiveRedesignCheck is §9.3 item 1's brief redesign rule read off the pilot (review STATS-1): steer's
+// mean C and mean T over classic's, against the pre-registered ratio. Mean C is the arm's mean over
+// its trials with a known C (a partial C counted at its lower bound).
+type LiveRedesignCheck struct {
+	CostRatio float64 `json:"cost_ratio"`
+	TimeRatio float64 `json:"time_ratio"`
+	Threshold float64 `json:"threshold"`
+	Fires     bool    `json:"fires"`
+}
+
+// LiveSonnetSizing is the §9.8 check's size: classic and steer at n_H1 each, from the Sonnet pilot's
+// rates when one is given (FromSonnetPilot), else from the main pilot's as a planning stand-in.
+type LiveSonnetSizing struct {
+	FromSonnetPilot bool                  `json:"from_sonnet_pilot"`
+	H1              LiveSizingTest        `json:"h1"`
+	N               int                   `json:"n"`
+	Efficiency      []LiveEfficiencyPower `json:"efficiency,omitempty"`
 }
 
 // LiveSizing is the sizing step's result.
@@ -126,8 +171,10 @@ type LiveSizing struct {
 	U          float64               `json:"unserved_share"`
 	Tests      []LiveSizingTest      `json:"tests"`
 	ArmN       map[string]int        `json:"arm_n"`
+	Sonnet     *LiveSonnetSizing     `json:"sonnet,omitempty"`
 	Calendar   LiveCalendar          `json:"calendar"`
 	Efficiency []LiveEfficiencyPower `json:"efficiency,omitempty"`
+	Redesign   *LiveRedesignCheck    `json:"redesign,omitempty"`
 	Notes      []string              `json:"notes,omitempty"`
 }
 
@@ -138,8 +185,9 @@ type LiveSizingPacing struct {
 }
 
 // SizeLive sizes the main run from a pilot's summary over a task set of k tasks (the held-out tasks
-// included, which the main run runs).
-func SizeLive(a LiveAnalysis, k int, pilot LiveSummary, pace LiveSizingPacing) (LiveSizing, error) {
+// included, which the main run runs), and the §9.8 Sonnet check from sonnet, the Sonnet pilot's
+// summary, when given (else from the main pilot's rates, as a labelled stand-in).
+func SizeLive(a LiveAnalysis, k int, pilot LiveSummary, sonnet *LiveSummary, pace LiveSizingPacing) (LiveSizing, error) {
 	if k <= 0 {
 		return LiveSizing{}, fmt.Errorf("eval: sizing needs the task set's task count")
 	}
@@ -148,48 +196,38 @@ func SizeLive(a LiveAnalysis, k int, pilot LiveSummary, pace LiveSizingPacing) (
 			"non_inferiority_margin (plan §9.3 item 2)")
 	}
 	out := LiveSizing{Tasks: k, ICCInt: a.ICCInt, ArmN: map[string]int{}}
-	if st, ok := pilot.Arms[ArmSteer]; ok && st.Brief != nil {
-		out.U = st.Brief.UnservedShare + st.Brief.ServedEmptyShare
+	u, note := unservedShare(pilot)
+	if note != "" {
+		out.Notes = append(out.Notes, note)
+	}
+	if u >= 1 {
+		return out, fmt.Errorf("eval: the pilot's steer arm served no brief (u = %.2f); no n is enough", u)
+	}
+	out.U = u
+	if h1, ok, err := sizeSuperiority("H1", pilot, ArmClassic, a.DeltaH1, u, a.ICCInt, k,
+		[]string{ArmSteer, ArmClassic, ArmStock}); err != nil {
+		return out, err
+	} else if ok {
+		out.Tests = append(out.Tests, h1)
 	} else {
-		out.Notes = append(out.Notes, "the pilot records no steer brief outcomes, so the unserved share u is taken as 0")
+		out.Notes = append(out.Notes, "H1 is not sized: the pilot has no classic recovery")
 	}
-	if out.U >= 1 {
-		return out, fmt.Errorf("eval: the pilot's steer arm served no brief (u = %.2f); no n is enough", out.U)
-	}
-	size := func(test string, arms []string, p0, p1 float64, n0 int) error {
-		nu := int(math.Ceil(float64(n0) / ((1 - out.U) * (1 - out.U))))
-		n, ok := SolvedDesignN(nu, a.ICCInt, k)
-		if !ok {
-			return fmt.Errorf("eval: %s: n₀ %d × ICC_int %.2f reaches the %d tasks, so no number of trials per task is "+
-				"enough: add tasks", test, nu, a.ICCInt, k)
-		}
-		out.Tests = append(out.Tests, LiveSizingTest{Test: test, Arms: arms, P0: p0, P1: p1, N0: n0, NU: nu, N: n})
-		return nil
-	}
-	superiority := func(test, control string, delta float64, arms []string) error {
-		c, ok := pilot.Arms[control]
-		if !ok || c.Recovery.N == 0 {
-			out.Notes = append(out.Notes, fmt.Sprintf("%s is not sized: the pilot has no %s recovery", test, control))
-			return nil
-		}
-		p0 := wilsonNearHalf(c.Recovery)
-		p1 := p0 + delta
-		if p1 >= 1 {
-			return fmt.Errorf("eval: %s: p₀ %.3f + Δ %.2f reaches 1", test, p0, delta)
-		}
-		return size(test, arms, p0, p1, SampleSizeSuperiority(p0, p1))
-	}
-	if err := superiority("H1", ArmClassic, a.DeltaH1, []string{ArmSteer, ArmClassic, ArmStock}); err != nil {
+	if h2, ok, err := sizeSuperiority("H2", pilot, ArmGeneric, a.DeltaH2, u, a.ICCInt, k,
+		[]string{ArmSteer, ArmGeneric}); err != nil {
 		return out, err
-	}
-	if err := superiority("H2", ArmGeneric, a.DeltaH2, []string{ArmSteer, ArmGeneric}); err != nil {
-		return out, err
+	} else if ok {
+		out.Tests = append(out.Tests, h2)
+	} else {
+		out.Notes = append(out.Notes, "H2 is not sized: the pilot has no generic recovery")
 	}
 	if c, ok := pilot.Arms[ArmClassic]; ok && c.TaskSuccess.N > 0 {
 		p := wilsonNearHalf(c.TaskSuccess)
-		if err := size("S", []string{ArmSteer, ArmClassic}, p, 0, SampleSizeNonInferiority(p, a.NonInferiorityMargin)); err != nil {
+		s, err := inflate("S", []string{ArmSteer, ArmClassic}, p, 0, SampleSizeNonInferiority(p, a.NonInferiorityMargin), u,
+			a.ICCInt, k)
+		if err != nil {
 			return out, err
 		}
+		out.Tests = append(out.Tests, s)
 	} else {
 		out.Notes = append(out.Notes, "S is not sized: the pilot has no classic task success")
 	}
@@ -198,22 +236,131 @@ func SizeLive(a LiveAnalysis, k int, pilot LiveSummary, pace LiveSizingPacing) (
 			out.ArmN[arm] = max(out.ArmN[arm], RoundToTasks(t.N, k))
 		}
 	}
-	out.Calendar = liveCalendar(out.ArmN, pilot, pace)
-	out.Efficiency = efficiencyPower(a, k, out.ArmN, pilot)
+	if err := out.sizeSonnet(a, k, pilot, sonnet); err != nil {
+		return out, err
+	}
+	out.Calendar = liveCalendar(out.ArmN, pilot, out.Sonnet, sonnet, pace)
+	out.Efficiency = efficiencyPower(a, k, min(out.ArmN[ArmSteer], out.ArmN[ArmClassic]), pilot)
+	out.Redesign = redesignCheck(a, pilot)
+	if r := out.Redesign; r != nil && r.Fires {
+		out.Notes = append(out.Notes, fmt.Sprintf("BRIEF REDESIGN RULE FIRES (plan §9.3 item 1): the pilot's steer/classic "+
+			"ratio of mean C is %.3f and of mean T %.3f, and one exceeds %.2f; redesign the brief and re-pilot steer before "+
+			"the main run", r.CostRatio, r.TimeRatio, r.Threshold))
+	}
+	for _, e := range append(append([]LiveEfficiencyPower{}, out.Efficiency...), sonnetPower(out.Sonnet)...) {
+		if e.Planning {
+			out.Notes = append(out.Notes, fmt.Sprintf("the pilot's within-task log-SD of %s rests on %d df (fewer than %d: "+
+				"the pilot runs about one trial per task per arm), so its power uses the planning σ_w band %.2f–%.2f "+
+				"(efficiency design §4.9); the pilot's own figure is printed beside it", e.Metric, e.PilotDF,
+				LiveSizingMinDF, livePlanningSigmaW[e.Metric][0], livePlanningSigmaW[e.Metric][1]))
+		}
+	}
 	return out, nil
 }
 
-// liveCalendar turns the arms' n into hours, nights and weeks from the pilot's per-trial wall time
-// and utilization deltas.
-func liveCalendar(armN map[string]int, pilot LiveSummary, pace LiveSizingPacing) LiveCalendar {
+// unservedShare is the pilot's unserved share of steer's compactions, served-empty included (it
+// steered nothing), and a note when the pilot recorded none.
+func unservedShare(pilot LiveSummary) (float64, string) {
+	if st, ok := pilot.Arms[ArmSteer]; ok && st.Brief != nil {
+		return st.Brief.UnservedShare + st.Brief.ServedEmptyShare, ""
+	}
+	return 0, "the pilot records no steer brief outcomes, so the unserved share u is taken as 0"
+}
+
+// inflate applies the unserved share and the solved design effect to n0.
+func inflate(test string, arms []string, p0, p1 float64, n0 int, u, icc float64, k int) (LiveSizingTest, error) {
+	nu := int(math.Ceil(float64(n0) / ((1 - u) * (1 - u))))
+	n, ok := SolvedDesignN(nu, icc, k)
+	if !ok {
+		return LiveSizingTest{}, fmt.Errorf("eval: %s: n₀ %d × ICC_int %.2f reaches the %d tasks, so no number of trials "+
+			"per task is enough: add tasks", test, nu, icc, k)
+	}
+	return LiveSizingTest{Test: test, Arms: arms, P0: p0, P1: p1, N0: n0, NU: nu, N: n}, nil
+}
+
+// sizeSuperiority sizes a recovery superiority test from pilot's control arm; false when the pilot has
+// no recovery for it.
+func sizeSuperiority(test string, pilot LiveSummary, control string, delta, u, icc float64, k int,
+	arms []string,
+) (LiveSizingTest, bool, error) {
+	c, ok := pilot.Arms[control]
+	if !ok || c.Recovery.N == 0 {
+		return LiveSizingTest{}, false, nil
+	}
+	p0 := wilsonNearHalf(c.Recovery)
+	p1 := p0 + delta
+	if p1 >= 1 {
+		return LiveSizingTest{}, false, fmt.Errorf("eval: %s: p₀ %.3f + Δ %.2f reaches 1", test, p0, delta)
+	}
+	t, err := inflate(test, arms, p0, p1, SampleSizeSuperiority(p0, p1), u, icc, k)
+	return t, err == nil, err
+}
+
+// sizeSonnet sizes the §9.8 check: classic and steer at n_H1 from the Sonnet pilot's rates, or from the
+// main pilot's as a stand-in (review STATS-6).
+func (out *LiveSizing) sizeSonnet(a LiveAnalysis, k int, pilot LiveSummary, sonnet *LiveSummary) error {
+	src := pilot
+	if sonnet != nil {
+		src = *sonnet
+	}
+	u, _ := unservedShare(src)
+	if u >= 1 {
+		return fmt.Errorf("eval: the Sonnet pilot's steer arm served no brief (u = %.2f); no n is enough", u)
+	}
+	h1, ok, err := sizeSuperiority("H1 (Sonnet check)", src, ArmClassic, a.DeltaH1, u, a.ICCInt, k,
+		[]string{ArmSteer, ArmClassic})
+	if err != nil || !ok {
+		return err
+	}
+	n := RoundToTasks(h1.N, k)
+	out.Sonnet = &LiveSonnetSizing{
+		FromSonnetPilot: sonnet != nil, H1: h1, N: n, Efficiency: efficiencyPower(a, k, n, src),
+	}
+	if sonnet == nil {
+		out.Notes = append(out.Notes, "the Sonnet check (plan §9.8) is sized from this pilot's rates as a planning "+
+			"stand-in; size it from the Sonnet pilot's summary with --size-sonnet")
+	}
+	return nil
+}
+
+// sonnetPower is the Sonnet check's power rows, or none.
+func sonnetPower(s *LiveSonnetSizing) []LiveEfficiencyPower {
+	if s == nil {
+		return nil
+	}
+	return s.Efficiency
+}
+
+// redesignCheck reads §9.3 item 1's brief redesign rule off the pilot: steer's mean C and mean T over
+// classic's; nil when the block pins no ratio or either arm lacks the figures.
+func redesignCheck(a LiveAnalysis, pilot LiveSummary) *LiveRedesignCheck {
+	if a.Efficiency == nil {
+		return nil
+	}
+	s, c := pilot.Arms[ArmSteer].Efficiency, pilot.Arms[ArmClassic].Efficiency
+	if s == nil || c == nil || c.MeanCostUSD <= 0 || c.MeanActiveMS <= 0 {
+		return nil
+	}
+	r := &LiveRedesignCheck{
+		CostRatio: s.MeanCostUSD / c.MeanCostUSD, TimeRatio: s.MeanActiveMS / c.MeanActiveMS,
+		Threshold: a.Efficiency.PilotRedesignRatio,
+	}
+	r.Fires = r.CostRatio > r.Threshold || r.TimeRatio > r.Threshold
+	return r
+}
+
+// liveCalendar turns the arms' n, and the Sonnet check's, into hours, nights and weeks from the
+// pilots' per-trial wall time and utilization deltas.
+func liveCalendar(armN map[string]int, pilot LiveSummary, check *LiveSonnetSizing, sonnet *LiveSummary,
+	pace LiveSizingPacing,
+) LiveCalendar {
 	var c LiveCalendar
 	night := pace.NightHours
 	if night <= 0 {
 		night = LiveSizingNightHours
 	}
-	for arm, n := range armN {
+	add := func(as ArmSummary, n int) {
 		c.Trials += n
-		as := pilot.Arms[arm]
 		c.Hours += float64(n) * float64(as.MeanWallMS) / 3.6e6
 		if u, ok := as.RateUse["five_hour"]; ok && pace.FiveHourGate > 0 {
 			c.FiveHourWindows += float64(n) * u.Mean / pace.FiveHourGate
@@ -228,57 +375,78 @@ func liveCalendar(armN map[string]int, pilot LiveSummary, pace LiveSizingPacing)
 			c.SevenDayWeeks += float64(n) * week / pace.SevenDayCeiling
 		}
 	}
+	for _, arm := range slices.Sorted(maps.Keys(armN)) {
+		add(pilot.Arms[arm], armN[arm])
+	}
+	if check != nil {
+		src := pilot
+		if sonnet != nil {
+			src = *sonnet
+		}
+		for _, arm := range []string{ArmClassic, ArmSteer} {
+			add(src.Arms[arm], check.N)
+			c.SonnetTrials += check.N
+		}
+	}
 	c.Nights = c.Hours / night
 	c.Weeks = math.Max(c.Nights/7, c.SevenDayWeeks)
 	return c
 }
 
-// efficiencyPower is each efficiency metric's approximate power at the planned steer and classic n.
-func efficiencyPower(a LiveAnalysis, k int, armN map[string]int, pilot LiveSummary) []LiveEfficiencyPower {
-	n := min(armN[ArmSteer], armN[ArmClassic])
+// efficiencyPower is each efficiency metric's approximate power at n trials per arm of steer and
+// classic: from the pilot's pooled within-task σ_w when it rests on enough df, else from the planning
+// band's two ends.
+func efficiencyPower(a LiveAnalysis, k, n int, pilot LiveSummary) []LiveEfficiencyPower {
 	if n == 0 {
 		return nil
 	}
-	m := a.efficiencyMargin()
-	km := float64(n) // K·m, the arm's trials
-	var out []LiveEfficiencyPower
+	limit := math.Log(1 + a.efficiencyMargin())
 	metrics := liveEfficiencyMetrics
 	if a.Efficiency != nil {
 		metrics = a.Efficiency.Metrics
 	}
-	for _, metric := range metrics {
-		var sds []float64
-		for _, arm := range []string{ArmSteer, ArmClassic} {
-			if e := pilot.Arms[arm].Efficiency; e != nil {
-				sd := e.LogSDWithinCost
-				if metric == LiveMetricActiveTime {
-					sd = e.LogSDWithinTime
-				}
-				if sd > 0 {
-					sds = append(sds, sd)
-				}
-			}
-		}
-		if len(sds) == 0 {
-			continue
-		}
-		var ss float64
-		for _, sd := range sds {
-			ss += sd * sd
-		}
-		sigma := math.Sqrt(ss / float64(len(sds)))
-		se := math.Sqrt(2*sigma*sigma/km + LiveSizingTau*LiveSizingTau/float64(k))
-		limit := math.Log(1 + m)
-		out = append(out, LiveEfficiencyPower{
-			Metric: metric, SigmaW: sigma, SE: se,
+	row := func(sigma float64) LivePowerRow {
+		se := math.Sqrt(2*sigma*sigma/float64(n) + LiveSizingTau*LiveSizingTau/float64(k))
+		return LivePowerRow{
+			SigmaW: sigma, SE: se,
 			HarmAt125:    normalCDF((math.Log(liveHarmPowerRatio)-limit)/se - liveZAlpha),
 			FalseHarmAt1: normalCDF(-limit/se - liveZAlpha),
 			NIAt1:        normalCDF(limit/se - liveZAlpha),
-		})
+		}
 	}
-	slices.SortFunc(out, func(x, y LiveEfficiencyPower) int {
-		return slices.Index(liveEfficiencyMetrics, x.Metric) - slices.Index(liveEfficiencyMetrics, y.Metric)
-	})
+	var out []LiveEfficiencyPower
+	for _, metric := range liveEfficiencyMetrics {
+		if !slices.Contains(metrics, metric) {
+			continue
+		}
+		var ss float64
+		var df int
+		for _, arm := range []string{ArmSteer, ArmClassic} {
+			e := pilot.Arms[arm].Efficiency
+			if e == nil {
+				continue
+			}
+			sd, d := e.LogSDWithinCost, e.LogSDWithinCostDF
+			if metric == LiveMetricActiveTime {
+				sd, d = e.LogSDWithinTime, e.LogSDWithinTimeDF
+			}
+			ss += float64(d) * sd * sd
+			df += d
+		}
+		p := LiveEfficiencyPower{Metric: metric, N: n, PilotDF: df}
+		if df > 0 {
+			p.PilotSigmaW = math.Sqrt(ss / float64(df))
+		}
+		if df < LiveSizingMinDF {
+			p.Planning = true
+			for _, s := range livePlanningSigmaW[metric] {
+				p.Rows = append(p.Rows, row(s))
+			}
+		} else {
+			p.Rows = []LivePowerRow{row(p.PilotSigmaW)}
+		}
+		out = append(out, p)
+	}
 	return out
 }
 
