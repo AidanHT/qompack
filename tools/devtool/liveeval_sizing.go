@@ -122,11 +122,16 @@ func printLiveEfficiencyPower(w io.Writer, what string, power []eval.LiveEfficie
 			ni = "time non-inferiority holds"
 		}
 		basis := "the pilot's σ_w"
-		if e.Planning {
+		pilotSigma := fmt.Sprintf("the pilot's σ_w %.3f on %d df", e.PilotSigmaW, e.PilotDF)
+		switch {
+		case e.DFUnrecorded:
+			// A summary written before df was recorded gives no df to print (review S-R1-N4).
+			pilotSigma = "the pilot summary records no df for its σ_w"
+			basis = "the planning band (no df recorded)"
+		case e.Planning:
 			basis = fmt.Sprintf("the planning band (the pilot's df %d < %d)", e.PilotDF, eval.LiveSizingMinDF)
 		}
-		fmt.Fprintf(w, "    %s at n = %d: the pilot's σ_w %.3f on %d df; power from %s:\n", e.Metric, e.N, e.PilotSigmaW,
-			e.PilotDF, basis)
+		fmt.Fprintf(w, "    %s at n = %d: %s; power from %s:\n", e.Metric, e.N, pilotSigma, basis)
 		for _, r := range e.Rows {
 			fmt.Fprintf(w, "      σ_w %.3f, SE %.4f: a true +25 %% is caught as harm with P ≈ %.3f; a false harm at 1.0 ≈ "+
 				"%.3f; %s at 1.0 with P ≈ %.3f\n", r.SigmaW, r.SE, r.HarmAt125, r.FalseHarmAt1, ni, r.NIAt1)
