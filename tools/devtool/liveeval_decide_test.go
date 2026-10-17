@@ -280,8 +280,12 @@ func TestRunLiveEval_SummaryCarriesTheStageADecisions(t *testing.T) {
 	readJSON(t, filepath.Join(out, "summary.json"), &sum)
 	require.NotNil(t, sum.StageA)
 	require.Equal(t, eval.LiveBootstrapB, sum.StageA.B)
-	require.Contains(t, []string{eval.LiveVerdictShip, eval.LiveVerdictNoShip, eval.LiveVerdictHarm}, sum.Decision.Verdict,
-		sum.Decision.Reason)
+	// The scripted host prints duration_ms (review STATS-4), and every arm recovers the code word at
+	// the same cost and time: H1 is not shown, no harm is shown, so the run reads exactly "no-ship".
+	require.Equal(t, eval.LiveVerdictNoShip, sum.Decision.Verdict, sum.Decision.Reason)
+	require.Equal(t, "not shown", stageALabel(t, sum.StageA, "H1"))
+	require.Equal(t, "not shown", stageALabel(t, sum.StageA, "harm-active_time"))
+	require.Equal(t, "not shown", stageALabel(t, sum.StageA, "harm-cost"))
 	require.NotContains(t, sum.Decision.Reason, "both arms are needed", "the two-arm verdict is replaced")
 	h1, ok := sum.StageA.Test("H1")
 	require.True(t, ok)
@@ -423,7 +427,157 @@ func TestRunLiveEval_DescribeShowsThePreregisteredDecisions(t *testing.T) {
 		"steer vs classic: harm shown when the ratio's lower bound exceeds 1.10 (gated",
 		"classic vs stock: harm shown when the ratio's lower bound exceeds 1.10 (a label for the docs, not gating)",
 		"a claim, not a ship condition", "redesign ratio 1.25", "- Daemon idle exit: 1800 s; step timeout 10m0s",
+		"- Harm (gated, on every decided run of either model): steer below classic on task success, or on the constraint-clean",
+		"decides only harm; its benefit intervals are reported, not decided",
 	} {
 		require.Contains(t, w.String(), want)
 	}
+
+	// Under the S fallback the page never claims non-inferiority (review I-3).
+	ts, _, err := eval.LoadLiveTaskSet(liveTestTasksV7)
+	require.NoError(t, err)
+	ts.Analysis.SFallback = true
+	var fb strings.Builder
+	renderLiveDescribeDecisions(&fb, ts.Analysis)
+	require.Contains(t, fb.String(), "S, the pre-registered fallback: met when the task-success difference's 20th percentile "+
+		"is above -0.10; non-inferiority on task success is then not shown")
+	require.NotContains(t, fb.String(), "steer non-inferior to classic")
+}
+
+// TestRenderLiveSummary_StageARecords (reviews I-2, STATS-7, CLI-4): summary.md shows each ratio's
+// sensitivities, the estimate beside the host's cost and the rows the harness does not measure; a
+// paused run's tests print as interim, never "ships on".
+func TestRenderLiveSummary_StageARecords(t *testing.T) {
+	out := runFourArmPilot(t, pilotHostOpts{}, nil)
+	var plan eval.LivePlan
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(out, "plan.json"), &plan)
+	readJSON(t, filepath.Join(out, "summary.json"), &sum)
+	md := renderLiveSummary(plan, sum)
+	for _, want := range []string{
+		"## Stage A decisions", "**Outcome (§9.6):**", "Sensitivities of the ratios", "| harm-cost | completed |",
+		"| harm-cost | observed |", "| harm-cost | geometric |", "estimate / host |",
+		"distrust incidents: not measured by this harness", "-p teardown losses with F4 on: not measured",
+	} {
+		require.Contains(t, md, want)
+	}
+	sum.Pause(3, 6, "the night window ended")
+	paused := renderLiveSummary(plan, sum)
+	require.Contains(t, paused, "## Stage A tests, interim, not decided")
+	require.Contains(t, paused, "**No decision:** no verdict: the run paused after 3 of the 6 planned trials")
+	require.NotContains(t, paused, "ships on")
+}
+
+// stageALabel is the label of a Stage A test.
+func stageALabel(t *testing.T, s *eval.LiveStageA, id string) string {
+	t.Helper()
+	require.NotNil(t, s)
+	got, ok := s.Test(id)
+	require.True(t, ok, "no test %s", id)
+	return got.Label
+}
+
+// TestRunLiveEval_FourArmResumeWithALimitedSteerTrialEqualsAnUninterruptedRun (review WIRING-8): a
+// four-arm run whose first steer attempt a rejected five-hour window cuts short (set aside, waited out,
+// run again) and which is killed before its fourth slot resumes to a summary — the Stage A decisions,
+// their limited sensitivity and every reported row included — equal to an uninterrupted run's.
+func TestRunLiveEval_FourArmResumeWithALimitedSteerTrialEqualsAnUninterruptedRun(t *testing.T) {
+	classic, mods := fakeBundle(t), fakeModsBundle(t, "deadbeef")
+	run := func(kill bool) liveOptions {
+		env, _, home := pacedEnv(t)
+		steerSessions := 0
+		env.run = perSession(t, home, func(_ int, spec liveProcSpec) pilotHostOpts {
+			if !slices.Contains(spec.Env, liveEnvModSteering+"=true") {
+				return pilotHostOpts{}
+			}
+			steerSessions++
+			if steerSessions == 1 {
+				return pilotHostOpts{streamExtra: []string{
+					rateLine("rejected", 0.95, 0.10, fakeNow.Add(time.Hour), fakeNow.Add(100*time.Hour), false),
+				}}
+			}
+			return pilotHostOpts{}
+		})
+		o := liveOptions{
+			tasksFile: liveTestTasksV7, rates: liveTestRates, arms: eval.LiveArms, out: t.TempDir(),
+			install: liveInstallPluginDir, bundle: classic, bundleMods: mods, idleExit: 1800, defectsAttested: true,
+			orderSeed: 11, fiveHourGate: eval.LiveFiveHourGate, sevenDayCeiling: eval.LiveSevenDayCeiling,
+		}
+		var log bytes.Buffer
+		if !kill {
+			require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+			return o
+		}
+		killAtVersionCall(env, 5) // the plan, steer/1 (limited), steer/1 again, stock/1; dies before generic/1
+		runKilled(t, o, env)
+		require.NoFileExists(t, filepath.Join(o.out, "summary.json"))
+		env.cli = pinnedCLI(fakeLiveEnv(t, nil).cli)
+		r := resumeRun(t, o.out)
+		require.NoError(t, runLiveEval(context.Background(), r, env, &log), log.String())
+		require.Contains(t, log.String(), "2 of 6 planned trial(s) already scored")
+		return o
+	}
+	whole, cut := run(false), run(true)
+	require.FileExists(t, filepath.Join(whole.out, "trials", "pilot-codeword", "steer", "01", "trial.limited-1.json"))
+	require.FileExists(t, filepath.Join(cut.out, "trials", "pilot-codeword", "steer", "01", "trial.limited-1.json"))
+	var a, b eval.LiveSummary
+	readJSON(t, filepath.Join(whole.out, "summary.json"), &a)
+	readJSON(t, filepath.Join(cut.out, "summary.json"), &b)
+	require.Equal(t, map[string]int{"steer": 1}, a.LimitedTrials)
+	require.NotNil(t, a.StageA)
+	cost, ok := a.StageA.Test("harm-cost")
+	require.True(t, ok)
+	require.Contains(t, cost.Sensitivity, "limited", "the limited steer attempt feeds the guards' limited sensitivity")
+	// Its whole cost and time join steer/1's re-run, so the sensitivity flips both gated guards, which
+	// read indeterminate: harm-shown, the same in both runs.
+	require.Equal(t, eval.LiveLabelIndeterminate, cost.Label)
+	require.Equal(t, eval.LiveVerdictHarm, a.Decision.Verdict)
+	require.Equal(t, a.StageA, b.StageA, "the resumed run's Stage A record is the uninterrupted run's")
+	b.RunID = a.RunID
+	require.Equal(t, a, b, "the resumed run's summary is the uninterrupted run's")
+}
+
+// TestRunLiveEval_RatesAndTheStepTimeoutOnEachTrial (coordinator ruling on review CLI-5; reviews
+// STATS-5, WIRING-5): a task set with an efficiency block reads rates-v7.json beside it unless --rates
+// names another; a model the table does not price is recorded on each trial and noted, and nothing is
+// refused; each trial records the run's step timeout, the cap its active time counts; and a
+// --step-timeout that is not positive is refused.
+func TestRunLiveEval_RatesAndTheStepTimeoutOnEachTrial(t *testing.T) {
+	out := runFourArmPilot(t, pilotHostOpts{}, nil)
+	var plan eval.LivePlan
+	readJSON(t, filepath.Join(out, "plan.json"), &plan)
+	require.Equal(t, "2026-10-16", plan.RateTableDate, "the V7 table beside the task set")
+	var rec eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "steer", "01", "trial.json"), &rec)
+	require.Equal(t, int64(600000), rec.StepTimeoutMS)
+	require.Empty(t, rec.EstimateUnpriced)
+
+	// A table that prices only another model: the run goes ahead, and the estimate says it is a lower bound.
+	only := filepath.Join(t.TempDir(), "rates-only-opus.json")
+	require.NoError(t, os.WriteFile(only, []byte(`{"version":1,"date":"2026-10-01","source":"test-only","currency":"USD",`+
+		`"models":{"claude-opus-5":{"input_per_mtok_micros":5000000,"output_per_mtok_micros":25000000,`+
+		`"cache_read_multiplier":0.1,"cache_write_5m_multiplier":1.25,"cache_write_1h_multiplier":2}}}`), 0o600))
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	env.run = scriptedPilotHost(t, home)
+	t.Setenv(liveEvalGateEnv, "1")
+	o := liveOptions{
+		tasksFile: liveTestTasksV7, rates: only, ratesGiven: true, arms: []string{"classic", "steer"}, out: t.TempDir(),
+		install: liveInstallPluginDir, bundle: fakeBundle(t), bundleMods: fakeModsBundle(t, "deadbeef"), idleExit: 1800,
+		defectsAttested: true, trials: 1,
+	}
+	var log bytes.Buffer
+	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
+	readJSON(t, filepath.Join(o.out, "plan.json"), &plan)
+	require.Equal(t, "2026-10-01", plan.RateTableDate, "an explicit --rates wins")
+	readJSON(t, filepath.Join(o.out, "trials", "pilot-codeword", "steer", "01", "trial.json"), &rec)
+	require.NotEmpty(t, rec.EstimateUnpriced)
+	require.Contains(t, rec.EstimateUnpriced[0], "haiku")
+	var sum eval.LiveSummary
+	readJSON(t, filepath.Join(o.out, "summary.json"), &sum)
+	require.Contains(t, strings.Join(sum.Notes, "\n"), "the rate table prices no "+rec.EstimateUnpriced[0])
+
+	_, err := parseLiveTest([]string{"--step-timeout", "0s"})
+	require.ErrorContains(t, err, "--step-timeout 0s must be positive")
 }

@@ -820,7 +820,7 @@ func pilotStream(sid string, plugin bool, pluginList []string) string {
 		`{"type":"system","subtype":"hook_response","hook_id":"h1","hook_name":"SessionStart:startup","hook_event":"SessionStart","output":"{}","exit_code":0,"outcome":"success"}`,
 		`{"type":"assistant","message":{"id":"m1","model":"claude-haiku-4-5-20251001","content":[{"type":"tool_use","id":"tu1","name":"Bash","input":{"command":"go run ./cmd/code"}}],"usage":` + usage(10, 1, 100, 50) + `},"parent_tool_use_id":null}`,
 		`{"type":"assistant","message":{"id":"m2","model":"claude-haiku-4-5-20251001","content":[{"type":"text","text":"The code word is ` + pilotCodeWord + `."}],"usage":` + usage(8, 1, 150, 20) + `},"parent_tool_use_id":null}`,
-		`{"type":"result","subtype":"success","is_error":false,"num_turns":2,"result":"The code word is ` + pilotCodeWord + `.","total_cost_usd":0.001,"usage":` + usage(18, 40, 250, 70) + `,"modelUsage":` + model(18, 40, 250, 70, 0.001) + `,"permission_denials":[]}`,
+		`{"type":"result","subtype":"success","is_error":false,"duration_ms":12000,"duration_api_ms":9000,"num_turns":2,"result":"The code word is ` + pilotCodeWord + `.","total_cost_usd":0.001,"usage":` + usage(18, 40, 250, 70) + `,"modelUsage":` + model(18, 40, 250, 70, 0.001) + `,"permission_denials":[]}`,
 		`{"type":"system","subtype":"status","status":"compacting"}`,
 		`{"type":"system","subtype":"status","status":null,"compact_result":"success"}`,
 		`{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"manual","pre_tokens":5000,"post_tokens":900,"duration_ms":4000}}`,
@@ -831,10 +831,10 @@ func pilotStream(sid string, plugin bool, pluginList []string) string {
 	}
 	lines = append(lines,
 		`{"type":"user","message":{"role":"user","content":"<local-command-stdout>`+local+`</local-command-stdout>"}}`,
-		`{"type":"result","subtype":"success","is_error":false,"num_turns":0,"local_command":"compact","result":"","total_cost_usd":0.002,"usage":`+usage(0, 0, 0, 0)+`,"modelUsage":`+model(1018, 240, 250, 90, 0.002)+`,"permission_denials":[]}`,
+		`{"type":"result","subtype":"success","is_error":false,"duration_ms":30000,"duration_api_ms":29000,"num_turns":0,"local_command":"compact","result":"","total_cost_usd":0.002,"usage":`+usage(0, 0, 0, 0)+`,"modelUsage":`+model(1018, 240, 250, 90, 0.002)+`,"permission_denials":[]}`,
 		`{"type":"assistant","message":{"id":"m3","model":"claude-haiku-4-5-20251001","content":[{"type":"tool_use","id":"tu2","name":"Write","input":{"file_path":"CODE.txt"}}],"usage":`+usage(5, 1, 300, 10)+`},"parent_tool_use_id":null}`,
 		`{"type":"assistant","message":{"id":"m4","model":"claude-haiku-4-5-20251001","content":[{"type":"text","text":"Wrote `+pilotCodeWord+` to CODE.txt."}],"usage":`+usage(5, 1, 310, 5)+`},"parent_tool_use_id":null}`,
-		`{"type":"result","subtype":"success","is_error":false,"num_turns":2,"result":"Wrote `+pilotCodeWord+` to CODE.txt.","total_cost_usd":0.003,"usage":`+usage(10, 30, 610, 15)+`,"modelUsage":`+model(1028, 270, 860, 105, 0.003)+`,"permission_denials":[]}`,
+		`{"type":"result","subtype":"success","is_error":false,"duration_ms":8000,"duration_api_ms":6000,"num_turns":2,"result":"Wrote `+pilotCodeWord+` to CODE.txt.","total_cost_usd":0.003,"usage":`+usage(10, 30, 610, 15)+`,"modelUsage":`+model(1028, 270, 860, 105, 0.003)+`,"permission_denials":[]}`,
 	)
 	return strings.Join(lines, "\n") + "\n"
 }
