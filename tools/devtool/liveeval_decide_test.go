@@ -627,3 +627,32 @@ func TestParseLiveFlags_ExplicitRates(t *testing.T) {
 	o.ratesGiven = true
 	require.NoError(t, runLiveEval(context.Background(), o, fakeLiveEnv(t, nil), &w), "an explicit --rates needs no V7 table")
 }
+
+// TestRenderLiveStageA_FixRound3 (reviews R2-N1, R2-N3): summary.md gives a Stage A record that could
+// not be decided, and was not stopped, the plain heading and its outcome with no empty table of tests;
+// each arm's count of result
+// lines without duration_ms in its own column; "n/a" for an arm with no estimate; and "not recorded"
+// for one whose summary has estimates but no ratio.
+func TestRenderLiveStageA_FixRound3(t *testing.T) {
+	na := eval.LiveDecision{Verdict: eval.LiveVerdictNotApplicable}
+	sum := eval.LiveSummary{
+		Decision: na,
+		StageA: &eval.LiveStageA{
+			Decision: na, Outcome: "the Stage A decisions need the steer and classic arms", Confidence: 0.95,
+			B: eval.LiveBootstrapB, Tasks: 2, Seed: 1,
+		},
+		Arms: map[string]eval.ArmSummary{
+			"stock":   {Arm: "stock", Efficiency: &eval.LiveArmEfficiency{Trials: 2, TimedOutSteps: 1, DurationMissing: 3}},
+			"generic": {Arm: "generic", MeanEstimateMc: 900000, Efficiency: &eval.LiveArmEfficiency{Trials: 2}},
+		},
+	}
+	var b strings.Builder
+	renderLiveStageA(&b, sum)
+	md := b.String()
+	require.Contains(t, md, "## Stage A decisions")
+	require.Contains(t, md, "**Outcome (§9.6):** the Stage A decisions need the steer and classic arms.")
+	require.NotContains(t, md, "interim")
+	require.NotContains(t, md, "| test | comparison |", "a record with no tests prints no empty table")
+	require.Contains(t, md, "| stock | 2 | 0 / 0 / 0 | 0.0000 | 0.0 | 0.0 | 0.0 | 1 | 3 | 0 | 0 / 0 | 0 | n/a (no estimate recorded) |")
+	require.Contains(t, md, "| 0 / 0 | 0 | not recorded (the arm has estimates")
+}
