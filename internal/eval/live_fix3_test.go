@@ -117,6 +117,7 @@ func TestSizeLive_FixRound3(t *testing.T) {
 	ps := p.Arms["steer"]
 	e := *ps.Efficiency
 	e.CostComplete, e.CostPartial, e.CostUnknown, e.MeanCostUSD = 0, 0, 100, 0
+	e.MeanActiveMS = 600000 * 1.3
 	ps.Efficiency = &e
 	p.Arms["steer"] = ps
 	sz, err = eval.SizeLive(a, 36, p, nil, pace)
@@ -124,8 +125,8 @@ func TestSizeLive_FixRound3(t *testing.T) {
 	require.NotNil(t, sz.Redesign)
 	require.False(t, sz.Redesign.CostKnown, "steer has no known C, so its mean C of 0 is no ratio")
 	require.True(t, sz.Redesign.TimeKnown)
-	require.False(t, sz.Redesign.Fires)
-	require.Contains(t, strings.Join(sz.Notes, "\n"), "ratio of mean C is not computable")
+	require.True(t, sz.Redesign.Fires, "on T alone")
+	require.Contains(t, strings.Join(sz.Notes, "\n"), "ratio of mean C is not computable and of mean T 1.300")
 }
 
 // TestSummary_AnInterimRecordWithNoTestsSaysNoTests (review R2-N5): a stopped record that has no tests
