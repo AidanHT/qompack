@@ -298,3 +298,62 @@ func TestEval_LiveStageARunThatReachedNoDecision(t *testing.T) {
 		require.Contains(t, text, want)
 	}
 }
+
+// TestEval_LiveStageADepartureIsNeverJudgedAPass (review D-NEW-1): a Stage A ship run with one plan
+// departure (a dirty bundle) is not confirmatory: H1, H2 and S stay unjudged with "not a confirmatory
+// run" in their detail and the verdict is inconclusive; the same departure with steer's cost at 1.5x
+// still fails on harm. The report names a run's missing durations and an estimate ratio it cannot
+// give (reviews S-R1-N3, H-NEW-1, H-NEW-3).
+func TestEval_LiveStageADepartureIsNeverJudgedAPass(t *testing.T) {
+	ship := stageARun(t, stageATrialsCmd(4, 1.0))
+	ship.Plan.Plugin.Dirty = true
+	require.Equal(t, eval.LiveVerdictShip, ship.Summary.Decision.Verdict)
+	out, err := runWith(t, evalDeps(liveOnly(ship), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.False(t, rep.Live.Confirmatory)
+	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+	for _, g := range []commands.EvalGate{
+		liveGate(t, rep.Recovery, "LIVE-H1"), liveGate(t, rep.Recovery, "LIVE-H2"), liveGate(t, rep.Task, "LIVE-S"),
+	} {
+		require.Nil(t, g.Passed, g.ID)
+		require.Contains(t, g.Detail, "not a confirmatory run", g.ID)
+	}
+
+	harm := stageARun(t, stageATrialsCmd(4, 1.5))
+	harm.Plan.Plugin.Dirty = true
+	out, err = runWith(t, evalDeps(liveOnly(harm), nil), "eval", "--json")
+	require.Error(t, err)
+	require.Equal(t, commands.VerdictFail, decodeEval(t, out).Verdict)
+
+	trials := stageATrialsCmd(4, 1.0)
+	for i := range trials {
+		if trials[i].Arm == "steer" {
+			trials[i].Steps[0].DurationMissing = true
+		}
+	}
+	text, err := runWith(t, evalDeps(liveOnly(stageARun(t, trials)), nil), "eval")
+	require.Error(t, err, "every steer step at the cap reads as time harm")
+	require.Contains(t, text, "24 result line(s) without duration_ms (counted at the cap in a decision's treated arm)")
+	require.Contains(t, text, "estimate / host-reported cost: n/a (no estimate recorded)")
+	require.Contains(t, text, "reported time-reduction")
+	require.Regexp(t, `reported time-reduction[^\n]*\n\s+sensitivities: limited|reported time-reduction[^\n]*\n\s+sensitivities: completed`, text)
+}
+
+// TestEval_LiveAnOldPausedRecordReachesNoDecision (review D-NEW-4): a summary written before a stop or
+// pause updated its Stage A record carries not-applicable only at the top; its gates are still
+// unjudged, and the tests print as interim.
+func TestEval_LiveAnOldPausedRecordReachesNoDecision(t *testing.T) {
+	run := stageARun(t, stageATrialsCmd(4, 1.0))
+	run.Summary.Decision = eval.LiveDecision{Verdict: eval.LiveVerdictNotApplicable, Reason: "the run paused"}
+	require.Equal(t, eval.LiveVerdictShip, run.Summary.StageA.Decision.Verdict, "the record predates interimStageA")
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	h1 := liveGate(t, rep.Recovery, "LIVE-H1")
+	require.Nil(t, h1.Passed)
+	require.Contains(t, h1.Detail, "the run reached no decision")
+	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
+	require.NoError(t, err)
+	require.Contains(t, text, "Stage A tests, interim, not decided")
+}
