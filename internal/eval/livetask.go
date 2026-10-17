@@ -428,11 +428,32 @@ func (a LiveAnalysis) validate() error {
 	}
 	switch {
 	case a.Efficiency != nil:
-		return a.Efficiency.validate()
+		if err := a.Efficiency.validate(); err != nil {
+			return err
+		}
 	case a.fourArm():
 		return fmt.Errorf("eval: a four-arm set pre-registers analysis.efficiency (amendment 4)")
 	}
+	if a.fourArm() && !a.Efficiency.decidesTheGate() {
+		// §9.4 gates F1 on steer vs classic on both cost C and active time T (review STATS-8).
+		return fmt.Errorf("eval: a four-arm set's analysis.efficiency decides cost and active_time with the gated " +
+			"steer vs classic guard (amendment 4)")
+	}
 	return nil
+}
+
+// decidesTheGate reports that the block carries §9.4's gate: the gated steer-vs-classic guard, on both
+// cost and active_time.
+func (e *LiveEfficiency) decidesTheGate() bool {
+	if e == nil || !slices.Contains(e.Metrics, LiveMetricCost) || !slices.Contains(e.Metrics, LiveMetricActiveTime) {
+		return false
+	}
+	for _, g := range e.Guards {
+		if g.Treated == ArmSteer && g.Comparator == ArmClassic && g.Gated {
+			return true
+		}
+	}
+	return false
 }
 
 // fourArm reports that the set is in the Stage A shape, with per-arm trials.

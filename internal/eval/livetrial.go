@@ -83,7 +83,13 @@ type LiveTrial struct {
 	Estimate         *Money          `json:"estimate,omitempty"`
 	EstimateComplete bool            `json:"estimate_complete"`
 	EstimateMissing  []UsageCategory `json:"estimate_missing,omitempty"`
-	RateTableDate    string          `json:"rate_table_date,omitempty"`
+	// EstimateUnpriced names the models the rate table does not price; their usage adds nothing to
+	// Estimate, which is then a lower bound.
+	EstimateUnpriced []string `json:"estimate_unpriced,omitempty"`
+	// StepTimeoutMS is the run's step timeout (plan.json's step_timeout_ms): the cap active time counts a
+	// reached step with no result at. 0 in a record written before it was recorded.
+	StepTimeoutMS int64  `json:"step_timeout_ms,omitempty"`
+	RateTableDate string `json:"rate_table_date,omitempty"`
 	// HookLatencyMS is the pipe-observed latency of each hook, by hook name.
 	HookLatencyMS map[string][]int64 `json:"hook_latency_ms,omitempty"`
 	// TranscriptHookMS is the host's own recorded hook durations from the transcript, by hook name.
@@ -282,52 +288,87 @@ type LiveStepRecord struct {
 	HasResult     bool  `json:"has_result,omitempty"`
 	DurationMS    int64 `json:"duration_ms,omitempty"`
 	DurationAPIMS int64 `json:"duration_api_ms,omitempty"`
+	// DurationMissing and CostMissing say the result line carried no duration_ms or no
+	// total_cost_usd: unknown values, never zeros (amendment 4).
+	DurationMissing bool `json:"duration_missing,omitempty"`
+	CostMissing     bool `json:"cost_missing,omitempty"`
 }
 
 // result reports that the step's turn ended in a result line. A record written before HasResult
 // existed says so by its subtype.
 func (r LiveStepRecord) result() bool { return r.HasResult || r.ResultSubtype != "" }
 
-// The status of a trial's cost C (amendment 4): complete when every step ended in a result line, a
-// lower bound when the last step the trial reached has none, unknown when no step has one. Missing
-// usage is unknown, never zero (Qompack.md).
+// The status of a trial's cost C (amendment 4): complete when every step ended in a result line that
+// carries the running total, a lower bound when the last step the trial reached has none (or its line
+// carries no total, an earlier one did), unknown when no result line carries one. Missing usage is
+// unknown, never zero (Qompack.md).
 const (
 	LiveCostComplete = "complete"
 	LiveCostPartial  = "partial"
 	LiveCostUnknown  = "unknown"
 )
 
-// Cost is the trial's cost C — the host's own list-price estimate, HostCostUSD — and its status.
-// The driver sends a step only after the previous step's result, so the steps a trial reached are
-// those with a result and, when one lacks it, that first step without one.
+// Cost is the trial's cost C — the host's own list-price estimate, HostCostUSD, the last running total
+// a result line carried — and its status. The driver sends a step only after the previous step's
+// result, so the steps a trial reached are those with a result and, when one lacks it, that first step
+// without one.
 func (t LiveTrial) Cost() (float64, string) {
-	results := 0
-	for _, s := range t.Steps {
+	results, priced, last := 0, 0, -1
+	for i, s := range t.Steps {
 		if s.result() {
 			results++
+			last = i
+			if !s.CostMissing {
+				priced++
+			}
 		}
 	}
 	switch {
-	case results == 0:
+	case priced == 0:
 		return 0, LiveCostUnknown
-	case results < len(t.Steps):
+	case results < len(t.Steps) || t.Steps[last].CostMissing:
 		return t.HostCostUSD, LiveCostPartial
 	}
 	return t.HostCostUSD, LiveCostComplete
 }
 
-// ActiveMS is the trial's active time T (amendment 4): over the steps it reached, the host's
-// duration_ms of each step's result, and capMS — the pinned step timeout — for a reached step with no
-// result. Steps never reached count 0.
-func (t LiveTrial) ActiveMS(capMS int64) int64 {
+// ActiveMS is the trial's active time T as observed (amendment 4): over the steps it reached, the
+// host's duration_ms of each step's result, and capMS — the pinned step timeout — for a reached step
+// with no result. Steps never reached count 0, and so does a result line with no duration_ms.
+func (t LiveTrial) ActiveMS(capMS int64) int64 { return t.activeMS(capMS, false) }
+
+// ActiveMSAdverse is T as the treated arm of a decision counts it, failing closed (review STATS-5): a
+// result line with no duration_ms counts at capMS, and so does a trial with no step record at all (the
+// session never ran, so its time is unknown).
+func (t LiveTrial) ActiveMSAdverse(capMS int64) int64 { return t.activeMS(capMS, true) }
+
+func (t LiveTrial) activeMS(capMS int64, adverse bool) int64 {
+	if len(t.Steps) == 0 && adverse {
+		return capMS
+	}
 	var total int64
 	for _, s := range t.Steps {
-		if !s.result() {
+		switch {
+		case !s.result():
 			return total + capMS
+		case s.DurationMissing && adverse:
+			total += capMS
+		default:
+			total += s.DurationMS
 		}
-		total += s.DurationMS
 	}
 	return total
+}
+
+// MissingDurations counts the reached steps whose result line carried no duration_ms.
+func (t LiveTrial) MissingDurations() int {
+	n := 0
+	for _, s := range t.Steps {
+		if s.result() && s.DurationMissing {
+			n++
+		}
+	}
+	return n
 }
 
 // APIMS is the API share of the trial's active time: the reached steps' duration_api_ms.
@@ -389,6 +430,7 @@ func StepRecords(task LiveTask, s HostStream) ([]LiveStepRecord, bool) {
 			if t.Result != nil {
 				rec.HasResult = true
 				rec.DurationMS, rec.DurationAPIMS = t.Result.DurationMS, t.Result.DurationAPIMS
+				rec.DurationMissing, rec.CostMissing = t.Result.DurationMissing, t.Result.CostMissing
 				rec.ResultSubtype = t.Result.Subtype
 				rec.IsError = t.Result.IsError
 				rec.NumTurns = t.Result.NumTurns
@@ -649,22 +691,24 @@ type LiveDecision struct {
 // SummarizeLive aggregates trials. Every trial counts, complete or not: dropping the failures is
 // how an evaluation flatters itself.
 //
-// A run of the Stage A arms (no trial of the two-arm design's qompack arm, and some of classic,
-// generic or steer) is decided by the Stage A rules (DecideStageA: the paired task bootstrap, the
-// fixed-sequence chain, S, the harm tests and amendment 4's efficiency guards), which replace the
-// two-arm DecideLive; a recorded two-arm run is still decided by DecideLive.
+// A run of the Stage A design (a four-arm task set, or trials of classic, generic or steer; never a
+// trial of the two-arm design's qompack arm) is decided by the Stage A rules (DecideStageA: the
+// paired task bootstrap, the fixed-sequence chain, S, the harm tests and amendment 4's efficiency
+// guards), which replace the two-arm DecideLive; a recorded two-arm run is still decided by DecideLive.
 func SummarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary {
 	sum := summarizeLive(runID, a, trials)
-	if stageATrials(trials) {
+	if stageARun(a, trials) {
 		sum.StageA = DecideStageA(a, trials, nil)
 		sum.Decision = sum.StageA.Decision
 	}
 	return sum
 }
 
-// stageATrials reports that the trials are a run of the Stage A arms.
-func stageATrials(trials []LiveTrial) bool {
-	stageA := false
+// stageARun reports that the trials are a run of the Stage A design: routed on the design (a four-arm
+// task set), or on the arms for a set without per-arm counts, and never with a qompack trial, which
+// belongs to a recorded two-arm run (review WIRING-9).
+func stageARun(a LiveAnalysis, trials []LiveTrial) bool {
+	stageA := a.fourArm()
 	for _, t := range trials {
 		switch t.Arm {
 		case ArmQompack:
@@ -688,7 +732,7 @@ type armRules struct {
 // summarizeLive is SummarizeLive without the Stage A decision.
 func summarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary {
 	rules := armRules{
-		z: normalQuantile(1 - (1-a.Confidence)/2), declaredConstraint: stageATrials(trials), capMS: a.stepTimeoutMS(),
+		z: normalQuantile(1 - (1-a.Confidence)/2), declaredConstraint: stageARun(a, trials), capMS: a.stepTimeoutMS(),
 	}
 	sum := LiveSummary{
 		Schema:     LiveSummarySchema,
@@ -833,6 +877,7 @@ func (s *LiveSummary) StopEarly(ran, planned int, why string) {
 			"every planned trial", ran, planned),
 	}
 	s.Notes = append(s.Notes, "the run was stopped early: "+why)
+	s.interimStageA(fmt.Sprintf("no verdict: the run stopped after %d of the %d planned trials", ran, planned))
 }
 
 // Pause records that the run paused cleanly after ran of its planned trials, and why (W6 item 8):
@@ -846,11 +891,14 @@ func (s *LiveSummary) Pause(ran, planned int, why string) {
 	}
 	s.Paused = why
 	s.Notes = append(s.Notes, "the run paused cleanly: "+why)
+	s.interimStageA(fmt.Sprintf("no verdict: the run paused after %d of the %d planned trials", ran, planned))
 }
 
 // AddLimited records the limited trials of a run whose scored trials are scored (W6 item 8): their
 // count per arm, and the sensitivity analysis that counts each as a failure on every outcome. The
-// primary analysis and its decision are untouched.
+// two-arm primary analysis and its decision are untouched; a Stage A run is decided again with the
+// limited trials, whose partial C and T the efficiency guards' limited sensitivity adds to their slots
+// (amendment 4). Call it before StopEarly or Pause, which then mark the decision interim.
 func (s *LiveSummary) AddLimited(a LiveAnalysis, scored, limited []LiveTrial) {
 	if len(limited) == 0 {
 		return
@@ -1282,4 +1330,15 @@ func orNone(models []string) string {
 		return "a model no trial recorded"
 	}
 	return strings.Join(models, ", ")
+}
+
+// interimStageA marks a stopped or paused run's Stage A record as interim (review I-2): its decision
+// follows the summary's not-applicable one, and its outcome row says no verdict was reached, so neither
+// the record nor its renderings can read as a decided run. The tests stay, as an interim description.
+func (s *LiveSummary) interimStageA(outcome string) {
+	if s.StageA == nil {
+		return
+	}
+	s.StageA.Decision = s.Decision
+	s.StageA.Outcome = outcome + "; the tests below are interim, not decided"
 }

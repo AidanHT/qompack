@@ -46,6 +46,11 @@ const (
 	LiveLabelHarmShown     = "harm shown"
 	LiveLabelIndeterminate = "indeterminate"
 	LiveLabelReported      = "reported"
+	// LiveLabelOverheadShown is an ungated guard's "harm shown" (classic vs stock): a label for the docs
+	// and a defect item, never a §9.6 harm.
+	LiveLabelOverheadShown = "overhead shown"
+	// LiveLabelNotMeasured marks a §9.4 row this harness does not produce.
+	LiveLabelNotMeasured = "not measured"
 )
 
 // The Stage A verdicts (LiveDecision.Verdict of a Stage A run).
@@ -123,6 +128,9 @@ type LiveStageA struct {
 	Outcome  string       `json:"outcome"`
 	Decision LiveDecision `json:"decision"`
 	Notes    []string     `json:"notes,omitempty"`
+	// NotMeasured names the §9.4 reported rows this harness does not produce, so a pre-registration
+	// cannot set a threshold on a quantity no run records (review CLI-4).
+	NotMeasured []string `json:"not_measured,omitempty"`
 }
 
 // Test returns the test with id, and whether it exists.
@@ -148,6 +156,9 @@ type LiveArmEfficiency struct {
 	MeanAPIMS     float64 `json:"mean_api_ms"`
 	MeanLocalMS   float64 `json:"mean_local_ms"`
 	TimedOutSteps int     `json:"timed_out_steps"`
+	// DurationMissing counts the reached steps whose result line carried no duration_ms: observed T
+	// counts them as 0, a decision's treated arm at the cap.
+	DurationMissing int `json:"duration_missing,omitempty"`
 	// Compactions counts the arm's compactions; CompactionMS and PostTokens summarize their
 	// compact_boundary duration_ms and post_tokens.
 	Compactions  int              `json:"compactions"`
@@ -157,6 +168,10 @@ type LiveArmEfficiency struct {
 	// complete costs) and of log T: the σ_w the sizing step's efficiency power uses.
 	LogSDWithinCost float64 `json:"log_sd_within_cost"`
 	LogSDWithinTime float64 `json:"log_sd_within_time"`
+	// LogSDWithinCostDF and LogSDWithinTimeDF are their degrees of freedom: the trials beyond the first
+	// in each task, summed (0 at one trial per task per arm).
+	LogSDWithinCostDF int `json:"log_sd_within_cost_df"`
+	LogSDWithinTimeDF int `json:"log_sd_within_time_df"`
 }
 
 // armEfficiency aggregates one arm's C and T; nil for no trials.
@@ -186,7 +201,8 @@ func armEfficiency(ts []LiveTrial, capMS int64) *LiveArmEfficiency {
 			cost += c
 			costN++
 		}
-		tm := t.ActiveMS(capMS)
+		tm := t.ActiveMS(capFor(t, capMS))
+		e.DurationMissing += t.MissingDurations()
 		active += float64(tm)
 		api += float64(t.APIMS())
 		if tm > 0 {
@@ -206,16 +222,19 @@ func armEfficiency(ts []LiveTrial, capMS int64) *LiveArmEfficiency {
 	e.MeanActiveMS, e.MeanAPIMS = active/n, api/n
 	e.MeanLocalMS = e.MeanActiveMS - e.MeanAPIMS
 	e.CompactionMS, e.PostTokens = distributionOf(compMS), distributionOf(post)
-	e.LogSDWithinCost, e.LogSDWithinTime = pooledWithinSD(logC), pooledWithinSD(logT)
+	e.LogSDWithinCost, e.LogSDWithinCostDF = pooledWithinSD(logC)
+	e.LogSDWithinTime, e.LogSDWithinTimeDF = pooledWithinSD(logT)
 	return e
 }
 
 // pooledWithinSD is the pooled within-group standard deviation, over the groups with at least two
-// values; 0 when there are none.
-func pooledWithinSD(groups map[string][]float64) float64 {
+// values (summed in key order, so the result does not depend on map iteration), and its degrees of
+// freedom; 0 and 0 when there are none.
+func pooledWithinSD(groups map[string][]float64) (float64, int) {
 	var ss float64
 	var df int
-	for _, xs := range groups {
+	for _, k := range slices.Sorted(maps.Keys(groups)) {
+		xs := groups[k]
 		if len(xs) < 2 {
 			continue
 		}
@@ -230,9 +249,9 @@ func pooledWithinSD(groups map[string][]float64) float64 {
 		df += len(xs) - 1
 	}
 	if df == 0 {
-		return 0
+		return 0, 0
 	}
-	return math.Sqrt(ss / float64(df))
+	return math.Sqrt(ss / float64(df)), df
 }
 
 // stageA is one decision's inputs: the analysis, the shared draws, the scored trials by arm and the
@@ -274,6 +293,7 @@ func DecideStageA(a LiveAnalysis, scored, limited []LiveTrial) *LiveStageA {
 	}
 	out := &LiveStageA{
 		B: LiveBootstrapB, Seed: LiveBootstrapSeed, Tasks: len(s.draws.Tasks), Confidence: conf, Decided: decided,
+		NotMeasured: liveNotMeasured,
 	}
 	if len(byArm[ArmSteer]) == 0 || len(byArm[ArmClassic]) == 0 {
 		out.Outcome = "the Stage A decisions need the steer and classic arms"
@@ -348,6 +368,10 @@ func (s stageA) tests(decided bool) []LiveTest {
 	switch {
 	case !decided:
 		sTest.Label, sTest.Reason = LiveLabelNotTested, notDecided
+	case sTest.Interval != nil && bound > -m && s.a.SFallback:
+		// §9.4: under the fallback the docs state that non-inferiority was not shown; S is met, not claimed.
+		sTest.Label, sTest.Reason = LiveLabelShown, fmt.Sprintf("S met only through the pre-registered fallback: the "+
+			"20th percentile %.3f lies above -%.2f; non-inferiority on task success was not shown (§9.4)", bound, m)
 	case sTest.Interval != nil && bound > -m:
 		sTest.Label, sTest.Reason = LiveLabelShown, fmt.Sprintf("steer is non-inferior to classic on task success: %s "+
 			"%.3f lies above -%.2f", boundName, bound, m)
@@ -401,8 +425,9 @@ func (s stageA) guard(g LiveEfficiencyGuard, metric string) LiveTest {
 	harm := func(iv *LiveInterval) bool { return iv != nil && iv.Low > limit }
 	switch {
 	case t.Interval == nil && g.Gated:
-		t.Label, t.Reason = LiveLabelIndeterminate, "the ratio could not be computed (an arm with no known value), so the "+
-			"gated guard reads indeterminate, which §9.6 treats as harm shown"
+		t.Label, t.Reason = LiveLabelIndeterminate, "could not be computed: investigate the measurement (an arm with no "+
+			"known value, or a comparator mean of zero); the gated guard fails closed as indeterminate, which §9.6 treats "+
+			"as harm shown"
 		return t
 	case t.Interval == nil:
 		t.Label, t.Reason = LiveLabelNotShown, "the ratio could not be computed"
@@ -420,7 +445,7 @@ func (s stageA) guard(g LiveEfficiencyGuard, metric string) LiveTest {
 		t.Label, t.Reason = LiveLabelHarmShown, fmt.Sprintf("%s's %s is shown above %.0f %% over %s's: %s",
 			g.Treated, what, 100*s.margin, g.Comparator, intervalText(t.Interval))
 	case primary:
-		t.Label, t.Reason = LiveLabelHarmShown, fmt.Sprintf("Qompack 0.3.x's %s overhead was shown above %.0f %%: %s "+
+		t.Label, t.Reason = LiveLabelOverheadShown, fmt.Sprintf("Qompack 0.3.x's %s overhead was shown above %.0f %%: %s "+
 			"(a label for the docs and a defect item; it does not gate F1)", what, 100*s.margin, intervalText(t.Interval))
 	default:
 		t.Label, t.Reason = LiveLabelNotShown, fmt.Sprintf("the lower bound does not exceed %.2f: %s", limit,
@@ -718,7 +743,11 @@ func (s stageA) values(metric string, treated, comparator []LiveTrial, r valueRu
 		var keys []LiveTrial
 		if metric == LiveMetricActiveTime {
 			for _, t := range side.ts {
-				vals, keys = append(vals, float64(t.ActiveMS(s.capMS))), append(keys, t)
+				tm := t.ActiveMS(capFor(t, s.capMS))
+				if side.treated && r.adverse {
+					tm = t.ActiveMSAdverse(capFor(t, s.capMS))
+				}
+				vals, keys = append(vals, float64(tm)), append(keys, t)
 			}
 		} else {
 			var ok bool
@@ -752,7 +781,7 @@ func (s stageA) limitedAdd(t LiveTrial, metric string) float64 {
 			continue
 		}
 		if metric == LiveMetricActiveTime {
-			add += float64(l.ActiveMS(s.capMS))
+			add += float64(l.ActiveMS(capFor(l, s.capMS)))
 			continue
 		}
 		if c, status := l.Cost(); status != LiveCostUnknown {
@@ -870,4 +899,22 @@ func intervalText(iv *LiveInterval) string {
 		return "no interval (an arm had no trial carrying the value)"
 	}
 	return fmt.Sprintf("%.3f [%.3f, %.3f]", iv.Estimate, iv.Low, iv.High)
+}
+
+// capFor is the step timeout t's run used (plan.json's, recorded on the trial), or fallback — the
+// analysis block's pinned value — for a record written before it was recorded.
+func capFor(t LiveTrial, fallback int64) int64 {
+	if t.StepTimeoutMS > 0 {
+		return t.StepTimeoutMS
+	}
+	return fallback
+}
+
+// liveNotMeasured is the §9.4 reported rows the harness does not produce (coordinator ruling on review
+// CLI-4): distrust incidents have no definition yet, and the -p teardown losses with F4 on reach the
+// record only inside each trial's hook problems.
+var liveNotMeasured = []string{
+	"distrust incidents: not measured by this harness (their definition is owed by R2's pre-registration)",
+	"-p teardown losses with F4 on: not measured by this harness as a row; the losses the host records appear " +
+		"inside each trial's hook problems",
 }

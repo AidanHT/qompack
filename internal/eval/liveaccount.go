@@ -230,7 +230,13 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 			Delta:            map[string]UsageTotals{},
 			HostCostDeltaUSD: t.Result.TotalCostUSD - prevCost,
 		}
-		if ta.HostCostDeltaUSD < 0 {
+		switch {
+		case t.Result.CostMissing:
+			// An absent running total is unknown, never zero: the session's cost stays at the last total
+			// a result line carried, a lower bound (amendment 4).
+			ta.HostCostDeltaUSD = 0
+			problem("turn %d: the result line carries no total_cost_usd; the session's cost is a lower bound", t.Index)
+		case ta.HostCostDeltaUSD < 0:
 			problem("turn %d: total_cost_usd decreased from %.6f to %.6f", t.Index, prevCost, t.Result.TotalCostUSD)
 		}
 		for _, model := range sortedModels(t.Result.ModelUsage, prev) {
@@ -256,7 +262,9 @@ func AccountHostStream(s HostStream, base AccountBaseline) SessionAccount {
 		}
 		acc.Turns = append(acc.Turns, ta)
 		prev = t.Result.ModelUsage
-		prevCost = t.Result.TotalCostUSD
+		if !t.Result.CostMissing {
+			prevCost = t.Result.TotalCostUSD
+		}
 	}
 
 	for model := range prev {
