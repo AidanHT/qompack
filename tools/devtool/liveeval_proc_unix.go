@@ -46,6 +46,10 @@ func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 	if cmd.Process == nil {
 		return nil
 	}
+	// On Linux a leader that has exited but is not yet reaped keeps its group killable, so the kill
+	// would succeed and exec would report a clean exit as cancelled. The exit is read first, without
+	// reaping; the group is still killed, to end any descendant left in it (ruling R56).
+	leaderExited := liveLeaderExited(cmd.Process.Pid)
 	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
 		if errors.Is(err, syscall.ESRCH) {
 			return os.ErrProcessDone
@@ -54,6 +58,9 @@ func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 		pin.walkErr = fmt.Errorf("the process group %d could not be killed: %w", cmd.Process.Pid, err)
 		pin.mu.Unlock()
 		return pin.walkErr
+	}
+	if leaderExited {
+		return os.ErrProcessDone
 	}
 	return nil
 }
