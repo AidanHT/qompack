@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -425,9 +426,9 @@ func TestRunLiveEval_DescribeShowsThePreregisteredDecisions(t *testing.T) {
 		"## Pre-registered decisions", "B = 10000 resamples, seed 20261016", "the lower bound above -0.10",
 		"Δ_H1 0.25, Δ_H2 0.15, ICC_int 0.10", "margin 0.10 on cost and active_time", "caps a step with no result at 600000 ms",
 		"steer vs classic: harm shown when the ratio's lower bound exceeds 1.10 (gated",
-		"classic vs stock: harm shown when the ratio's lower bound exceeds 1.10 (a label for the docs, not gating)",
+		"classic vs stock: overhead shown when the ratio's lower bound exceeds 1.10 (a label for the docs, not gating)",
 		"a claim, not a ship condition", "redesign ratio 1.25", "- Daemon idle exit: 1800 s; step timeout 10m0s",
-		"- Harm (gated, on every decided run of either model): steer below classic on task success, or on the constraint-clean",
+		"- Harm (gated, on every run that reached a decision, on either model, the §9.8 Sonnet check included)",
 		"decides only harm; its benefit intervals are reported, not decided",
 	} {
 		require.Contains(t, w.String(), want)
@@ -456,11 +457,25 @@ func TestRenderLiveSummary_StageARecords(t *testing.T) {
 	md := renderLiveSummary(plan, sum)
 	for _, want := range []string{
 		"## Stage A decisions", "**Outcome (§9.6):**", "Sensitivities of the ratios", "| harm-cost | completed |",
-		"| harm-cost | observed |", "| harm-cost | geometric |", "estimate / host |",
+		"| harm-cost | observed |", "| harm-cost | geometric |", "estimate / host |", "result lines without duration_ms |",
+		"overhead shown when the ratio's lower bound is above 1.10 (a label, not gating)",
 		"distrust incidents: not measured by this harness", "-p teardown losses with F4 on: not measured",
 	} {
 		require.Contains(t, md, want)
 	}
+	// The estimate ratio is eval's, over the trials with both an estimate and a complete C (H-NEW-1).
+	e := sum.Arms["steer"].Efficiency
+	var est, cost float64
+	for _, n := range []string{"01", "02"} {
+		var rec eval.LiveTrial
+		readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "steer", n, "trial.json"), &rec)
+		require.NotNil(t, rec.Estimate)
+		est += float64(rec.Estimate.Micros) / 1e6
+		cost += rec.HostCostUSD
+	}
+	require.Equal(t, 2, e.EstimateRatioN)
+	require.InDelta(t, est/cost, e.EstimateRatio, 1e-12)
+	require.Contains(t, md, fmt.Sprintf("| %.3f over 2 trial(s)", e.EstimateRatio))
 	sum.Pause(3, 6, "the night window ended")
 	paused := renderLiveSummary(plan, sum)
 	require.Contains(t, paused, "## Stage A tests, interim, not decided")
@@ -580,4 +595,35 @@ func TestRunLiveEval_RatesAndTheStepTimeoutOnEachTrial(t *testing.T) {
 
 	_, err := parseLiveTest([]string{"--step-timeout", "0s"})
 	require.ErrorContains(t, err, "--step-timeout 0s must be positive")
+}
+
+// TestParseLiveFlags_ExplicitRates (reviews H-NEW-2, H-NEW-5): --rates sets the table and marks it given,
+// so it wins over the V7 default; with no --rates, a task set with an efficiency block whose
+// rates-v7.json is missing is refused with the way out named.
+func TestParseLiveFlags_ExplicitRates(t *testing.T) {
+	o, err := parseLiveTest([]string{"--rates", "x.json"})
+	require.NoError(t, err)
+	require.True(t, o.ratesGiven)
+	require.Equal(t, "x.json", o.rates)
+	o, err = parseLiveTest(nil)
+	require.NoError(t, err)
+	require.False(t, o.ratesGiven)
+
+	set, err := os.ReadFile(liveTestTasksV7)
+	require.NoError(t, err)
+	dir := t.TempDir()
+	for _, d := range []string{"fixtures/pilot", "hidden/pilot"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, d), 0o755))
+	}
+	tasks := filepath.Join(dir, "tasks.json")
+	require.NoError(t, os.WriteFile(tasks, set, 0o600))
+	o = liveOptions{
+		tasksFile: tasks, rates: liveTestRates, arms: []string{"stock"}, out: t.TempDir(), idleExit: 1800, dryRun: true,
+	}
+	var w bytes.Buffer
+	err = runLiveEval(context.Background(), o, fakeLiveEnv(t, nil), &w)
+	require.ErrorContains(t, err, "rates-v7.json")
+	require.ErrorContains(t, err, "pass --rates <table>")
+	o.ratesGiven = true
+	require.NoError(t, runLiveEval(context.Background(), o, fakeLiveEnv(t, nil), &w), "an explicit --rates needs no V7 table")
 }
