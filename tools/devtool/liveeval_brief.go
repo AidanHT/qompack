@@ -69,6 +69,11 @@ func readLiveBriefRecords(project, sessionID string) (records []eval.LiveBriefRe
 // is not the arm's bundle version (or that cannot be read) is a daemon of another build, and the
 // attempt is a configuration error, set aside and run again. No lock is the expected state; a lock
 // of the arm's own build is recorded and is no fault.
+//
+// The check is deliberately broader than "a pre-W1a daemon" (coordinator ruling on review WIRING-3):
+// every trial's project is created fresh, so any lock of another build in it is contamination, and the
+// attempt fails closed whatever that build is. The daemon's lock records core.Version, which `devtool
+// bundle` stamps with the bundle's own version, so a build of the arm's own commit never trips it.
 func checkLiveResidentDaemon(project string, id *eval.LivePluginIdentity) (*eval.LiveResidentDaemon, error) {
 	if id == nil {
 		return nil, nil

@@ -13,17 +13,31 @@ import (
 // renderLiveStageA writes the Stage A sections; nothing for a run that has none of them.
 func renderLiveStageA(b *strings.Builder, s eval.LiveSummary) {
 	if st := s.StageA; st != nil {
-		fmt.Fprintf(b, "\n## Stage A decisions\n\nPre-registered (plan §9.4): every interval is the paired task bootstrap's "+
+		heading, outcome := "Stage A decisions", "Outcome (§9.6)"
+		if st.Decision.Verdict == eval.LiveVerdictNotApplicable {
+			// A stopped or paused run reached no decision: its tests are interim (review I-2).
+			heading, outcome = "Stage A tests, interim, not decided", "No decision"
+		}
+		fmt.Fprintf(b, "\n## %s\n\nPre-registered (plan §9.4): every interval is the paired task bootstrap's "+
 			"%.0f %% two-sided percentile interval, B = %d resamples of %d task(s) from seed %d, tasks resampled jointly "+
-			"across arms. Newcombe intervals are reported beside, never decided.\n\n", 100*st.Confidence, st.B, st.Tasks, st.Seed)
-		fmt.Fprintf(b, "**Outcome (§9.6):** %s.\n\n", st.Outcome)
+			"across arms. Newcombe intervals are reported beside, never decided.\n\n", heading, 100*st.Confidence, st.B,
+			st.Tasks, st.Seed)
+		fmt.Fprintf(b, "**%s:** %s.\n\n", outcome, st.Outcome)
 		renderLiveTests(b, st.Tests, true)
+		renderLiveSensitivities(b, st.Tests)
 		for _, n := range st.Notes {
 			fmt.Fprintf(b, "\n- %s\n", n)
 		}
 		if len(st.Reported) > 0 {
 			b.WriteString("\n## Reported, never decided\n\n")
 			renderLiveTests(b, st.Reported, false)
+			renderLiveSensitivities(b, st.Reported)
+		}
+		for _, n := range st.NotMeasured {
+			fmt.Fprintf(b, "\n- %s", n)
+		}
+		if len(st.NotMeasured) > 0 {
+			b.WriteString("\n")
 		}
 		if len(st.UtilizationFits) > 0 {
 			b.WriteString("\nSubscription utilization delta against cost C, a least-squares line over trials with a complete C " +
@@ -81,15 +95,22 @@ func renderLiveEfficiency(b *strings.Builder, s eval.LiveSummary) {
 		"(partial) or unknown, and an unknown C is never counted as zero. T sums each reached step's duration_ms, a " +
 		"reached step with no result at the pinned step timeout. Reported here; the decisions above compare the arms.\n\n")
 	b.WriteString("| arm | trials | C complete / partial / unknown | mean C USD | mean T s | API s | local s | timed-out steps | " +
-		"compactions | compaction ms p50 / p95 | post_tokens p50 |\n|---|---|---|---|---|---|---|---|---|---|---|\n")
+		"compactions | compaction ms p50 / p95 | post_tokens p50 | estimate / host |\n" +
+		"|---|---|---|---|---|---|---|---|---|---|---|---|\n")
 	for _, arm := range liveSortedKeys(s.Arms) {
-		e := s.Arms[arm].Efficiency
+		as := s.Arms[arm]
+		e := as.Efficiency
 		if e == nil {
 			continue
 		}
-		fmt.Fprintf(b, "| %s | %d | %d / %d / %d | %.4f | %.1f | %.1f | %.1f | %d | %d | %.0f / %.0f | %.0f |\n", arm, e.Trials,
-			e.CostComplete, e.CostPartial, e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000,
-			e.MeanLocalMS/1000, e.TimedOutSteps, e.Compactions, e.CompactionMS.P50, e.CompactionMS.P95, e.PostTokens.P50)
+		ratio := "n/a"
+		if as.MeanHostCost > 0 {
+			// The repository's Estimate beside the host's own figure (§9.4, review STATS-7).
+			ratio = fmt.Sprintf("%.3f", float64(as.MeanEstimateMc)/1e6/as.MeanHostCost)
+		}
+		fmt.Fprintf(b, "| %s | %d | %d / %d / %d | %.4f | %.1f | %.1f | %.1f | %d | %d | %.0f / %.0f | %.0f | %s |\n", arm,
+			e.Trials, e.CostComplete, e.CostPartial, e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000,
+			e.MeanLocalMS/1000, e.TimedOutSteps, e.Compactions, e.CompactionMS.P50, e.CompactionMS.P95, e.PostTokens.P50, ratio)
 	}
 }
 
@@ -131,4 +152,24 @@ func orNone(s string) string {
 		return "none"
 	}
 	return s
+}
+
+// renderLiveSensitivities writes each ratio test's sensitivity intervals (review STATS-7): the
+// limited-trial, completed, observed-only and geometric-mean intervals beside its primary one.
+func renderLiveSensitivities(b *strings.Builder, tests []eval.LiveTest) {
+	var rows []string
+	for _, t := range tests {
+		for _, name := range []string{eval.LiveSensLimited, eval.LiveSensCompleted, eval.LiveSensObserved, eval.LiveSensGeometric} {
+			if iv, ok := t.Sensitivity[name]; ok {
+				rows = append(rows, fmt.Sprintf("| %s | %s | %.3f [%.3f, %.3f] |", t.ID, name, iv.Estimate, iv.Low, iv.High))
+			}
+		}
+	}
+	if len(rows) == 0 {
+		return
+	}
+	b.WriteString("\nSensitivities of the ratios (limited: each limited trial's partial C and T added to its slot's re-run; " +
+		"completed: trials whose task completed; observed: C as observed, an unknown left out; geometric: the ratio of " +
+		"geometric means):\n\n| test | sensitivity | estimate [interval] |\n|---|---|---|\n")
+	b.WriteString(strings.Join(rows, "\n") + "\n")
 }

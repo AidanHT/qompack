@@ -134,16 +134,16 @@ type LiveEfficiencyGuard struct {
 	Gated      bool   `json:"gated"`
 }
 
-// liveDefaultStepTimeoutMS is the harness's default --step-timeout, the T cap of a run whose task set
-// pins none.
-const liveDefaultStepTimeoutMS = int64(10 * 60 * 1000)
+// LiveDefaultStepTimeoutMS is the harness's default --step-timeout (devtool takes it from here, review
+// TESTS-12) and the T cap of a run whose task set pins none.
+const LiveDefaultStepTimeoutMS = int64(10 * 60 * 1000)
 
 // stepTimeoutMS is the step timeout active time counts a reached step with no result as.
 func (a LiveAnalysis) stepTimeoutMS() int64 {
 	if a.Efficiency != nil && a.Efficiency.StepTimeoutMS > 0 {
 		return a.Efficiency.StepTimeoutMS
 	}
-	return liveDefaultStepTimeoutMS
+	return LiveDefaultStepTimeoutMS
 }
 
 // efficiencyMargin is M, or the plan's M for reported rows when no block pins it.

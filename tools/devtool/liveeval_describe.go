@@ -158,13 +158,20 @@ func renderLiveDescribeDecisions(b *strings.Builder, a eval.LiveAnalysis) {
 	b.WriteString("\n## Pre-registered decisions\n\n")
 	fmt.Fprintf(b, "- Every interval is the paired task bootstrap's %.0f %% two-sided percentile interval: B = %d resamples, "+
 		"seed %d, tasks resampled jointly across arms.\n", 100*a.Confidence, eval.LiveBootstrapB, eval.LiveBootstrapSeed)
-	b.WriteString("- Fixed sequence: H1 steer > classic on recovery, then H2 steer > generic, then H3 (below); S: steer " +
-		"non-inferior to classic on task success, ")
+	b.WriteString("- Fixed sequence: H1 steer > classic on recovery, then H2 steer > generic, then H3 (below). ")
 	if a.SFallback {
-		fmt.Fprintf(b, "the 20th percentile above -%.2f (the pre-registered fallback).\n", a.NonInferiorityMargin)
+		// §9.4: under the fallback S is met, not shown, and the docs say non-inferiority was not shown
+		// (review I-3).
+		fmt.Fprintf(b, "S, the pre-registered fallback: met when the task-success difference's 20th percentile is above "+
+			"-%.2f; non-inferiority on task success is then not shown.\n", a.NonInferiorityMargin)
 	} else {
-		fmt.Fprintf(b, "the lower bound above -%.2f.\n", a.NonInferiorityMargin)
+		fmt.Fprintf(b, "S: steer non-inferior to classic on task success, the lower bound above -%.2f.\n",
+			a.NonInferiorityMargin)
 	}
+	b.WriteString("- Harm (gated, on every decided run of either model): steer below classic on task success, or on the " +
+		"constraint-clean rate over trials whose task declares a constraint check, when the interval lies wholly below 0.\n")
+	b.WriteString("- A run off the pre-registered model (the §9.8 Sonnet check, classic and steer) decides only harm; its " +
+		"benefit intervals are reported, not decided.\n")
 	fmt.Fprintf(b, "- Sizing: Δ_H1 %.2f, Δ_H2 %.2f, ICC_int %.2f.\n", a.DeltaH1, a.DeltaH2, a.ICCInt)
 	e := a.Efficiency
 	fmt.Fprintf(b, "- Efficiency (amendment 4): margin %.2f on %s; cost C is the host's list-price estimate with "+

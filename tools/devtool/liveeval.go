@@ -84,7 +84,7 @@ const liveMarketplaceName = "qompack-live-eval"
 
 // Timeouts and bounds.
 const (
-	liveDefaultStepTimeout    = 10 * time.Minute
+	liveDefaultStepTimeout    = time.Duration(eval.LiveDefaultStepTimeoutMS) * time.Millisecond
 	liveDefaultSessionTimeout = 45 * time.Minute
 	liveExitGrace             = 90 * time.Second
 	liveCommandTimeout        = 5 * time.Minute
@@ -148,6 +148,9 @@ type liveOptions struct {
 	// stepTimeoutGiven says --step-timeout was given; when it was not, a task set's efficiency block
 	// pins the step timeout (amendment 4).
 	stepTimeoutGiven bool
+	// ratesGiven says --rates was given; when it was not, a task set with an efficiency block takes the V7
+	// rate table beside it (coordinator ruling on review CLI-5).
+	ratesGiven bool
 	// sizeFrom is the pilot summary the sizing step reads (W6 item 2, decision D-d).
 	sizeFrom string
 	// sizeSonnet is the Sonnet pilot summary that sizes the §9.8 check (review STATS-6).
@@ -239,6 +242,8 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 		switch f.Name {
 		case "five-hour-gate", "seven-day-ceiling", "night-window":
 			o.pacingGiven[f.Name] = true
+		case "rates":
+			o.ratesGiven = true
 		case "step-timeout":
 			o.stepTimeoutGiven = true
 		}
@@ -300,6 +305,9 @@ func parseLiveFlags(args []string) (liveOptions, error) {
 			return o, err
 		}
 		o.defectsAttested, o.openDefects = true, open
+	}
+	if o.stepTimeoutGiven && o.stepTimeout <= 0 {
+		return o, fmt.Errorf("live-eval: --step-timeout %s must be positive: every step would time out", o.stepTimeout)
 	}
 	if o.trials < 0 || o.maxSessions < 0 || o.idleExit <= 0 {
 		return o, errors.New("live-eval: --trials and --max-sessions must be non-negative and --daemon-idle-exit positive")
@@ -373,6 +381,7 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		return fmt.Errorf("live-eval: task set %s was %s; no run of it can be the confirmatory run, so none is "+
 			"planned. Run %s (%s) instead", ts.ID, pre.SupersededWhy, pre.SupersededBy, next.TaskSetFile)
 	}
+	o.rates = liveRatesFor(o, ts)
 	rates, err := loadLiveRates(o.rates)
 	if err != nil {
 		return err
@@ -1044,6 +1053,7 @@ func (lt liveTrialRun) run(ctx context.Context) (rec eval.LiveTrial, guardErr er
 		Install: "none", StartedAt: env.now().UTC().Format(time.RFC3339),
 		PluginExpected:     state.Plugin,
 		PreregisteredModel: liveRunsPreregisteredModel(lt.set, o.model),
+		StepTimeoutMS:      lt.plan.StepTimeoutMS,
 		ArmState:           &state,
 	}
 	trialDir := filepath.Join(o.out, "trials", task.ID, lt.arm, fmt.Sprintf("%02d", lt.trial))
@@ -1288,6 +1298,7 @@ func (lt liveTrialRun) assemble(ctx context.Context, rec *eval.LiveTrial, proc l
 	est := eval.EstimateLive(ledger, lt.rates)
 	rec.Estimate, rec.EstimateComplete = &est.Total, est.Completeness.Complete
 	rec.EstimateMissing, rec.RateTableDate = est.Completeness.MissingCategories, est.RateTableDate
+	rec.EstimateUnpriced = est.Unpriced
 	_ = writeJSONFile(filepath.Join(trialDir, "ledger.json"), ledger)
 	_ = writeJSONFile(filepath.Join(trialDir, "estimate.json"), est)
 

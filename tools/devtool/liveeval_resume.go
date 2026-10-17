@@ -99,6 +99,7 @@ func verifyLiveResume(ctx context.Context, o *liveOptions, env *liveEnv, plan ev
 		return ts, nil, none, fmt.Errorf("the fixture tree %v now hashes to %s, not the plan's %s", plan.FixtureTreeDirs,
 			shortHash(tree), shortHash(plan.FixtureTreeSHA256))
 	}
+	o.rates = liveRatesFor(*o, ts)
 	rates, err := loadLiveRates(o.rates)
 	if err != nil {
 		return ts, nil, none, err

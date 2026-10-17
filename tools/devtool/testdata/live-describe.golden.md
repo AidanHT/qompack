@@ -12,14 +12,16 @@ Written by `devtool live-eval --describe` from the files and settings a run with
 - Host: Claude Code 2.1.280 at `claude-fake`, pinned: before every trial the host's version is compared with this one and a difference stops the run; every session and every `claude` command runs with `DISABLE_AUTOUPDATER=1`.
 - Plugin install: `plugin-dir`.
 - Daemon idle exit: 1800 s; step timeout 10m0s; session timeout 45m0s; max sessions no cap.
-- Rate table for the list-price estimate: 2026-09-22.
+- Rate table for the list-price estimate: 2026-10-16.
 - Known open defects in the bundles: none (the operator's statement, not machine-checked).
 - Pre-registered confirmatory design: not met (its task set qompack-live-v7-harness-test has no pre-registration; it excluded the held-out tasks).
 
 ## Pre-registered decisions
 
 - Every interval is the paired task bootstrap's 95 % two-sided percentile interval: B = 10000 resamples, seed 20261016, tasks resampled jointly across arms.
-- Fixed sequence: H1 steer > classic on recovery, then H2 steer > generic, then H3 (below); S: steer non-inferior to classic on task success, the lower bound above -0.10.
+- Fixed sequence: H1 steer > classic on recovery, then H2 steer > generic, then H3 (below). S: steer non-inferior to classic on task success, the lower bound above -0.10.
+- Harm (gated, on every decided run of either model): steer below classic on task success, or on the constraint-clean rate over trials whose task declares a constraint check, when the interval lies wholly below 0.
+- A run off the pre-registered model (the §9.8 Sonnet check, classic and steer) decides only harm; its benefit intervals are reported, not decided.
 - Sizing: Δ_H1 0.25, Δ_H2 0.15, ICC_int 0.10.
 - Efficiency (amendment 4): margin 0.10 on cost and active_time; cost C is the host's list-price estimate with missing costs imputed adversely, active time T caps a step with no result at 600000 ms.
   - steer vs classic: harm shown when the ratio's lower bound exceeds 1.10 (gated: harm shown, or indeterminate, blocks shipping).

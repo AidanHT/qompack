@@ -839,6 +839,11 @@ func summarizeLive(runID string, a LiveAnalysis, trials []LiveTrial) LiveSummary
 					"names the problem)", as.AccountInconsistent, as.Trials, arm))
 		}
 	}
+	if unpriced := unpricedModels(trials); len(unpriced) > 0 {
+		sum.Notes = append(sum.Notes, fmt.Sprintf("the rate table prices no %s: their usage adds nothing to the "+
+			"repository's estimate, which is a lower bound there (pass --rates with a table that prices them); the decided "+
+			"cost C is the host's own figure and unaffected", strings.Join(unpriced, ", ")))
+	}
 	for _, t := range trials {
 		if !t.PreregisteredModel {
 			sum.Notes = append(sum.Notes, fmt.Sprintf(
@@ -1341,4 +1346,15 @@ func (s *LiveSummary) interimStageA(outcome string) {
 	}
 	s.StageA.Decision = s.Decision
 	s.StageA.Outcome = outcome + "; the tests below are interim, not decided"
+}
+
+// unpricedModels is every model a trial's estimate found unpriced, sorted.
+func unpricedModels(trials []LiveTrial) []string {
+	seen := map[string]bool{}
+	for _, t := range trials {
+		for _, m := range t.EstimateUnpriced {
+			seen[m] = true
+		}
+	}
+	return slices.Sorted(maps.Keys(seen))
 }
