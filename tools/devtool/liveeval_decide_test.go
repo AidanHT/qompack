@@ -342,7 +342,7 @@ func TestRunLiveEval_TheStepTimeoutIsPinned(t *testing.T) {
 // refused with the plan's advice, and --resume cannot take it.
 func TestRunLiveEval_SizeFromAPilotSummary(t *testing.T) {
 	pilot := eval.LiveSummary{RunID: "pilot-1", Arms: map[string]eval.ArmSummary{}}
-	eff := &eval.LiveArmEfficiency{LogSDWithinCost: 0.25, LogSDWithinTime: 0.35}
+	eff := &eval.LiveArmEfficiency{LogSDWithinCost: 0.25, LogSDWithinTime: 0.35, MeanCostUSD: 2, MeanActiveMS: 600000}
 	use := map[string]eval.LiveRateUseStats{"five_hour": {Trials: 4, Mean: 0.02}, "seven_day": {Trials: 4, Mean: 0.004}}
 	for arm, rec := range map[string]int{"stock": 40, "classic": 60, "generic": 70, "steer": 85} {
 		pilot.Arms[arm] = eval.ArmSummary{
@@ -377,11 +377,24 @@ func TestRunLiveEval_SizeFromAPilotSummary(t *testing.T) {
 		"live-eval: --size-from " + summary, "nothing is started", "u 0.050",
 		"H1 (steer, classic, stock): p₀ 0.536 → p₁ 0.786", "H2 (steer, generic)", "S (steer, classic): p 0.855",
 		"per-arm n, each the largest of its tests rounded up to a multiple of 1:",
-		"Sonnet check (plan §9.8)", "calendar (planning figure)", "night(s) of 9.0 h",
-		"efficiency power at the planned steer and classic n", "cost: σ_w 0.250", "active_time: σ_w 0.350",
+		"Sonnet check (plan §9.8), from this pilot's rates, a planning stand-in", "calendar (planning figure)",
+		"night(s) of 9.0 h", "with the Sonnet check's",
+		"efficiency power at the planned steer and classic n", "the pilot's σ_w 0.000 on 0 df",
+		"power from the planning band (the pilot's df 0 < 10)", "σ_w 0.400, SE", "σ_w 0.550, SE",
+		"efficiency power of the Sonnet check's guards", "pilot steer/classic ratio of mean C",
 	} {
 		require.Contains(t, w.String(), want)
 	}
+
+	// The Sonnet check from its own pilot's summary (review STATS-6).
+	o, err = parseLiveFlags([]string{"--size-from", summary, "--size-sonnet", summary, "--tasks", noICC})
+	require.NoError(t, err)
+	w.Reset()
+	require.NoError(t, runLiveEval(context.Background(), o, fakeLiveEnv(t, nil), &w))
+	require.Contains(t, w.String(), "Sonnet check (plan §9.8), from the Sonnet pilot "+summary)
+	require.NotContains(t, w.String(), "planning stand-in")
+	_, err = parseLiveFlags([]string{"--size-sonnet", summary, "--tasks", noICC, "--night-window", "none"})
+	require.ErrorContains(t, err, "--size-sonnet")
 
 	o, err = parseLiveTest([]string{"--size-from", summary, "--tasks", liveTestTasksV7})
 	require.NoError(t, err)
