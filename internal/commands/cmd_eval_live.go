@@ -165,8 +165,9 @@ const liveFailedTreatment = "each is in every denominator of the decision (inten
 
 // liveStageAFailedTreatment says how a Stage A run's decisions counted its failed trials. A trial whose
 // configuration contradicted its arm is no failed trial here: it was set aside in its slot and run
-// again (W6 item 4), and a trial a subscription limit cut short was set aside likewise (W6 item 8);
-// neither is scored, so neither can void the run.
+// again, never scored (W6 item 4). A trial a subscription limit cut short was set aside and run again
+// too (W6 item 8), outside the primary analysis, but its partial cost and time feed the efficiency
+// guards' limited sensitivity (review D-NEW-2). Neither can void the run.
 const liveStageAFailedTreatment = "each is in every denominator of the Stage A decisions (intention to treat): a harness " +
 	"failure is scored as a failure on every outcome it carries, any other failed trial is graded by its checks; a " +
 	"configuration-discarded attempt was set aside in its slot and run again, never scored; a limit-cut attempt was " +
@@ -254,7 +255,7 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 		notJudged = "not judged: not a confirmatory run (" + strings.Join(r.NotConfirmatory, "; ") + ")"
 	}
 	if r.StageA != nil {
-		return stageAGates(r.StageA, r.Confirmatory, notJudged)
+		return stageAGates(r.StageA, r.Decision, r.Confirmatory, notJudged)
 	}
 
 	margin := "margin not recorded in this summary"
@@ -329,8 +330,12 @@ func liveDecisionReached(d eval.LiveDecision) bool {
 //     (SP14-M7-03);
 //   - H1, H2 and S pass when shown, and only on a confirmatory run; "not shown" is never "harmed";
 //   - H3 is judged only when the owner made it a ship condition, and then like H1.
-func stageAGates(s *eval.LiveStageA, confirmatory bool, notJudged string) (task, recovery []EvalGate) {
-	reached := s.Decision.Verdict != eval.LiveVerdictNotApplicable
+func stageAGates(s *eval.LiveStageA, decision eval.LiveDecision, confirmatory bool, notJudged string) (
+	task, recovery []EvalGate,
+) {
+	// Both the record and the summary must say a decision was reached: a summary written before the
+	// record followed a stop or pause carries not-applicable only at the top (review D-NEW-4).
+	reached := s.Decision.Verdict != eval.LiveVerdictNotApplicable && decision.Verdict != eval.LiveVerdictNotApplicable
 	gate := func(id string, t eval.LiveTest) EvalGate {
 		g := EvalGate{
 			ID:     id,
@@ -442,7 +447,9 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 func renderLiveStageA(rw *errWriter, r *LiveEvalReport) {
 	if s := r.StageA; s != nil {
 		heading := "Stage A decisions"
-		if s.Decision.Verdict == eval.LiveVerdictNotApplicable {
+		if s.Interim || (r.Decision.Verdict == eval.LiveVerdictNotApplicable && len(s.Tests) > 0) {
+			// Only a stopped or paused record is interim (review D-NEW-3); a record that could not be
+			// decided at all (no steer or classic arm) keeps its plain heading and says why.
 			heading = "Stage A tests, interim, not decided"
 		}
 		rw.printf("  %s (paired task bootstrap, %.0f %% percentile intervals, B = %d over %d task(s), seed %d): %s\n",
@@ -455,6 +462,10 @@ func renderLiveStageA(rw *errWriter, r *LiveEvalReport) {
 		}
 		for _, t := range s.Reported {
 			rw.printf("    reported %-28s %s vs %s, %s: %s\n", t.ID, t.Treated, t.Comparator, t.Metric, intervalText(t.Interval))
+			if sens := sensitivityText(t); sens != "" {
+				// The reported ratio rows' sensitivities too, as summary.md gives them (review H-NEW-3).
+				rw.printf("    %-37s sensitivities: %s\n", "", sens)
+			}
 		}
 		for _, f := range s.UtilizationFits {
 			rw.printf("    reported utilization against C, %s: slope %.4f per USD, intercept %.4f, R² %.3f over %d trial(s)\n",
@@ -470,13 +481,12 @@ func renderLiveStageA(rw *errWriter, r *LiveEvalReport) {
 	for _, as := range r.Arms {
 		if e := as.Efficiency; e != nil && r.StageA != nil {
 			rw.printf("    %-8s cost C complete %d, partial %d, unknown %d (never zero), mean %.4f USD; mean active time %.1f s "+
-				"(API %.1f s); %d timed-out step(s); %d compaction(s), p50 %.0f ms\n", as.Arm, e.CostComplete, e.CostPartial,
-				e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000, e.TimedOutSteps, e.Compactions,
-				e.CompactionMS.P50)
-			if as.MeanHostCost > 0 {
-				rw.printf("    %-8s estimate / host-reported cost: %.3f (the repository's Estimate beside the host's own)\n",
-					as.Arm, float64(as.MeanEstimateMc)/1e6/as.MeanHostCost)
-			}
+				"(API %.1f s); %d timed-out step(s); %d result line(s) without duration_ms (counted at the cap in a "+
+				"decision's treated arm); %d compaction(s), p50 %.0f ms\n", as.Arm, e.CostComplete, e.CostPartial,
+				e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000, e.TimedOutSteps, e.DurationMissing,
+				e.Compactions, e.CompactionMS.P50)
+			rw.printf("    %-8s estimate / host-reported cost: %s (the repository's Estimate beside the host's own)\n",
+				as.Arm, estimateRatioText(e))
 		}
 		if b := as.Brief; b != nil {
 			rw.printf("    %-8s briefs: %d compaction(s), unserved share %.2f, served-empty share %.2f, %d trial(s) with no "+
@@ -585,4 +595,17 @@ func sensitivityText(t eval.LiveTest) string {
 		}
 	}
 	return strings.Join(parts, "; ")
+}
+
+// estimateRatioText renders an arm's estimate over its host-reported cost (review H-NEW-1): the ratio
+// eval computed over the trials with both values, with their count and a lower-bound mark.
+func estimateRatioText(e *eval.LiveArmEfficiency) string {
+	if e.EstimateRatioN == 0 {
+		return "n/a (no estimate recorded)"
+	}
+	bound := ""
+	if e.EstimateLowerBound {
+		bound = ", a lower bound"
+	}
+	return fmt.Sprintf("%.3f over %d trial(s)%s", e.EstimateRatio, e.EstimateRatioN, bound)
 }
