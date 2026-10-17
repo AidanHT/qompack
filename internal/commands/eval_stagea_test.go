@@ -357,3 +357,33 @@ func TestEval_LiveAnOldPausedRecordReachesNoDecision(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, text, "Stage A tests, interim, not decided")
 }
+
+// TestEval_LiveAnUndecidableRecordKeepsThePlainHeading (reviews R2-N1, R2-N3): a Stage A record that
+// could not be decided (no steer or classic arm) and was not stopped keeps the plain heading and says
+// why; an arm whose summary has estimates but no estimate ratio, as one written before the ratio
+// existed, reads "not recorded", never "no estimate recorded".
+func TestEval_LiveAnUndecidableRecordKeepsThePlainHeading(t *testing.T) {
+	var stock []eval.LiveTrial
+	for _, tr := range stageATrialsCmd(4, 1.0) {
+		if tr.Arm == "stock" {
+			tr.Estimate = &eval.Money{Micros: 900000}
+			stock = append(stock, tr)
+		}
+	}
+	run := stageARun(t, stock)
+	s := run.Summary.StageA
+	require.Equal(t, eval.LiveVerdictNotApplicable, s.Decision.Verdict)
+	require.Empty(t, s.Tests)
+	require.False(t, s.Interim)
+	old := run.Summary.Arms["stock"].Efficiency
+	require.Positive(t, old.EstimateRatioN)
+	old.EstimateRatio, old.EstimateRatioN = 0, 0
+
+	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
+	require.NoError(t, err)
+	require.Contains(t, text, "Stage A decisions (paired task bootstrap")
+	require.Contains(t, text, "the Stage A decisions need the steer and classic arms")
+	require.NotContains(t, text, "Stage A tests, interim")
+	require.Contains(t, text, "estimate / host-reported cost: not recorded (the arm has estimates")
+	require.NotContains(t, text, "no estimate recorded")
+}
