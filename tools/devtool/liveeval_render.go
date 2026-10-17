@@ -14,8 +14,9 @@ import (
 func renderLiveStageA(b *strings.Builder, s eval.LiveSummary) {
 	if st := s.StageA; st != nil {
 		heading, outcome := "Stage A decisions", "Outcome (§9.6)"
-		if st.Decision.Verdict == eval.LiveVerdictNotApplicable {
-			// A stopped or paused run reached no decision: its tests are interim (review I-2).
+		if st.Interim || (s.Decision.Verdict == eval.LiveVerdictNotApplicable && len(st.Tests) > 0) {
+			// A stopped or paused run reached no decision: its tests are interim (reviews I-2, D-NEW-3). A
+			// record that could not be decided at all keeps the plain heading, and its outcome says why.
 			heading, outcome = "Stage A tests, interim, not decided", "No decision"
 		}
 		fmt.Fprintf(b, "\n## %s\n\nPre-registered (plan §9.4): every interval is the paired task bootstrap's "+
@@ -95,23 +96,34 @@ func renderLiveEfficiency(b *strings.Builder, s eval.LiveSummary) {
 		"(partial) or unknown, and an unknown C is never counted as zero. T sums each reached step's duration_ms, a " +
 		"reached step with no result at the pinned step timeout. Reported here; the decisions above compare the arms.\n\n")
 	b.WriteString("| arm | trials | C complete / partial / unknown | mean C USD | mean T s | API s | local s | timed-out steps | " +
-		"compactions | compaction ms p50 / p95 | post_tokens p50 | estimate / host |\n" +
-		"|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+		"result lines without duration_ms | compactions | compaction ms p50 / p95 | post_tokens p50 | estimate / host |\n" +
+		"|---|---|---|---|---|---|---|---|---|---|---|---|---|\n")
 	for _, arm := range liveSortedKeys(s.Arms) {
-		as := s.Arms[arm]
-		e := as.Efficiency
+		e := s.Arms[arm].Efficiency
 		if e == nil {
 			continue
 		}
-		ratio := "n/a"
-		if as.MeanHostCost > 0 {
-			// The repository's Estimate beside the host's own figure (§9.4, review STATS-7).
-			ratio = fmt.Sprintf("%.3f", float64(as.MeanEstimateMc)/1e6/as.MeanHostCost)
-		}
-		fmt.Fprintf(b, "| %s | %d | %d / %d / %d | %.4f | %.1f | %.1f | %.1f | %d | %d | %.0f / %.0f | %.0f | %s |\n", arm,
+		// A missing duration_ms counts at the cap in a decision's treated arm, so a harm verdict it causes has
+		// its cause in view (review S-R1-N3); the estimate ratio is eval's, over trials with both values
+		// (review H-NEW-1).
+		fmt.Fprintf(b, "| %s | %d | %d / %d / %d | %.4f | %.1f | %.1f | %.1f | %d | %d | %d | %.0f / %.0f | %.0f | %s |\n", arm,
 			e.Trials, e.CostComplete, e.CostPartial, e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000,
-			e.MeanLocalMS/1000, e.TimedOutSteps, e.Compactions, e.CompactionMS.P50, e.CompactionMS.P95, e.PostTokens.P50, ratio)
+			e.MeanLocalMS/1000, e.TimedOutSteps, e.DurationMissing, e.Compactions, e.CompactionMS.P50, e.CompactionMS.P95,
+			e.PostTokens.P50, liveEstimateRatioText(e))
 	}
+}
+
+// liveEstimateRatioText renders eval's estimate-over-host ratio with its trial count and lower-bound
+// mark, or says no estimate was recorded.
+func liveEstimateRatioText(e *eval.LiveArmEfficiency) string {
+	if e.EstimateRatioN == 0 {
+		return "n/a (no estimate recorded)"
+	}
+	bound := ""
+	if e.EstimateLowerBound {
+		bound = ", a lower bound"
+	}
+	return fmt.Sprintf("%.3f over %d trial(s)%s", e.EstimateRatio, e.EstimateRatioN, bound)
 }
 
 // renderLiveBriefs writes each arm's brief outcomes (W6 item 5): compactions by class, the unserved

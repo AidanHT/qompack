@@ -20,12 +20,12 @@ Written by `devtool live-eval --describe` from the files and settings a run with
 
 - Every interval is the paired task bootstrap's 95 % two-sided percentile interval: B = 10000 resamples, seed 20261016, tasks resampled jointly across arms.
 - Fixed sequence: H1 steer > classic on recovery, then H2 steer > generic, then H3 (below). S: steer non-inferior to classic on task success, the lower bound above -0.10.
-- Harm (gated, on every decided run of either model): steer below classic on task success, or on the constraint-clean rate over trials whose task declares a constraint check, when the interval lies wholly below 0.
+- Harm (gated, on every run that reached a decision, on either model, the §9.8 Sonnet check included): steer below classic on task success, or on the constraint-clean rate over trials whose task declares a constraint check, when the interval lies wholly below 0.
 - A run off the pre-registered model (the §9.8 Sonnet check, classic and steer) decides only harm; its benefit intervals are reported, not decided.
 - Sizing: Δ_H1 0.25, Δ_H2 0.15, ICC_int 0.10.
 - Efficiency (amendment 4): margin 0.10 on cost and active_time; cost C is the host's list-price estimate with missing costs imputed adversely, active time T caps a step with no result at 600000 ms.
   - steer vs classic: harm shown when the ratio's lower bound exceeds 1.10 (gated: harm shown, or indeterminate, blocks shipping).
-  - classic vs stock: harm shown when the ratio's lower bound exceeds 1.10 (a label for the docs, not gating).
+  - classic vs stock: overhead shown when the ratio's lower bound exceeds 1.10 (a label for the docs, not gating).
 - H3, steering's cost non-inferior to classic's (upper bound below 1.10): a claim, not a ship condition. Pilot brief redesign ratio 1.25.
 
 ## Pacing

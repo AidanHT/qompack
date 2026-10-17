@@ -381,7 +381,9 @@ func runLiveEval(ctx context.Context, o liveOptions, env *liveEnv, w io.Writer) 
 		return fmt.Errorf("live-eval: task set %s was %s; no run of it can be the confirmatory run, so none is "+
 			"planned. Run %s (%s) instead", ts.ID, pre.SupersededWhy, pre.SupersededBy, next.TaskSetFile)
 	}
-	o.rates = liveRatesFor(o, ts)
+	if o.rates, err = liveRatesFor(o, ts); err != nil {
+		return err
+	}
 	rates, err := loadLiveRates(o.rates)
 	if err != nil {
 		return err

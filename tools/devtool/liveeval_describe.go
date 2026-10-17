@@ -168,8 +168,9 @@ func renderLiveDescribeDecisions(b *strings.Builder, a eval.LiveAnalysis) {
 		fmt.Fprintf(b, "S: steer non-inferior to classic on task success, the lower bound above -%.2f.\n",
 			a.NonInferiorityMargin)
 	}
-	b.WriteString("- Harm (gated, on every decided run of either model): steer below classic on task success, or on the " +
-		"constraint-clean rate over trials whose task declares a constraint check, when the interval lies wholly below 0.\n")
+	b.WriteString("- Harm (gated, on every run that reached a decision, on either model, the §9.8 Sonnet check " +
+		"included): steer below classic on task success, or on the constraint-clean rate over trials whose task " +
+		"declares a constraint check, when the interval lies wholly below 0.\n")
 	b.WriteString("- A run off the pre-registered model (the §9.8 Sonnet check, classic and steer) decides only harm; its " +
 		"benefit intervals are reported, not decided.\n")
 	fmt.Fprintf(b, "- Sizing: Δ_H1 %.2f, Δ_H2 %.2f, ICC_int %.2f.\n", a.DeltaH1, a.DeltaH2, a.ICCInt)
@@ -178,12 +179,13 @@ func renderLiveDescribeDecisions(b *strings.Builder, a eval.LiveAnalysis) {
 		"missing costs imputed adversely, active time T caps a step with no result at %d ms.\n", e.Margin,
 		strings.Join(e.Metrics, " and "), e.StepTimeoutMS)
 	for _, g := range e.Guards {
-		kind := "a label for the docs, not gating"
+		shown, kind := "overhead shown", "a label for the docs, not gating"
 		if g.Gated {
-			kind = "gated: harm shown, or indeterminate, blocks shipping"
+			shown, kind = "harm shown", "gated: harm shown, or indeterminate, blocks shipping"
 		}
-		fmt.Fprintf(b, "  - %s vs %s: harm shown when the ratio's lower bound exceeds %.2f (%s).\n", g.Treated, g.Comparator,
-			1+e.Margin, kind)
+		// An ungated guard is worded as overhead, never harm (review CLI-7).
+		fmt.Fprintf(b, "  - %s vs %s: %s when the ratio's lower bound exceeds %.2f (%s).\n", g.Treated, g.Comparator,
+			shown, 1+e.Margin, kind)
 	}
 	fmt.Fprintf(b, "- H3, steering's cost non-inferior to classic's (upper bound below %.2f): %s. Pilot brief redesign "+
 		"ratio %.2f.\n", 1+e.Margin, map[bool]string{true: "a ship condition", false: "a claim, not a ship condition"}[e.H3ShipCondition],

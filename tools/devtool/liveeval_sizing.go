@@ -80,9 +80,9 @@ func runLiveSizing(o liveOptions, w io.Writer) error {
 		printLiveSizingTest(w, s.H1)
 	}
 	if r := sz.Redesign; r != nil {
-		fmt.Fprintf(w, "  pilot steer/classic ratio of mean C %.3f and of mean T %.3f (mean C over trials with a known C, a "+
+		fmt.Fprintf(w, "  pilot steer/classic ratio of mean C %s and of mean T %s (mean C over trials with a known C, a "+
 			"partial one at its lower bound); the brief redesign rule (plan §9.3 item 1) fires above %.2f: %s\n",
-			r.CostRatio, r.TimeRatio, r.Threshold, map[bool]string{true: "FIRES", false: "does not fire"}[r.Fires])
+			eval.RatioText(r.CostRatio, r.CostKnown), eval.RatioText(r.TimeRatio, r.TimeKnown), r.Threshold, map[bool]string{true: "FIRES", false: "does not fire"}[r.Fires])
 	}
 	c := sz.Calendar
 	fmt.Fprintf(w, "  calendar (planning figure), %d trial(s) with the Sonnet check's %d: about %.0f h of sessions, %.1f "+
