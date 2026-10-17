@@ -937,8 +937,14 @@ func (s *LiveSummary) AddLimited(a LiveAnalysis, scored, limited []LiveTrial) {
 		parts = append(parts, fmt.Sprintf("%d %s (task success with them as failures %d/%d, recovery %d/%d)",
 			s.LimitedTrials[arm], arm, sens.TaskSuccess.K, sens.TaskSuccess.N, sens.Recovery.K, sens.Recovery.N))
 	}
-	s.Notes = append(s.Notes, "limited trials, set aside and run again, excluded from the analysis above: "+
-		strings.Join(parts, "; ")+". The sensitivity analysis counting them as failures is reported, not decided")
+	note := "limited trials, set aside and run again, excluded from the primary analysis: " + strings.Join(parts, "; ") +
+		". The sensitivity analysis counting them as failures on the outcomes is reported, not decided"
+	if s.StageA != nil {
+		// Amendment 4's efficiency half of the limited sensitivity is decided (review D-NEW-2).
+		note += "; their partial cost and time are added to their slots' re-runs in the efficiency guards' limited " +
+			"sensitivity, which is decided: a gated guard it flips reads indeterminate"
+	}
+	s.Notes = append(s.Notes, note)
 }
 
 func joinNonEmpty(a, b string) string {
@@ -1344,8 +1350,15 @@ func (s *LiveSummary) interimStageA(outcome string) {
 	if s.StageA == nil {
 		return
 	}
+	prior := s.StageA
+	s.StageA.Interim = true
+	outcome += "; the tests below are interim, not decided"
+	if prior.Decision.Verdict == LiveVerdictNotApplicable && prior.Outcome != "" {
+		// A record that was not-applicable already (no steer or classic arm) keeps why (review D-NEW-3).
+		outcome = prior.Outcome + "; " + outcome
+	}
 	s.StageA.Decision = s.Decision
-	s.StageA.Outcome = outcome + "; the tests below are interim, not decided"
+	s.StageA.Outcome = outcome
 }
 
 // unpricedModels is every model a trial's estimate found unpriced, sorted.

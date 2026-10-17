@@ -13,12 +13,14 @@ package eval
 //     bound above −margin (or, under the pre-registered fallback, the 20th percentile above it);
 //   - harm: steer below classic on task success or on constraint-clean rate, the interval wholly
 //     below zero; and amendment 4's gated cost and time guards, harm shown when the ratio's lower
-//     bound exceeds 1 + M, "indeterminate" when the limited-trial sensitivity flips one.
+//     bound exceeds 1 + M, "indeterminate" when the limited-trial sensitivity flips one or when the
+//     ratio or its limited sensitivity cannot be computed (fail-closed; ruling on review STATS-4).
 //
 // A run on another model than the pre-registered one (the Sonnet check, plan §9.8) decides only
 // harm; its benefit intervals are reported, "measured on another model, not decided". Newcombe
 // intervals are reported beside the bootstrap's, never decided. Labels follow §9.4: "shown", "not
-// shown", "not tested", "harm shown", "indeterminate"; never "harmed" without harm shown, and never
+// shown", "not tested", "harm shown", "indeterminate"; an ungated guard (classic vs stock) reads
+// "overhead shown", a docs label and never a §9.6 harm; never "harmed" without harm shown, and never
 // "did as well".
 
 import (
@@ -97,6 +99,9 @@ type LiveTest struct {
 	// Sensitivity is the ratio's intervals under the limited-trial sensitivity, on completed trials
 	// only, on observed costs only and as a ratio of geometric means.
 	Sensitivity map[string]*LiveInterval `json:"sensitivity,omitempty"`
+	// LimitedNotComputable says the comparison has limited trials whose sensitivity could not be
+	// computed (the treated arm had no complete C to impute an unknown one from).
+	LimitedNotComputable bool `json:"limited_not_computable,omitempty"`
 }
 
 // LiveUtilizationFit is a least-squares line of a subscription window's per-trial utilization delta
@@ -125,7 +130,10 @@ type LiveStageA struct {
 	Reported        []LiveTest           `json:"reported,omitempty"`
 	UtilizationFits []LiveUtilizationFit `json:"utilization_fits,omitempty"`
 	// Outcome is the §9.6 row the decisions select, and Decision the run's verdict.
-	Outcome  string       `json:"outcome"`
+	Outcome string `json:"outcome"`
+	// Interim says a stop or pause left the run without a decision: the tests are an interim description
+	// (review I-2); a not-applicable record that is not interim is one that could not be decided at all.
+	Interim  bool         `json:"interim,omitempty"`
 	Decision LiveDecision `json:"decision"`
 	Notes    []string     `json:"notes,omitempty"`
 	// NotMeasured names the §9.4 reported rows this harness does not produce, so a pre-registration
@@ -159,6 +167,12 @@ type LiveArmEfficiency struct {
 	// DurationMissing counts the reached steps whose result line carried no duration_ms: observed T
 	// counts them as 0, a decision's treated arm at the cap.
 	DurationMissing int `json:"duration_missing,omitempty"`
+	// EstimateRatio is the repository's Estimate over the host's C, Σ estimate / Σ C over the trials with
+	// both a recorded estimate and a complete C (§9.4, reported); EstimateRatioN counts them (0: no
+	// estimate recorded) and EstimateLowerBound says one of those estimates is incomplete (review H-NEW-1).
+	EstimateRatio      float64 `json:"estimate_ratio,omitempty"`
+	EstimateRatioN     int     `json:"estimate_ratio_n"`
+	EstimateLowerBound bool    `json:"estimate_lower_bound,omitempty"`
 	// Compactions counts the arm's compactions; CompactionMS and PostTokens summarize their
 	// compact_boundary duration_ms and post_tokens.
 	Compactions  int              `json:"compactions"`
@@ -180,7 +194,7 @@ func armEfficiency(ts []LiveTrial, capMS int64) *LiveArmEfficiency {
 		return nil
 	}
 	e := &LiveArmEfficiency{Trials: len(ts)}
-	var cost, active, api float64
+	var cost, active, api, estSum, estCost float64
 	var costN int
 	var compMS, post []float64
 	logC, logT := map[string][]float64{}, map[string][]float64{}
@@ -203,6 +217,12 @@ func armEfficiency(ts []LiveTrial, capMS int64) *LiveArmEfficiency {
 		}
 		tm := t.ActiveMS(capFor(t, capMS))
 		e.DurationMissing += t.MissingDurations()
+		if c, status := t.Cost(); t.Estimate != nil && status == LiveCostComplete && c > 0 {
+			estSum += float64(t.Estimate.Micros) / 1e6
+			estCost += c
+			e.EstimateRatioN++
+			e.EstimateLowerBound = e.EstimateLowerBound || !t.EstimateComplete
+		}
 		active += float64(tm)
 		api += float64(t.APIMS())
 		if tm > 0 {
@@ -222,6 +242,9 @@ func armEfficiency(ts []LiveTrial, capMS int64) *LiveArmEfficiency {
 	e.MeanActiveMS, e.MeanAPIMS = active/n, api/n
 	e.MeanLocalMS = e.MeanActiveMS - e.MeanAPIMS
 	e.CompactionMS, e.PostTokens = distributionOf(compMS), distributionOf(post)
+	if estCost > 0 {
+		e.EstimateRatio = estSum / estCost
+	}
 	e.LogSDWithinCost, e.LogSDWithinCostDF = pooledWithinSD(logC)
 	e.LogSDWithinTime, e.LogSDWithinTimeDF = pooledWithinSD(logT)
 	return e
@@ -421,6 +444,10 @@ func (s stageA) guard(g LiveEfficiencyGuard, metric string) LiveTest {
 	t := s.ratio(id, g.Treated, g.Comparator, metric, g.Gated)
 	limit := 1 + s.margin
 	t.Rule = fmt.Sprintf("harm shown when the ratio's lower bound is above %.2f", limit)
+	if !g.Gated {
+		// An ungated guard is a label, never a §9.6 harm (review CLI-7).
+		t.Rule = fmt.Sprintf("overhead shown when the ratio's lower bound is above %.2f (a label, not gating)", limit)
+	}
 	what := map[string]string{LiveMetricCost: "cost", LiveMetricActiveTime: "time"}[metric]
 	harm := func(iv *LiveInterval) bool { return iv != nil && iv.Low > limit }
 	switch {
@@ -434,6 +461,12 @@ func (s stageA) guard(g LiveEfficiencyGuard, metric string) LiveTest {
 		return t
 	}
 	primary := harm(t.Interval)
+	if t.LimitedNotComputable && g.Gated {
+		t.Label, t.Reason = LiveLabelIndeterminate, "the limited-trial sensitivity could not be computed (an unknown C in "+
+			"the treated arm with no complete C to impute from): investigate the measurement; the gated guard fails "+
+			"closed as indeterminate, which §9.6 treats as harm shown"
+		return t
+	}
 	if lim, ok := t.Sensitivity[LiveSensLimited]; ok && g.Gated && harm(lim) != primary {
 		t.Label = LiveLabelIndeterminate
 		t.Reason = fmt.Sprintf("the limited-trial sensitivity (%s) flips the primary verdict (%s), so the guard reads "+
@@ -474,6 +507,9 @@ func (s stageA) h3(decided bool, h1, h2 LiveTest) LiveTest {
 	case !below(t.Sensitivity[LiveSensCompleted]):
 		t.Label, t.Reason = LiveLabelNotShown, "it does not hold on trials whose task completed: "+
 			intervalText(t.Sensitivity[LiveSensCompleted])
+	case t.LimitedNotComputable:
+		t.Label, t.Reason = LiveLabelNotShown, "the limited-trial sensitivity could not be computed, so it cannot be "+
+			"shown not to flip H3"
 	case t.Sensitivity[LiveSensLimited] != nil && !below(t.Sensitivity[LiveSensLimited]):
 		t.Label, t.Reason = LiveLabelNotShown, "the limited-trial sensitivity flips it: "+
 			intervalText(t.Sensitivity[LiveSensLimited])
@@ -702,7 +738,11 @@ func (s stageA) ratio(id, treated, comparator, metric string, gated bool) LiveTe
 	add(LiveSensCompleted, v, ok, LiveRatioOfMeans)
 	if len(s.limited[treated])+len(s.limited[comparator]) > 0 {
 		v, ok := s.values(metric, B, A, valueRules{adverse: true, limited: true})
-		add(LiveSensLimited, v, ok, LiveRatioOfMeans)
+		if add(LiveSensLimited, v, ok, LiveRatioOfMeans) == nil {
+			// The limited trials exist but their sensitivity cannot be computed: a gated guard and H3
+			// fail closed on it (review S-R1-N1).
+			t.LimitedNotComputable = true
+		}
 	}
 	if len(t.Sensitivity) == 0 {
 		t.Sensitivity = nil
@@ -759,7 +799,11 @@ func (s stageA) values(metric string, treated, comparator []LiveTrial, r valueRu
 		for i, t := range keys {
 			v := vals[i]
 			if r.limited {
-				v += s.limitedAdd(t, metric)
+				add, ok := s.limitedAdd(t, metric, side.treated && r.adverse, side.ts)
+				if !ok {
+					return nil, false
+				}
+				v += add
 			}
 			tv := &out[s.index[t.TaskID]]
 			if side.treated {
@@ -772,23 +816,64 @@ func (s stageA) values(metric string, treated, comparator []LiveTrial, r valueRu
 	return out, true
 }
 
-// limitedAdd is what the limited trials of t's slot spent on metric: their partial C (observed, 0
-// when unknown) or their T.
-func (s stageA) limitedAdd(t LiveTrial, metric string) float64 {
+// limitedAdd is what the limited trials of t's slot spent on metric. The comparator's count as
+// observed: a partial C at its lower bound, an unknown C as 0, T as observed. The treated arm's fail
+// closed when adverse: T as ActiveMSAdverse, an unknown C at the task's (else the arm's) maximum
+// complete C in arm, and false when arm has none, so the sensitivity cannot be computed (review
+// S-R1-N1).
+func (s stageA) limitedAdd(t LiveTrial, metric string, adverse bool, arm []LiveTrial) (float64, bool) {
 	var add float64
 	for _, l := range s.limited[t.Arm] {
 		if l.TaskID != t.TaskID || l.Trial != t.Trial {
 			continue
 		}
 		if metric == LiveMetricActiveTime {
-			add += float64(l.ActiveMS(capFor(l, s.capMS)))
+			if adverse {
+				// The treated arm's limited attempt fails closed like its scored trials (review S-R1-N1): a
+				// result line with no duration_ms counts at the cap.
+				add += float64(l.ActiveMSAdverse(capFor(l, s.capMS)))
+			} else {
+				add += float64(l.ActiveMS(capFor(l, s.capMS)))
+			}
 			continue
 		}
-		if c, status := l.Cost(); status != LiveCostUnknown {
+		c, status := l.Cost()
+		switch {
+		case status != LiveCostUnknown:
 			add += c
+		case adverse:
+			// An unknown C in the treated arm takes the task's (else the arm's) maximum complete C, as the
+			// adverse imputation does; with none, the sensitivity cannot be computed.
+			worst, ok := completeMax(arm, l.TaskID)
+			if !ok {
+				return 0, false
+			}
+			add += worst
 		}
 	}
-	return add
+	return add, true
+}
+
+// completeMax is the largest complete C among ts in task, else among all of ts; false when ts has none.
+func completeMax(ts []LiveTrial, task string) (float64, bool) {
+	taskMax, armMax := math.Inf(-1), math.Inf(-1)
+	for _, t := range ts {
+		c, status := t.Cost()
+		if status != LiveCostComplete {
+			continue
+		}
+		armMax = math.Max(armMax, c)
+		if t.TaskID == task {
+			taskMax = math.Max(taskMax, c)
+		}
+	}
+	switch {
+	case !math.IsInf(taskMax, -1):
+		return taskMax, true
+	case !math.IsInf(armMax, -1):
+		return armMax, true
+	}
+	return 0, false
 }
 
 // costValues is each trial's C under the imputation rule, with the trials the values belong to.

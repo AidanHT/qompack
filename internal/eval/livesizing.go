@@ -121,12 +121,15 @@ type LivePowerRow struct {
 // degrees of freedom; when PilotDF is below LiveSizingMinDF the rows use the planning band's two ends
 // (Planning), else the pilot's σ_w.
 type LiveEfficiencyPower struct {
-	Metric      string         `json:"metric"`
-	N           int            `json:"n"`
-	PilotSigmaW float64        `json:"pilot_sigma_w"`
-	PilotDF     int            `json:"pilot_df"`
-	Planning    bool           `json:"planning"`
-	Rows        []LivePowerRow `json:"rows"`
+	Metric      string  `json:"metric"`
+	N           int     `json:"n"`
+	PilotSigmaW float64 `json:"pilot_sigma_w"`
+	PilotDF     int     `json:"pilot_df"`
+	Planning    bool    `json:"planning"`
+	// DFUnrecorded says a pilot arm gives a σ_w without its df: a summary written before df was
+	// recorded (review S-R1-N4).
+	DFUnrecorded bool           `json:"df_unrecorded,omitempty"`
+	Rows         []LivePowerRow `json:"rows"`
 }
 
 // LiveCalendar is the sizing's calendar estimate from the pilot's per-trial wall time and
@@ -151,6 +154,10 @@ type LiveCalendar struct {
 type LiveRedesignCheck struct {
 	CostRatio float64 `json:"cost_ratio"`
 	TimeRatio float64 `json:"time_ratio"`
+	// CostKnown and TimeKnown say each ratio could be computed; one is given even when the other
+	// cannot be (review S-R1-N6).
+	CostKnown bool    `json:"cost_known"`
+	TimeKnown bool    `json:"time_known"`
 	Threshold float64 `json:"threshold"`
 	Fires     bool    `json:"fires"`
 }
@@ -244,16 +251,26 @@ func SizeLive(a LiveAnalysis, k int, pilot LiveSummary, sonnet *LiveSummary, pac
 	out.Redesign = redesignCheck(a, pilot)
 	if r := out.Redesign; r != nil && r.Fires {
 		out.Notes = append(out.Notes, fmt.Sprintf("BRIEF REDESIGN RULE FIRES (plan §9.3 item 1): the pilot's steer/classic "+
-			"ratio of mean C is %.3f and of mean T %.3f, and one exceeds %.2f; redesign the brief and re-pilot steer before "+
-			"the main run", r.CostRatio, r.TimeRatio, r.Threshold))
+			"ratio of mean C is %s and of mean T %s, and one exceeds %.2f; redesign the brief and re-pilot steer before "+
+			"the main run", RatioText(r.CostRatio, r.CostKnown), RatioText(r.TimeRatio, r.TimeKnown), r.Threshold))
 	}
+	seen := map[string]bool{}
 	for _, e := range append(append([]LiveEfficiencyPower{}, out.Efficiency...), sonnetPower(out.Sonnet)...) {
-		if e.Planning {
-			out.Notes = append(out.Notes, fmt.Sprintf("the pilot's within-task log-SD of %s rests on %d df (fewer than %d: "+
-				"the pilot runs about one trial per task per arm), so its power uses the planning σ_w band %.2f–%.2f "+
-				"(efficiency design §4.9); the pilot's own figure is printed beside it", e.Metric, e.PilotDF,
-				LiveSizingMinDF, livePlanningSigmaW[e.Metric][0], livePlanningSigmaW[e.Metric][1]))
+		key := fmt.Sprintf("%s/%d/%t", e.Metric, e.PilotDF, e.DFUnrecorded)
+		if !e.Planning || seen[key] {
+			continue // one note per metric and df, not one per power table (review S-R1-N4)
 		}
+		seen[key] = true
+		band := livePlanningSigmaW[e.Metric]
+		if e.DFUnrecorded {
+			out.Notes = append(out.Notes, fmt.Sprintf("the pilot summary gives a within-task log-SD of %s without its df "+
+				"(written before df was recorded), so its power uses the planning σ_w band %.2f–%.2f (efficiency design "+
+				"§4.9)", e.Metric, band[0], band[1]))
+			continue
+		}
+		out.Notes = append(out.Notes, fmt.Sprintf("the pilot's within-task log-SD of %s rests on %d df (fewer than %d; a "+
+			"pilot of one trial per task per arm leaves 0), so its power uses the planning σ_w band %.2f–%.2f (efficiency "+
+			"design §4.9); the pilot's own figure is printed beside it", e.Metric, e.PilotDF, LiveSizingMinDF, band[0], band[1]))
 	}
 	return out, nil
 }
@@ -303,14 +320,23 @@ func (out *LiveSizing) sizeSonnet(a LiveAnalysis, k int, pilot LiveSummary, sonn
 	if sonnet != nil {
 		src = *sonnet
 	}
-	u, _ := unservedShare(src)
+	u, note := unservedShare(src)
+	if note != "" && sonnet != nil {
+		// Kept and labelled (review S-R1-N2): the main pilot's own note is already in the notes.
+		out.Notes = append(out.Notes, "the Sonnet check: "+strings.Replace(note, "the pilot", "the Sonnet pilot", 1))
+	}
 	if u >= 1 {
 		return fmt.Errorf("eval: the Sonnet pilot's steer arm served no brief (u = %.2f); no n is enough", u)
 	}
 	h1, ok, err := sizeSuperiority("H1 (Sonnet check)", src, ArmClassic, a.DeltaH1, u, a.ICCInt, k,
 		[]string{ArmSteer, ArmClassic})
-	if err != nil || !ok {
+	if err != nil {
 		return err
+	}
+	if !ok {
+		out.Notes = append(out.Notes, "the Sonnet check (plan §9.8) is not sized: its pilot has no classic recovery, so "+
+			"it is left out of the calendar, and the four-week trigger (plan §9.3 item 3) does not count its trials")
+		return nil
 	}
 	n := RoundToTasks(h1.N, k)
 	out.Sonnet = &LiveSonnetSizing{
@@ -338,14 +364,20 @@ func redesignCheck(a LiveAnalysis, pilot LiveSummary) *LiveRedesignCheck {
 		return nil
 	}
 	s, c := pilot.Arms[ArmSteer].Efficiency, pilot.Arms[ArmClassic].Efficiency
-	if s == nil || c == nil || c.MeanCostUSD <= 0 || c.MeanActiveMS <= 0 {
+	if s == nil || c == nil {
 		return nil
 	}
-	r := &LiveRedesignCheck{
-		CostRatio: s.MeanCostUSD / c.MeanCostUSD, TimeRatio: s.MeanActiveMS / c.MeanActiveMS,
-		Threshold: a.Efficiency.PilotRedesignRatio,
+	r := &LiveRedesignCheck{Threshold: a.Efficiency.PilotRedesignRatio}
+	if c.MeanCostUSD > 0 {
+		r.CostRatio, r.CostKnown = s.MeanCostUSD/c.MeanCostUSD, true
 	}
-	r.Fires = r.CostRatio > r.Threshold || r.TimeRatio > r.Threshold
+	if c.MeanActiveMS > 0 {
+		r.TimeRatio, r.TimeKnown = s.MeanActiveMS/c.MeanActiveMS, true
+	}
+	if !r.CostKnown && !r.TimeKnown {
+		return nil
+	}
+	r.Fires = (r.CostKnown && r.CostRatio > r.Threshold) || (r.TimeKnown && r.TimeRatio > r.Threshold)
 	return r
 }
 
@@ -420,6 +452,7 @@ func efficiencyPower(a LiveAnalysis, k, n int, pilot LiveSummary) []LiveEfficien
 			continue
 		}
 		var ss float64
+		unrecorded := false
 		var df int
 		for _, arm := range []string{ArmSteer, ArmClassic} {
 			e := pilot.Arms[arm].Efficiency
@@ -431,9 +464,10 @@ func efficiencyPower(a LiveAnalysis, k, n int, pilot LiveSummary) []LiveEfficien
 				sd, d = e.LogSDWithinTime, e.LogSDWithinTimeDF
 			}
 			ss += float64(d) * sd * sd
+			unrecorded = unrecorded || (sd > 0 && d == 0)
 			df += d
 		}
-		p := LiveEfficiencyPower{Metric: metric, N: n, PilotDF: df}
+		p := LiveEfficiencyPower{Metric: metric, N: n, PilotDF: df, DFUnrecorded: unrecorded && df == 0}
 		if df > 0 {
 			p.PilotSigmaW = math.Sqrt(ss / float64(df))
 		}
@@ -456,3 +490,11 @@ func normalCDF(x float64) float64 { return 0.5 * math.Erfc(-x/math.Sqrt2) }
 // liveHarmPowerRatio is the true ratio at which the sizing reports the guards' power to catch harm:
 // a +25 % increase (plan §9.5).
 const liveHarmPowerRatio = 1.25 //nomagic:allow the plan's reported +25 % harm, not a config default
+
+// RatioText renders a ratio, or "not computable" when it could not be computed.
+func RatioText(r float64, known bool) string {
+	if !known {
+		return "not computable"
+	}
+	return fmt.Sprintf("%.3f", r)
+}
