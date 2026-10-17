@@ -1352,7 +1352,10 @@ func (s *LiveSummary) interimStageA(outcome string) {
 	}
 	prior := s.StageA
 	s.StageA.Interim = true
-	outcome += "; the tests below are interim, not decided"
+	if len(prior.Tests) > 0 {
+		// A record with no tests says nothing of tests (review R2-N5).
+		outcome += "; the tests below are interim, not decided"
+	}
 	if prior.Decision.Verdict == LiveVerdictNotApplicable && prior.Outcome != "" {
 		// A record that was not-applicable already (no steer or classic arm) keeps why (review D-NEW-3).
 		outcome = prior.Outcome + "; " + outcome

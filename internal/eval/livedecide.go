@@ -14,7 +14,7 @@ package eval
 //   - harm: steer below classic on task success or on constraint-clean rate, the interval wholly
 //     below zero; and amendment 4's gated cost and time guards, harm shown when the ratio's lower
 //     bound exceeds 1 + M, "indeterminate" when the limited-trial sensitivity flips one or when the
-//     ratio or its limited sensitivity cannot be computed (fail-closed; ruling on review STATS-4).
+//     ratio cannot be computed (fail-closed; ruling on review STATS-4).
 //
 // A run on another model than the pre-registered one (the Sonnet check, plan §9.8) decides only
 // harm; its benefit intervals are reported, "measured on another model, not decided". Newcombe
@@ -99,9 +99,6 @@ type LiveTest struct {
 	// Sensitivity is the ratio's intervals under the limited-trial sensitivity, on completed trials
 	// only, on observed costs only and as a ratio of geometric means.
 	Sensitivity map[string]*LiveInterval `json:"sensitivity,omitempty"`
-	// LimitedNotComputable says the comparison has limited trials whose sensitivity could not be
-	// computed (the treated arm had no complete C to impute an unknown one from).
-	LimitedNotComputable bool `json:"limited_not_computable,omitempty"`
 }
 
 // LiveUtilizationFit is a least-squares line of a subscription window's per-trial utilization delta
@@ -170,8 +167,10 @@ type LiveArmEfficiency struct {
 	// EstimateRatio is the repository's Estimate over the host's C, Σ estimate / Σ C over the trials with
 	// both a recorded estimate and a complete C (§9.4, reported); EstimateRatioN counts them (0: no
 	// estimate recorded) and EstimateLowerBound says one of those estimates is incomplete (review H-NEW-1).
+	// The fields the fix rounds added are omitted when zero, so a V6 two-arm summary gains no zero key
+	// (review R2-N6).
 	EstimateRatio      float64 `json:"estimate_ratio,omitempty"`
-	EstimateRatioN     int     `json:"estimate_ratio_n"`
+	EstimateRatioN     int     `json:"estimate_ratio_n,omitempty"`
 	EstimateLowerBound bool    `json:"estimate_lower_bound,omitempty"`
 	// Compactions counts the arm's compactions; CompactionMS and PostTokens summarize their
 	// compact_boundary duration_ms and post_tokens.
@@ -183,9 +182,10 @@ type LiveArmEfficiency struct {
 	LogSDWithinCost float64 `json:"log_sd_within_cost"`
 	LogSDWithinTime float64 `json:"log_sd_within_time"`
 	// LogSDWithinCostDF and LogSDWithinTimeDF are their degrees of freedom: the trials beyond the first
-	// in each task, summed (0 at one trial per task per arm).
-	LogSDWithinCostDF int `json:"log_sd_within_cost_df"`
-	LogSDWithinTimeDF int `json:"log_sd_within_time_df"`
+	// in each task, summed (0 at one trial per task per arm, and then omitted: a σ_w above 0 always has
+	// df above 0, so one without df is a summary written before df was recorded).
+	LogSDWithinCostDF int `json:"log_sd_within_cost_df,omitempty"`
+	LogSDWithinTimeDF int `json:"log_sd_within_time_df,omitempty"`
 }
 
 // armEfficiency aggregates one arm's C and T; nil for no trials.
@@ -248,6 +248,25 @@ func armEfficiency(ts []LiveTrial, capMS int64) *LiveArmEfficiency {
 	e.LogSDWithinCost, e.LogSDWithinCostDF = pooledWithinSD(logC)
 	e.LogSDWithinTime, e.LogSDWithinTimeDF = pooledWithinSD(logT)
 	return e
+}
+
+// EstimateRatioText renders an arm's estimate over its host-reported cost for both reports (reviews
+// H-NEW-1, R2-N3): the ratio over the trials with both values, with their count and a lower-bound mark;
+// "not recorded" for an arm that has estimates but no ratio (no trial pairs one with a complete C, or
+// the summary was written before the ratio existed); "n/a" for an arm with no estimate.
+func EstimateRatioText(as ArmSummary) string {
+	switch e := as.Efficiency; {
+	case e != nil && e.EstimateRatioN > 0:
+		bound := ""
+		if e.EstimateLowerBound {
+			bound = ", a lower bound"
+		}
+		return fmt.Sprintf("%.3f over %d trial(s)%s", e.EstimateRatio, e.EstimateRatioN, bound)
+	case as.MeanEstimateMc > 0:
+		return "not recorded (the arm has estimates, but none on a trial with a complete C, or the summary " +
+			"predates the ratio)"
+	}
+	return "n/a (no estimate recorded)"
 }
 
 // pooledWithinSD is the pooled within-group standard deviation, over the groups with at least two
@@ -461,12 +480,6 @@ func (s stageA) guard(g LiveEfficiencyGuard, metric string) LiveTest {
 		return t
 	}
 	primary := harm(t.Interval)
-	if t.LimitedNotComputable && g.Gated {
-		t.Label, t.Reason = LiveLabelIndeterminate, "the limited-trial sensitivity could not be computed (an unknown C in "+
-			"the treated arm with no complete C to impute from): investigate the measurement; the gated guard fails "+
-			"closed as indeterminate, which §9.6 treats as harm shown"
-		return t
-	}
 	if lim, ok := t.Sensitivity[LiveSensLimited]; ok && g.Gated && harm(lim) != primary {
 		t.Label = LiveLabelIndeterminate
 		t.Reason = fmt.Sprintf("the limited-trial sensitivity (%s) flips the primary verdict (%s), so the guard reads "+
@@ -507,9 +520,6 @@ func (s stageA) h3(decided bool, h1, h2 LiveTest) LiveTest {
 	case !below(t.Sensitivity[LiveSensCompleted]):
 		t.Label, t.Reason = LiveLabelNotShown, "it does not hold on trials whose task completed: "+
 			intervalText(t.Sensitivity[LiveSensCompleted])
-	case t.LimitedNotComputable:
-		t.Label, t.Reason = LiveLabelNotShown, "the limited-trial sensitivity could not be computed, so it cannot be "+
-			"shown not to flip H3"
 	case t.Sensitivity[LiveSensLimited] != nil && !below(t.Sensitivity[LiveSensLimited]):
 		t.Label, t.Reason = LiveLabelNotShown, "the limited-trial sensitivity flips it: "+
 			intervalText(t.Sensitivity[LiveSensLimited])
@@ -737,12 +747,11 @@ func (s stageA) ratio(id, treated, comparator, metric string, gated bool) LiveTe
 	v, ok := s.values(metric, B, A, valueRules{adverse: true, completedOnly: true})
 	add(LiveSensCompleted, v, ok, LiveRatioOfMeans)
 	if len(s.limited[treated])+len(s.limited[comparator]) > 0 {
+		// The limited values only add to the primary's, and need a complete C in the treated arm only where
+		// the primary does, so they compute whenever the primary does (review R2-N2): a ratio that cannot
+		// be computed already reads indeterminate, or not shown for H3.
 		v, ok := s.values(metric, B, A, valueRules{adverse: true, limited: true})
-		if add(LiveSensLimited, v, ok, LiveRatioOfMeans) == nil {
-			// The limited trials exist but their sensitivity cannot be computed: a gated guard and H3
-			// fail closed on it (review S-R1-N1).
-			t.LimitedNotComputable = true
-		}
+		add(LiveSensLimited, v, ok, LiveRatioOfMeans)
 	}
 	if len(t.Sensitivity) == 0 {
 		t.Sensitivity = nil
@@ -818,9 +827,10 @@ func (s stageA) values(metric string, treated, comparator []LiveTrial, r valueRu
 
 // limitedAdd is what the limited trials of t's slot spent on metric. The comparator's count as
 // observed: a partial C at its lower bound, an unknown C as 0, T as observed. The treated arm's fail
-// closed when adverse: T as ActiveMSAdverse, an unknown C at the task's (else the arm's) maximum
-// complete C in arm, and false when arm has none, so the sensitivity cannot be computed (review
-// S-R1-N1).
+// closed when adverse (reviews S-R1-N1, R2-M1): T as ActiveMSAdverse, and a partial or unknown C at the
+// larger of its observed C and its task's (else the arm's) maximum complete C in arm, as costValues
+// imputes a scored trial, so an attempt that got further never adds less than one that got nowhere.
+// False when arm has no complete C, which costValues has refused already for the same side.
 func (s stageA) limitedAdd(t LiveTrial, metric string, adverse bool, arm []LiveTrial) (float64, bool) {
 	var add float64
 	for _, l := range s.limited[t.Arm] {
@@ -839,16 +849,16 @@ func (s stageA) limitedAdd(t LiveTrial, metric string, adverse bool, arm []LiveT
 		}
 		c, status := l.Cost()
 		switch {
-		case status != LiveCostUnknown:
+		case status == LiveCostComplete, !adverse && status == LiveCostPartial:
 			add += c
-		case adverse:
-			// An unknown C in the treated arm takes the task's (else the arm's) maximum complete C, as the
-			// adverse imputation does; with none, the sensitivity cannot be computed.
+		case !adverse:
+			// The comparator's unknown C adds 0.
+		default:
 			worst, ok := completeMax(arm, l.TaskID)
 			if !ok {
 				return 0, false
 			}
-			add += worst
+			add += math.Max(c, worst)
 		}
 	}
 	return add, true

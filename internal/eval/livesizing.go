@@ -368,7 +368,8 @@ func redesignCheck(a LiveAnalysis, pilot LiveSummary) *LiveRedesignCheck {
 		return nil
 	}
 	r := &LiveRedesignCheck{Threshold: a.Efficiency.PilotRedesignRatio}
-	if c.MeanCostUSD > 0 {
+	if c.MeanCostUSD > 0 && s.CostComplete+s.CostPartial > 0 {
+		// A steer arm with no known C has a mean C of 0, which is no ratio (review R2-N4).
 		r.CostRatio, r.CostKnown = s.MeanCostUSD/c.MeanCostUSD, true
 	}
 	if c.MeanActiveMS > 0 {
