@@ -56,7 +56,13 @@ func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 	if cmd.Process == nil {
 		return nil
 	}
-	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+	err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	if errors.Is(err, syscall.EPERM) && liveZombieLeader(cmd.Process.Pid) {
+		// darwin answers EPERM for a group whose only member is an unreaped zombie: the group is gone
+		// (ruling R59).
+		err = nil
+	}
+	if err != nil && !errors.Is(err, syscall.ESRCH) {
 		pin.mu.Lock()
 		pin.walkErr = fmt.Errorf("the process group %d could not be killed: %w", cmd.Process.Pid, err)
 		pin.mu.Unlock()
