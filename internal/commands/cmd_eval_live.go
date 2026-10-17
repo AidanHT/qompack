@@ -169,7 +169,9 @@ const liveFailedTreatment = "each is in every denominator of the decision (inten
 // neither is scored, so neither can void the run.
 const liveStageAFailedTreatment = "each is in every denominator of the Stage A decisions (intention to treat): a harness " +
 	"failure is scored as a failure on every outcome it carries, any other failed trial is graded by its checks; a " +
-	"configuration-discarded or limit-cut attempt was set aside in its slot and run again, never scored"
+	"configuration-discarded attempt was set aside in its slot and run again, never scored; a limit-cut attempt was " +
+	"set aside and run again too, outside the primary analysis, but its partial cost and time feed the limited " +
+	"sensitivity, which can make a gated efficiency guard indeterminate"
 
 // notConfirmatory lists every way the run departs from a confirmatory run of its pre-registered
 // design: what its plan fixed before any trial ran (eval.LivePlanDepartures — its frozen materials
@@ -252,7 +254,7 @@ func liveGates(r *LiveEvalReport) (task, recovery []EvalGate) {
 		notJudged = "not judged: not a confirmatory run (" + strings.Join(r.NotConfirmatory, "; ") + ")"
 	}
 	if r.StageA != nil {
-		return stageAGates(r.StageA, notJudged)
+		return stageAGates(r.StageA, r.Confirmatory, notJudged)
 	}
 
 	margin := "margin not recorded in this summary"
@@ -318,12 +320,17 @@ func liveDecisionReached(d eval.LiveDecision) bool {
 	return false
 }
 
-// stageAGates are a Stage A run's gates (W6 item 2, amendment 4), judged only on a confirmatory run
-// and only as the pre-registered rules decide: H1, H2 and S pass when shown and are left unjudged
-// otherwise ("not shown" is never "harmed"); each harm test and gated efficiency guard fails when it
-// shows harm or reads indeterminate and is never a pass, so cost and time can block a run but never
-// carry one (SP14-M7-03); H3 is judged only when the owner made it a ship condition.
-func stageAGates(s *eval.LiveStageA, notJudged string) (task, recovery []EvalGate) {
+// stageAGates are a Stage A run's gates (W6 item 2, amendment 4), judged only as the pre-registered
+// rules decide and never on a run that reached no decision (a stop or a pause, review I-2):
+//   - each harm test and gated efficiency guard fails when it shows harm or reads indeterminate, on
+//     every run of the Stage A design or the classic+steer harm-only design (the §9.8 Sonnet check)
+//     whose decision was reached, confirmatory or not (ruling on review I-1: harm shown on either model
+//     blocks shipping), and it is never a pass, so cost and time can block a run but never carry one
+//     (SP14-M7-03);
+//   - H1, H2 and S pass when shown, and only on a confirmatory run; "not shown" is never "harmed";
+//   - H3 is judged only when the owner made it a ship condition, and then like H1.
+func stageAGates(s *eval.LiveStageA, confirmatory bool, notJudged string) (task, recovery []EvalGate) {
+	reached := s.Decision.Verdict != eval.LiveVerdictNotApplicable
 	gate := func(id string, t eval.LiveTest) EvalGate {
 		g := EvalGate{
 			ID:     id,
@@ -334,13 +341,13 @@ func stageAGates(s *eval.LiveStageA, notJudged string) (task, recovery []EvalGat
 			v := t.Interval.Estimate
 			g.Value = &v
 		}
-		if notJudged != "" {
-			g.Detail = notJudged + "; " + g.Detail
-			return g
-		}
+		benefit := t.ID == "H1" || t.ID == "H2" || t.ID == "S" || t.ID == "H3"
 		switch {
-		case !s.Decided && (t.ID == "H1" || t.ID == "H2" || t.ID == "S" || t.ID == "H3"):
-		case t.ID == "H1" || t.ID == "H2" || t.ID == "S" || (t.ID == "H3" && t.Gated):
+		case !reached:
+			g.Detail = "not judged: the run reached no decision, so its tests are interim; " + g.Detail
+		case benefit && !confirmatory:
+			g.Detail = notJudged + "; " + g.Detail
+		case benefit && (t.ID != "H3" || t.Gated):
 			if t.Label == eval.LiveLabelShown {
 				g.Passed = boolPtr(true)
 			}
@@ -434,13 +441,27 @@ func renderLive(rw *errWriter, r *LiveEvalReport) {
 // subscription use, and its limited and set-aside attempts.
 func renderLiveStageA(rw *errWriter, r *LiveEvalReport) {
 	if s := r.StageA; s != nil {
-		rw.printf("  Stage A decisions (paired task bootstrap, %.0f %% percentile intervals, B = %d over %d task(s), seed %d): "+
-			"%s\n", 100*s.Confidence, s.B, s.Tasks, s.Seed, s.Outcome)
+		heading := "Stage A decisions"
+		if s.Decision.Verdict == eval.LiveVerdictNotApplicable {
+			heading = "Stage A tests, interim, not decided"
+		}
+		rw.printf("  %s (paired task bootstrap, %.0f %% percentile intervals, B = %d over %d task(s), seed %d): %s\n",
+			heading, 100*s.Confidence, s.B, s.Tasks, s.Seed, s.Outcome)
 		for _, t := range s.Tests {
 			rw.printf("    %-22s %s vs %s, %s: %s — %s\n", t.ID, t.Treated, t.Comparator, t.Metric, intervalText(t.Interval), t.Label)
+			if sens := sensitivityText(t); sens != "" {
+				rw.printf("    %-22s sensitivities: %s\n", "", sens)
+			}
 		}
 		for _, t := range s.Reported {
 			rw.printf("    reported %-28s %s vs %s, %s: %s\n", t.ID, t.Treated, t.Comparator, t.Metric, intervalText(t.Interval))
+		}
+		for _, f := range s.UtilizationFits {
+			rw.printf("    reported utilization against C, %s: slope %.4f per USD, intercept %.4f, R² %.3f over %d trial(s)\n",
+				f.Window, f.Slope, f.Intercept, f.R2, f.N)
+		}
+		for _, n := range s.NotMeasured {
+			rw.printf("    %s\n", n)
 		}
 		for _, n := range s.Notes {
 			rw.printf("    note: %s\n", n)
@@ -452,6 +473,10 @@ func renderLiveStageA(rw *errWriter, r *LiveEvalReport) {
 				"(API %.1f s); %d timed-out step(s); %d compaction(s), p50 %.0f ms\n", as.Arm, e.CostComplete, e.CostPartial,
 				e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000, e.TimedOutSteps, e.Compactions,
 				e.CompactionMS.P50)
+			if as.MeanHostCost > 0 {
+				rw.printf("    %-8s estimate / host-reported cost: %.3f (the repository's Estimate beside the host's own)\n",
+					as.Arm, float64(as.MeanEstimateMc)/1e6/as.MeanHostCost)
+			}
 		}
 		if b := as.Brief; b != nil {
 			rw.printf("    %-8s briefs: %d compaction(s), unserved share %.2f, served-empty share %.2f, %d trial(s) with no "+
@@ -549,3 +574,15 @@ func proportionText(p eval.Proportion) string {
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+// sensitivityText renders a ratio test's sensitivities (review STATS-7): the limited-trial, completed,
+// observed-only and geometric-mean intervals, in that order; "" for a test with none.
+func sensitivityText(t eval.LiveTest) string {
+	var parts []string
+	for _, name := range []string{eval.LiveSensLimited, eval.LiveSensCompleted, eval.LiveSensObserved, eval.LiveSensGeometric} {
+		if iv, ok := t.Sensitivity[name]; ok {
+			parts = append(parts, name+" "+intervalText(iv))
+		}
+	}
+	return strings.Join(parts, "; ")
+}
