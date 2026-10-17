@@ -34,3 +34,18 @@ func TestLiveKillTree_ZombieLeaderIsAnExit(t *testing.T) {
 	require.NoError(t, cmd.Wait(), "the check did not reap the leader, so Wait still succeeds")
 	done()
 }
+
+// TestLiveKillTree_LiveLeaderIsARealCancel: a leader still running when the group is killed dies of
+// the kill (CLD_KILLED), and that is a real cancellation: the tree kill returns nil, not
+// os.ErrProcessDone (ruling R56 refinement). The post-kill classification only turns a leader that
+// exited on its own (CLD_EXITED) into an exit.
+func TestLiveKillTree_LiveLeaderIsARealCancel(t *testing.T) {
+	cmd := exec.CommandContext(context.Background(), "sleep", "30")
+	started, done, _ := liveTreeCancel(cmd)
+	require.NoError(t, cmd.Start())
+	started()
+	require.NoError(t, cmd.Cancel())
+	require.Error(t, cmd.Wait(), "killed by the group kill")
+	done()
+	require.False(t, liveLeaderExitedOnItsOwn(cmd.Process.Pid), "a reaped pid reads as not exited on its own")
+}
