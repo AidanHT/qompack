@@ -121,10 +121,20 @@ func TestLiveTaskSet_V7ShapeValidation(t *testing.T) {
 		}, "not a pair of two Stage A arms"},
 		"no step timeout": {func(m map[string]any) { delete(obj(analysis(m)["efficiency"]), "step_timeout_ms") }, "step_timeout_ms"},
 		"redesign ratio":  {func(m map[string]any) { obj(analysis(m)["efficiency"])["pilot_redesign_ratio"] = 1 }, "pilot_redesign_ratio"},
-		"delta above 1":   {func(m map[string]any) { analysis(m)["delta_h1"] = 1.2 }, "delta_h1"},
-		"negative icc":    {func(m map[string]any) { analysis(m)["icc_int"] = -0.1 }, "icc_int"},
-		"no domain":       {func(m map[string]any) { delete(task(m), "domain") }, "declares no domain"},
-		"bad domain":      {func(m map[string]any) { task(m)["domain"] = "two words" }, "domain"},
+		// Review STATS-8: a four-arm set's block carries §9.4's gate on both metrics.
+		"cost only": {func(m map[string]any) {
+			obj(analysis(m)["efficiency"])["metrics"] = []any{"cost"}
+		}, "gated steer vs classic guard"},
+		"gate ungated": {func(m map[string]any) {
+			obj(analysis(m)["efficiency"])["guards"] = []any{map[string]any{"treated": "steer", "comparator": "classic", "gated": false}}
+		}, "gated steer vs classic guard"},
+		"no steer guard": {func(m map[string]any) {
+			obj(analysis(m)["efficiency"])["guards"] = []any{map[string]any{"treated": "classic", "comparator": "stock", "gated": true}}
+		}, "gated steer vs classic guard"},
+		"delta above 1": {func(m map[string]any) { analysis(m)["delta_h1"] = 1.2 }, "delta_h1"},
+		"negative icc":  {func(m map[string]any) { analysis(m)["icc_int"] = -0.1 }, "icc_int"},
+		"no domain":     {func(m map[string]any) { delete(task(m), "domain") }, "declares no domain"},
+		"bad domain":    {func(m map[string]any) { task(m)["domain"] = "two words" }, "domain"},
 		"no recovery check": {func(m map[string]any) {
 			var kept []any
 			for _, c := range arr(task(m)["checks"]) {

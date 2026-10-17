@@ -158,7 +158,7 @@ func stageAEntry(t *testing.T) (eval.LiveTaskSet, eval.LivePlan) {
 		Plugin:          &eval.LivePluginIdentity{Install: "plugin-dir", Version: "0.4.0", Commit: "c0ffee"},
 		PluginMods:      &eval.LivePluginIdentity{Install: "plugin-dir", Version: "0.4.0", Commit: "c0ffee", Mods: true},
 		KnownDefects:    &eval.LiveDefectAttestation{Open: []string{}},
-		HeldOutIncluded: true,
+		HeldOutIncluded: true, StepTimeoutMS: 600000,
 	}
 	for arm, n := range ts.Analysis.ArmTrialsPerTask {
 		p.ArmTrials[arm] = n
@@ -186,12 +186,13 @@ func TestLivePlanDepartures_StageAEntry(t *testing.T) {
 			func(p *eval.LivePlan) { p.Arms = []string{"stock", "classic", "steer"} },
 			"did not run every arm of the design (stock, classic, generic, steer; arms: stock, classic, steer, missing generic)",
 		},
-		"steer trials":   {func(p *eval.LivePlan) { p.ArmTrials["steer"] = 3 }, "ran 3 trials per task on the steer arm, not the pre-registered 2"},
-		"no mods bundle": {func(p *eval.LivePlan) { p.PluginMods = nil }, "names no --bundle-mods"},
-		"no bundle":      {func(p *eval.LivePlan) { p.Plugin = nil }, "names no --bundle,"},
-		"two commits":    {func(p *eval.LivePlan) { p.PluginMods.Commit = "beef" }, "not built from one commit"},
-		"step timeout":   {func(p *eval.LivePlan) { p.StepTimeoutMS = 300000 }, "step timeout of 300000 ms, not the pre-registered 600000 ms"},
-		"another model":  {func(p *eval.LivePlan) { p.Model = "sonnet" }, "not the pre-registered model claude-opus-5-5"},
+		"steer trials":    {func(p *eval.LivePlan) { p.ArmTrials["steer"] = 3 }, "ran 3 trials per task on the steer arm, not the pre-registered 2"},
+		"no mods bundle":  {func(p *eval.LivePlan) { p.PluginMods = nil }, "names no --bundle-mods"},
+		"no bundle":       {func(p *eval.LivePlan) { p.Plugin = nil }, "names no --bundle,"},
+		"two commits":     {func(p *eval.LivePlan) { p.PluginMods.Commit = "beef" }, "not built from one commit"},
+		"step timeout":    {func(p *eval.LivePlan) { p.StepTimeoutMS = 300000 }, "step timeout of 300000 ms, not the pre-registered 600000 ms"},
+		"no step timeout": {func(p *eval.LivePlan) { p.StepTimeoutMS = 0 }, "step timeout of 0 ms, not the pre-registered 600000 ms"},
+		"another model":   {func(p *eval.LivePlan) { p.Model = "sonnet" }, "not the pre-registered model claude-opus-5-5"},
 	} {
 		_, p := stageAEntry(t)
 		c.mutate(&p)

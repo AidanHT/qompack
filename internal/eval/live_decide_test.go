@@ -33,7 +33,10 @@ type synthArm struct {
 }
 
 // synthRun simulates a Stage A run over k tasks: recovery and task success vary by task (shared by
-// the arms), and cost and time follow R5's model (σ_w for cost, 0.35 for time).
+// the arms), and cost and time follow R5's model (σ_w for cost, 0.35 for time) but for one thing: each
+// arm draws its own task deviation d (SD 0.10), so steer's deviation from classic has SD 0.141, not
+// R5's 0.10 (review STATS-9) — a noisier model than the design's, so its verdicts err toward "not
+// shown".
 func synthRun(seed uint64, k int, sigmaW float64, arms map[string]synthArm) []eval.LiveTrial {
 	rng := rand.New(rand.NewPCG(seed, 2))
 	logit := func(p float64) float64 { return math.Log(p / (1 - p)) }
@@ -111,6 +114,9 @@ func TestDecideStageA_KnownNull(t *testing.T) {
 	require.Equal(t, s.Decision, sum.Decision)
 	require.Nil(t, sum.TaskSuccessDiff, "the two-arm qompack − stock difference is gone")
 	require.Contains(t, s.Outcome, "F1 ships on")
+	require.Len(t, s.NotMeasured, 2, "the §9.4 rows the harness does not produce are named (review CLI-4)")
+	require.Contains(t, s.NotMeasured[0], "distrust incidents: not measured by this harness")
+	require.Contains(t, s.NotMeasured[1], "-p teardown losses")
 }
 
 // TestDecideStageA_KnownHarm (amendment 4): at a true cost ratio of 1.3, the gated cost guard shows
@@ -164,11 +170,21 @@ func TestDecideStageA_TaskSuccessHarmAndS(t *testing.T) {
 	require.Equal(t, eval.LiveVerdictHarm, s.Decision.Verdict)
 
 	// A difference whose 2.5th percentile is below -0.10 but whose 20th is above it: S fails by the
-	// sized test and passes by the fallback.
-	trials = synthRun(46, 24, 0.25, map[string]synthArm{
-		"classic": {recovery: 0.50, success: 0.90, cost: 1, time: 1, n: 3},
-		"generic": {recovery: 0.60, success: 0.90, cost: 1, time: 1, n: 3},
-		"steer":   {recovery: 0.95, success: 0.86, cost: 1, time: 1, n: 3},
+	// sized test and passes by the fallback, with no harm shown. Deterministic (review TESTS-05): steer
+	// recovers on every trial and classic and generic almost never, so H1 and H2 are certainly shown;
+	// classic fails one task trial in 4 of 24 tasks, steer one in 8 and two in one.
+	trials = detTrials(24, 5, []string{"classic", "generic", "steer"}, func(arm string, task, trial int) (bool, bool, float64) {
+		switch arm {
+		case "steer":
+			fails := map[bool]int{true: 1, false: 0}[task >= 15 && task < 23]
+			if task == 23 {
+				fails = 2
+			}
+			return true, trial <= 5-fails, 1.0
+		case "generic":
+			return trial == 1, true, 1.0
+		}
+		return false, trial < 5 || task >= 4, 1.0
 	})
 	a := stageAAnalysis()
 	sized := eval.SummarizeLive("r", a, trials).StageA
@@ -176,12 +192,40 @@ func TestDecideStageA_TaskSuccessHarmAndS(t *testing.T) {
 	require.Less(t, st.Interval.Low, -0.10)
 	require.Greater(t, st.Interval.P20, -0.10)
 	require.Equal(t, "not shown", st.Label)
+	require.Equal(t, eval.LiveVerdictNoShip, sized.Decision.Verdict)
 	a.SFallback = true
 	fb := eval.SummarizeLive("r", a, trials).StageA
-	require.Equal(t, "shown", label(t, fb, "S"))
-	if label(t, fb, "H1") == "shown" && label(t, fb, "H2") == "shown" && fb.Decision.Verdict == eval.LiveVerdictShip {
-		require.Contains(t, fb.Outcome, "non-inferiority on task success was not shown")
+	require.Equal(t, "shown", label(t, fb, "H1"))
+	require.Equal(t, "shown", label(t, fb, "H2"))
+	sf, _ := fb.Test("S")
+	require.Equal(t, "shown", sf.Label)
+	require.Contains(t, sf.Reason, "S met only through the pre-registered fallback", "review I-3")
+	require.Contains(t, sf.Reason, "non-inferiority on task success was not shown")
+	require.NotContains(t, sf.Reason, "is non-inferior", "§9.4 forbids the non-inferiority claim under the fallback")
+	require.Equal(t, eval.LiveVerdictShip, fb.Decision.Verdict)
+	require.Contains(t, fb.Outcome, "S met only through the pre-registered fallback")
+	require.Contains(t, fb.Decision.Reason, "(S by the fallback)")
+}
+
+// detTrials is a deterministic Stage A run over k tasks with n trials per task in each of arms: f gives
+// each trial's recovery, task success and cost; every trial completes in three 1-second steps and is
+// constraint-clean, on the pre-registered model.
+func detTrials(k, n int, arms []string, f func(arm string, task, trial int) (rec, success bool, cost float64)) []eval.LiveTrial {
+	var out []eval.LiveTrial
+	for task := range k {
+		for _, arm := range arms {
+			for trial := 1; trial <= n; trial++ {
+				rec, success, cost := f(arm, task, trial)
+				clean := true
+				out = append(out, eval.LiveTrial{
+					TaskID: fmt.Sprintf("t%02d", task), Arm: arm, Trial: trial, Completed: true, PreregisteredModel: true,
+					TaskSuccess: success, Recovered: &rec, ConstraintClean: &clean, HostCostUSD: cost,
+					Steps: steps(1000, 1000, 1000),
+				})
+			}
+		}
 	}
+	return out
 }
 
 // TestDecideStageA_AHangCountsTheCapAndImputesCostAdversely (amendment 4): a steer trial that hung on
@@ -196,25 +240,31 @@ func TestDecideStageA_AHangCountsTheCapAndImputesCostAdversely(t *testing.T) {
 		}
 	}
 	var ts []eval.LiveTrial
-	for _, task := range []string{"a", "b"} {
+	// Task b's steer maximum (5) is above task a's (2), so imputing the arm's maximum instead of the
+	// task's would show (review TESTS-06).
+	for task, steerMax := range map[string]float64{"a": 2, "b": 5} {
 		ts = append(ts,
 			trial(task, "classic", 1, 1.0, steps(1000, 1000, 1000)), trial(task, "classic", 2, 1.0, steps(1000, 1000, 1000)),
-			trial(task, "steer", 1, 1.0, steps(1000, 1000, 1000)), trial(task, "steer", 2, 2.0, steps(1000, 1000, 1000)))
+			trial(task, "steer", 1, 1.0, steps(1000, 1000, 1000)), trial(task, "steer", 2, steerMax, steps(1000, 1000, 1000)))
 	}
 	hung := trial("a", "steer", 3, 0, steps(-1, -1, -1))
 	hung.Completed = false
-	ts = append(ts, hung)
+	// A partial trial whose observed lower bound (3) is above its task's maximum keeps it.
+	above := trial("a", "steer", 4, 3.0, steps(1000, -1))
+	above.Completed = false
+	ts = append(ts, hung, above)
 	require.Equal(t, int64(600000), hung.ActiveMS(600000))
 	_, status := hung.Cost()
 	require.Equal(t, eval.LiveCostUnknown, status)
 
 	s := eval.DecideStageA(stageAAnalysis(), ts, nil)
 	cost, _ := s.Test("harm-cost")
-	// Steer: a = {1, 2, 2 (imputed: task a's max complete steer C)}, b = {1, 2}; classic all 1.
-	require.InDelta(t, (1.0+2+2+1+2)/5, cost.Interval.Estimate, 1e-12)
-	require.InDelta(t, (1.0+2+1+2)/4, cost.Sensitivity["observed"].Estimate, 1e-12, "observed-only leaves the unknown out")
+	// Steer: a = {1, 2, 2 (imputed: task a's max complete steer C, not the arm's 5), 3 (its own bound)},
+	// b = {1, 5}; classic all 1.
+	require.InDelta(t, (1.0+2+2+3+1+5)/6, cost.Interval.Estimate, 1e-12)
+	require.InDelta(t, (1.0+2+3+1+5)/5, cost.Sensitivity["observed"].Estimate, 1e-12, "observed-only leaves the unknown out")
 	tm, _ := s.Test("harm-active_time")
-	require.InDelta(t, (4*3000.0+600000)/5/3000, tm.Interval.Estimate, 1e-12, "T counts the cap")
+	require.InDelta(t, (4*3000.0+600000+(1000+600000))/6/3000, tm.Interval.Estimate, 1e-12, "T counts the cap")
 }
 
 // TestDecideStageA_PartialCostsMoveTowardHarm (amendment 4): a 3 % share of partial costs in steer,
@@ -298,7 +348,7 @@ func TestDecideStageA_ClassicVsStockIsALabel(t *testing.T) {
 	lab, ok := s.Test("label-cost-classic-vs-stock")
 	require.True(t, ok)
 	require.False(t, lab.Gated)
-	require.Equal(t, "harm shown", lab.Label)
+	require.Equal(t, "overhead shown", lab.Label, "an ungated label is not a §9.6 harm (review CLI-7)")
 	require.Contains(t, lab.Reason, "Qompack 0.3.x's cost overhead was shown above 10 %")
 	require.Equal(t, eval.LiveVerdictShip, s.Decision.Verdict, "the label does not gate F1")
 }
@@ -306,9 +356,11 @@ func TestDecideStageA_ClassicVsStockIsALabel(t *testing.T) {
 // TestDecideStageA_AnotherModelDecidesOnlyHarm (plan §9.8): a run on a model other than the
 // pre-registered one (the Sonnet check) reports its benefit intervals but decides only harm.
 func TestDecideStageA_AnotherModelDecidesOnlyHarm(t *testing.T) {
-	// With no true harm a dataset still shows a false task-success harm about 2.5 % of the time; this
-	// seed's does not, so the run isolates the model rule.
-	trials := mainRun(53, 1.0, 1.0)
+	// Deterministic, so no chance false harm can stand in for the model rule (review STATS-10): steer
+	// recovers more than classic, and the arms are equal on everything harm compares.
+	trials := detTrials(12, 4, []string{"classic", "steer"}, func(arm string, task, trial int) (bool, bool, float64) {
+		return arm == "steer" || trial == 1, true, 1.0
+	})
 	for i := range trials {
 		trials[i].PreregisteredModel = false
 	}

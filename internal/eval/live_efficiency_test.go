@@ -58,6 +58,14 @@ func TestLiveTrial_CostAndActiveTime(t *testing.T) {
 		"hang on step 1":   {steps(-1, -1, -1), 0, eval.LiveCostUnknown, capMS, 0, 1},
 		"never started":    {nil, 0, eval.LiveCostUnknown, 0, 0, 0},
 		"old record shape": {[]eval.LiveStepRecord{{ResultSubtype: "success", DurationMS: 7}}, 0.5, eval.LiveCostComplete, 7, 0, 0},
+		// Review CLI-6: a result line with no total_cost_usd leaves the running total unknown from there.
+		"last total missing": {
+			[]eval.LiveStepRecord{{HasResult: true, DurationMS: 5}, {HasResult: true, DurationMS: 5, CostMissing: true}},
+			0.5, eval.LiveCostPartial, 10, 0, 0,
+		},
+		"no total at all": {
+			[]eval.LiveStepRecord{{HasResult: true, DurationMS: 5, CostMissing: true}}, 0, eval.LiveCostUnknown, 5, 0, 0,
+		},
 	} {
 		tr := eval.LiveTrial{Steps: c.steps, HostCostUSD: 0.5}
 		cost, status := tr.Cost()
