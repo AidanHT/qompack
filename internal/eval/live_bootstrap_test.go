@@ -1,6 +1,9 @@
 package eval_test
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -23,7 +26,26 @@ func TestLiveBootstrap_PreregisteredSettings(t *testing.T) {
 	require.Len(t, a.Idx, 50)
 	require.Len(t, a.Idx[0], 3)
 	require.NotEqual(t, a.Idx, eval.NewLiveDraws(a.Tasks, 50, 7).Idx, "another seed draws another matrix")
+
+	// The production matrix itself is pinned (review TESTS-09): a resumed run on another build of the
+	// harness must draw the same resamples, or the union verdict could differ.
+	ids := make([]string, 24)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("t%02d", i)
+	}
+	d := eval.NewLiveDraws(ids, eval.LiveBootstrapB, eval.LiveBootstrapSeed)
+	h := sha256.New()
+	for _, row := range d.Idx {
+		for _, j := range row {
+			_ = binary.Write(h, binary.LittleEndian, j)
+		}
+	}
+	require.Equal(t, liveDrawsDigest, hex.EncodeToString(h.Sum(nil)), "the production draw matrix changed")
 }
+
+// liveDrawsDigest is the SHA-256 of the production draw matrix over 24 tasks (B = 10,000, the
+// pre-registered seed), its indices as little-endian int32 in row order.
+const liveDrawsDigest = "96a96ae698fdbdcdc55e1b81d07cdf883426cf27f1bd17839dde76c45cb3605a"
 
 // TestPairedBootstrapDiff_ResamplesTasksJointly: the statistic is the difference of pooled
 // proportions; tasks are resampled jointly across arms, so task-level variation every arm shares
@@ -79,12 +101,13 @@ func TestPairedBootstrapRatio(t *testing.T) {
 
 // TestPairedBootstrapDiff_Calibration (W6 item 2): under no effect at the planned 24 tasks, the
 // one-sided rejection rate of "the lower bound is above 0" is within 0.020 of its nominal 0.025.
-// R = 1,000 replications, B = 1,000 (decision D-c: a smaller B than production keeps the test well
-// under 30 s; production's B = 10,000 is pinned above). The binomial SE of a rate near 0.025 at
-// R = 1,000 is about 0.005, so the tolerance is about four SEs, and it admits the known mild
-// anti-conservatism at 24 tasks (0.023–0.036, plan §9.2).
+// R = 4,000 replications, B = 1,000 (decision D-c: a smaller B than production keeps the test well
+// under 30 s, about 1 s here; production's B = 10,000 is pinned above). It measures 0.032; the binomial
+// SE of a rate near 0.03 at R = 4,000 is about 0.003, so the tolerance's nearer edge (0.045) sits about
+// 4.6 SEs above the measured rate, and the band admits the known mild anti-conservatism at 24 tasks
+// (0.023–0.036, plan §9.2). The test is deterministic (fixed seeds).
 func TestPairedBootstrapDiff_Calibration(t *testing.T) {
-	const r, b, k, m = 1000, 1000, 24, 14
+	const r, b, k, m = 4000, 1000, 24, 14
 	rng := rand.New(rand.NewPCG(31, 1))
 	tasks := make([]string, k)
 	for i := range tasks {
@@ -135,11 +158,13 @@ func efficiencyRun(rng *rand.Rand, k, m int, theta, sigmaW float64) []eval.LiveT
 // TestPairedBootstrapRatio_Calibration (amendment 4's calibration test): at 24 tasks × 14 trials per
 // arm, σ_w 0.25 and a true ratio of 1.10 — the margin itself — the harm side's one-sided rate
 // (L > 1.10) lies in [0.010, 0.060] and the non-inferiority side's (U < 1.10) in [0.010, 0.050].
-// R = 1,000 replications and B = 1,000 resamples, the design's minimums (D-c keeps the test under
-// 30 s). The coordinator's re-run gave 0.044–0.050 and 0.017–0.039; the binomial SE at R = 1,000 is
-// at most about 0.007 there, so both bands sit at least two SEs from the re-run's figures.
+// R = 4,000 replications and B = 1,000 resamples, above the design's minimums of 1,000 (D-c keeps the
+// test under 30 s; about 2 s here). It measures 0.048 and 0.028 (the coordinator's re-run gave
+// 0.044–0.050 and 0.017–0.039). At R = 4,000 the binomial SE is about 0.0034 and 0.0026, so the nearest
+// band edge (0.060 on the harm side) sits about 3.5 SEs from the measured rate, and every other edge
+// further (review TESTS-08 corrected the earlier claim of two SEs at R = 1,000). Deterministic.
 func TestPairedBootstrapRatio_Calibration(t *testing.T) {
-	const r, b, k, m = 1000, 1000, 24, 14
+	const r, b, k, m = 4000, 1000, 24, 14
 	rng := rand.New(rand.NewPCG(32, 1))
 	tasks := make([]string, k)
 	for i := range tasks {
