@@ -40,31 +40,29 @@ func (p *liveProcPin) killError() error {
 }
 
 // liveKillTree ends the process group of the process the harness started: the host and everything
-// it started that stayed in its group. A group that is already gone reports os.ErrProcessDone, so exec
-// does not report a cancellation for a process that had exited (re-review N6).
+// it started that stayed in its group.
+//
+// Its result follows os/exec's contract (Cmd.Cancel's doc; Wait's "If c.Process.Wait returned an
+// error, prefer that"): exec consults Cancel's result only when the command exits with a success
+// status. A process this SIGKILL ended never exits with success — Process.Wait yields an ExitError,
+// "signal: killed", which Wait reports whatever Cancel returned — so a success status after a cancel
+// can only be the process's own exit, which raced the cancel. A successful kill therefore returns
+// os.ErrProcessDone: an own clean exit stays clean, and a killed host still surfaces as its
+// ExitError. On Linux a group whose leader has exited but is not yet reaped stays killable, so the
+// kill cannot tell the two cases apart itself; the contract makes it unnecessary (ruling R56 v2). A
+// group already gone (ESRCH) is os.ErrProcessDone too, and a real kill failure is recorded as the walk
+// error for the caller to report after Wait.
 func liveKillTree(cmd *exec.Cmd, pin *liveProcPin) error {
 	if cmd.Process == nil {
 		return nil
 	}
-	// On Linux a leader that has exited but is not yet reaped keeps its group killable, so the kill
-	// would succeed and exec would report a clean exit as cancelled. The exit is read first, without
-	// reaping; the group is still killed, to end any descendant left in it (ruling R56).
-	leaderExited := liveLeaderExited(cmd.Process.Pid)
-	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
-		if errors.Is(err, syscall.ESRCH) {
-			return os.ErrProcessDone
-		}
+	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
 		pin.mu.Lock()
 		pin.walkErr = fmt.Errorf("the process group %d could not be killed: %w", cmd.Process.Pid, err)
 		pin.mu.Unlock()
 		return pin.walkErr
 	}
-	// A leader already exiting on its own when the kill landed is an exit too, not a cancellation
-	// (R56 refinement).
-	if leaderExited || liveLeaderExitedOnItsOwn(cmd.Process.Pid) {
-		return os.ErrProcessDone
-	}
-	return nil
+	return os.ErrProcessDone
 }
 
 // liveHolderGone reports that err says the process does not exist. Anything else, EPERM included,
