@@ -168,6 +168,7 @@ func TestEval_LiveStageAPausedRunAndItsSubscriptionUse(t *testing.T) {
 	require.Contains(t, reasons, "3 planned trial(s) did not run")
 	require.Contains(t, reasons, "it paused before its plan was done")
 	require.Equal(t, map[string]int{"steer": 1}, rep.Live.LimitedTrials)
+	require.Equal(t, eval.LiveVerdictNotApplicable, rep.Live.StageA.Decision.Verdict, "review I-2")
 
 	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
 	require.NoError(t, err)
@@ -176,6 +177,123 @@ func TestEval_LiveStageAPausedRunAndItsSubscriptionUse(t *testing.T) {
 		"subscription use per trial, five_hour: mean 0.0200, max 0.0200",
 		"limited trials: 1, set aside and run again",
 		"1 attempt(s) set aside for a resident daemon of another build (ruling R42)",
+	} {
+		require.Contains(t, text, want)
+	}
+	require.NotContains(t, text, "ships on", "a paused run claims no verdict (review I-2)")
+	require.Contains(t, text, "Stage A tests, interim, not decided")
+}
+
+// sonnetRun is a §9.8 Sonnet check: classic and steer only, on claude-sonnet-5-5, which is not the
+// pre-registered model, so it is never confirmatory and decides only harm.
+func sonnetRun(t *testing.T, steerCost float64) commands.LiveEvalInput {
+	t.Helper()
+	var trials []eval.LiveTrial
+	for _, tr := range stageATrialsCmd(4, steerCost) {
+		if tr.Arm == "classic" || tr.Arm == "steer" {
+			tr.PreregisteredModel, tr.Model = false, "claude-sonnet-5-5"
+			trials = append(trials, tr)
+		}
+	}
+	run := stageARun(t, trials)
+	run.Plan.Model, run.Plan.Arms = "claude-sonnet-5-5", []string{"classic", "steer"}
+	run.Plan.ArmTrials = map[string]int{"classic": 4, "steer": 4}
+	return run
+}
+
+// TestEval_LiveSonnetHarmFailsTheEvaluation (ruling on review I-1): the §9.8 Sonnet check is never
+// confirmatory, yet harm shown on it blocks shipping: its gated cost guard fails `qompack eval`, and a
+// passing replay read beside it cannot turn the verdict to pass. Without harm it decides nothing, and
+// its benefit tests are never judged.
+func TestEval_LiveSonnetHarmFailsTheEvaluation(t *testing.T) {
+	harm := sonnetRun(t, 1.5)
+	require.Equal(t, eval.LiveVerdictHarm, harm.Summary.Decision.Verdict)
+	out, err := runWith(t, evalDeps(liveOnly(harm), nil), "eval", "--json")
+	require.Error(t, err)
+	rep := decodeEval(t, out)
+	require.False(t, rep.Live.Confirmatory)
+	require.Equal(t, commands.VerdictFail, rep.Verdict)
+	g := liveGate(t, rep.Task, "LIVE-HARM-COST")
+	require.NotNil(t, g.Passed)
+	require.False(t, *g.Passed)
+
+	in := inputWith(goodScore(), ranTrials(), nil)
+	in.Live = &harm
+	out, err = runWith(t, evalDeps(in, nil), "eval", "--json")
+	require.Error(t, err)
+	require.Equal(t, commands.VerdictFail, decodeEval(t, out).Verdict, "a passing replay cannot carry Sonnet harm")
+
+	clean := sonnetRun(t, 1.0)
+	require.Equal(t, eval.LiveVerdictNoHarm, clean.Summary.Decision.Verdict)
+	out, err = runWith(t, evalDeps(liveOnly(clean), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep = decodeEval(t, out)
+	require.Equal(t, commands.VerdictInconclusive, rep.Verdict, "the Sonnet check decides only harm; no harm passes nothing")
+	require.Nil(t, liveGate(t, rep.Recovery, "LIVE-H1").Passed)
+	require.Nil(t, liveGate(t, rep.Task, "LIVE-HARM-COST").Passed)
+}
+
+// TestEval_LiveIndeterminateGuardFails (review TESTS-02): a confirmatory run whose limited-trial
+// sensitivity flips the gated cost guard reads indeterminate, which fails LIVE-HARM-COST and the
+// evaluation.
+func TestEval_LiveIndeterminateGuardFails(t *testing.T) {
+	trials := stageATrialsCmd(4, 1.12)
+	run := stageARun(t, trials)
+	var limited []eval.LiveTrial
+	for _, tr := range trials {
+		if tr.Arm == "classic" && tr.Trial <= 2 {
+			limited = append(limited, eval.LiveTrial{
+				TaskID: tr.TaskID, Arm: "classic", Trial: tr.Trial, HostCostUSD: 0.1, Limited: "rejected",
+				Steps: []eval.LiveStepRecord{{ID: "s", HasResult: true, ResultSubtype: "error_during_execution", DurationMS: 1}},
+			})
+		}
+	}
+	run.Summary.AddLimited(stageAAnalysisCmd(), trials, limited)
+	cost, _ := run.Summary.StageA.Test("harm-cost")
+	require.Equal(t, eval.LiveLabelIndeterminate, cost.Label)
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.Error(t, err)
+	rep := decodeEval(t, out)
+	require.True(t, rep.Live.Confirmatory, "%v", rep.Live.NotConfirmatory)
+	require.Equal(t, commands.VerdictFail, rep.Verdict)
+	g := liveGate(t, rep.Task, "LIVE-HARM-COST")
+	require.NotNil(t, g.Passed)
+	require.False(t, *g.Passed)
+}
+
+// TestEval_LiveStageARunThatReachedNoDecision (review I-2): a run stopped after its last trial — all
+// planned trials ran, so it can be confirmatory — reaches no decision; its gates stay unjudged, its
+// verdict is inconclusive, and its tests print as interim, never "ships on". The sensitivities, the
+// utilization fit, the estimate ratio and the not-measured rows print too (STATS-7, CLI-4).
+func TestEval_LiveStageARunThatReachedNoDecision(t *testing.T) {
+	trials := stageATrialsCmd(4, 1.0)
+	d := 0.02
+	for i := range trials {
+		trials[i].RateUse = map[string]eval.LiveRateDelta{"five_hour": {Delta: &d}}
+		trials[i].Estimate = &eval.Money{Micros: 900000}
+	}
+	run := stageARun(t, trials)
+	require.Equal(t, eval.LiveVerdictShip, run.Summary.Decision.Verdict)
+	run.Summary.StopEarly(len(trials), len(trials), "the guard over the operator's configuration failed")
+	require.Equal(t, eval.LiveVerdictNotApplicable, run.Summary.StageA.Decision.Verdict)
+
+	out, err := runWith(t, evalDeps(liveOnly(run), nil), "eval", "--json")
+	require.NoError(t, err)
+	rep := decodeEval(t, out)
+	require.True(t, rep.Live.Confirmatory, "%v", rep.Live.NotConfirmatory)
+	require.Equal(t, commands.VerdictInconclusive, rep.Verdict)
+	h1 := liveGate(t, rep.Recovery, "LIVE-H1")
+	require.Nil(t, h1.Passed)
+	require.Contains(t, h1.Detail, "the run reached no decision")
+
+	text, err := runWith(t, evalDeps(liveOnly(run), nil), "eval")
+	require.NoError(t, err)
+	require.NotContains(t, text, "ships on")
+	for _, want := range []string{
+		"Stage A tests, interim, not decided", "no verdict: the run stopped after 84 of the 84 planned trials",
+		"sensitivities: completed 1.000 [1.000, 1.000]; observed 1.000", "geometric 1.000",
+		"reported utilization against C, five_hour", "estimate / host-reported cost: 0.900",
+		"distrust incidents: not measured by this harness", "-p teardown losses with F4 on: not measured",
 	} {
 		require.Contains(t, text, want)
 	}
