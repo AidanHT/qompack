@@ -486,7 +486,7 @@ func renderLiveStageA(rw *errWriter, r *LiveEvalReport) {
 				e.CostUnknown, e.MeanCostUSD, e.MeanActiveMS/1000, e.MeanAPIMS/1000, e.TimedOutSteps, e.DurationMissing,
 				e.Compactions, e.CompactionMS.P50)
 			rw.printf("    %-8s estimate / host-reported cost: %s (the repository's Estimate beside the host's own)\n",
-				as.Arm, estimateRatioText(e))
+				as.Arm, eval.EstimateRatioText(as))
 		}
 		if b := as.Brief; b != nil {
 			rw.printf("    %-8s briefs: %d compaction(s), unserved share %.2f, served-empty share %.2f, %d trial(s) with no "+
@@ -595,17 +595,4 @@ func sensitivityText(t eval.LiveTest) string {
 		}
 	}
 	return strings.Join(parts, "; ")
-}
-
-// estimateRatioText renders an arm's estimate over its host-reported cost (review H-NEW-1): the ratio
-// eval computed over the trials with both values, with their count and a lower-bound mark.
-func estimateRatioText(e *eval.LiveArmEfficiency) string {
-	if e.EstimateRatioN == 0 {
-		return "n/a (no estimate recorded)"
-	}
-	bound := ""
-	if e.EstimateLowerBound {
-		bound = ", a lower bound"
-	}
-	return fmt.Sprintf("%.3f over %d trial(s)%s", e.EstimateRatio, e.EstimateRatioN, bound)
 }
