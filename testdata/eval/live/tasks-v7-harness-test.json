@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "id": "qompack-live-v7-harness-test",
+  "description": "Test-only (V7 W6): the pilot task in the four-arm Stage A shape, for the harness tests. It is never run against a real host, and its outcomes would say nothing about the plugin.",
+  "defaults": {
+    "max_turns": 6,
+    "allowed_tools": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(go:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "PowerShell(go:*)",
+      "mcp__plugin_qompack_qompack"
+    ]
+  },
+  "analysis": {
+    "model": "claude-opus-5-5",
+    "confidence": 0.95,
+    "non_inferiority_margin": 0.1,
+    "arm_trials_per_task": {
+      "stock": 1,
+      "classic": 2,
+      "generic": 1,
+      "steer": 2
+    },
+    "generic_compact_instructions": "When compacting, reproduce verbatim every identifier, file path, number, error message and every rule or constraint the user stated; list the approaches that were tried and failed, with the reason; keep the user's latest request word for word.",
+    "delta_h1": 0.25,
+    "delta_h2": 0.15,
+    "icc_int": 0.1,
+    "efficiency": {
+      "margin": 0.1,
+      "metrics": [
+        "cost",
+        "active_time"
+      ],
+      "guards": [
+        {
+          "treated": "steer",
+          "comparator": "classic",
+          "gated": true
+        },
+        {
+          "treated": "classic",
+          "comparator": "stock",
+          "gated": false
+        }
+      ],
+      "h3_ship_condition": false,
+      "step_timeout_ms": 600000,
+      "pilot_redesign_ratio": 1.25
+    }
+  },
+  "tasks": [
+    {
+      "id": "pilot-codeword",
+      "title": "Harness validation: a program's output recalled after /compact",
+      "category": "harness-validation",
+      "variant": "base",
+      "domain": "harness-validation",
+      "held_out": false,
+      "fixture": "fixtures/pilot",
+      "hidden_fixture": "hidden/pilot",
+      "steps": [
+        {
+          "id": "run",
+          "prompt": "Run go run ./cmd/code and tell me the code word it prints, in one line."
+        },
+        {
+          "id": "compact",
+          "compact": true,
+          "compact_instructions": "Keep the code word the program printed."
+        },
+        {
+          "id": "write",
+          "prompt": "Without running any program again, write the code word the program printed into CODE.txt at the project root, then tell me the code word in one line."
+        }
+      ],
+      "checks": [
+        {
+          "id": "answer-before",
+          "outcome": "recovery",
+          "kind": "answer_matches",
+          "description": "the code word was read before compaction",
+          "step": "run",
+          "pattern": "2c1a7a62c3"
+        },
+        {
+          "id": "code-file",
+          "outcome": "recovery",
+          "kind": "file_matches",
+          "description": "CODE.txt holds the code word",
+          "path": "CODE.txt",
+          "pattern": "^\\s*2c1a7a62c3\\s*$"
+        },
+        {
+          "id": "answer-after",
+          "outcome": "recovery",
+          "kind": "answer_matches",
+          "description": "the code word is recalled after compaction",
+          "step": "write",
+          "pattern": "2c1a7a62c3"
+        },
+        {
+          "id": "no-rerun",
+          "outcome": "constraint",
+          "kind": "tool_not_used_after",
+          "description": "the code word was not re-derived",
+          "step": "compact",
+          "pattern": "(?i)cmd/code|go run"
+        },
+        {
+          "id": "gomod",
+          "outcome": "constraint",
+          "kind": "file_unchanged",
+          "description": "go.mod is unchanged",
+          "path": "go.mod"
+        },
+        {
+          "id": "hidden",
+          "outcome": "task",
+          "kind": "command",
+          "description": "the hidden test reads CODE.txt",
+          "argv": [
+            "go",
+            "test",
+            "./..."
+          ]
+        }
+      ]
+    }
+  ]
+}

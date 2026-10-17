@@ -39,6 +39,10 @@ type liveProcSpec struct {
 	Messages       []string      `json:"messages"`
 	StepTimeout    time.Duration `json:"step_timeout"`
 	SessionTimeout time.Duration `json:"session_timeout"`
+	// StopOn is asked about every rate_limit_event line as it arrives; a non-empty reason stops the
+	// session at once: the host is cancelled and no further message is sent (review I1: the run never
+	// spends paid overage, not even to the end of a session).
+	StopOn func(line []byte) string `json:"-"`
 }
 
 // liveProcResult is what the host printed and how it ended.
@@ -50,7 +54,9 @@ type liveProcResult struct {
 	StepsCompleted int
 	// Err is a harness failure: the process did not start, a step timed out, the stream closed
 	// before every step had a result.
-	Err       string
+	Err string
+	// Stopped is why the driver stopped the session through StopOn, or "".
+	Stopped   string
 	StartedAt time.Time
 	EndedAt   time.Time
 }
@@ -79,6 +85,8 @@ type liveEnv struct {
 	stopDaemon func(project, spoolDir string) (string, error)
 	check      func(dir string, argv []string) eval.CommandOutcome
 	git        func(ctx context.Context, dir string, args ...string) error
+	// sleep is how the pacing waits for a rate-limit reset (W6 item 8).
+	sleep func(ctx context.Context, d time.Duration) error
 }
 
 func newLiveEnv(o liveOptions) (*liveEnv, error) {
@@ -102,16 +110,20 @@ func newLiveEnv(o liveOptions) (*liveEnv, error) {
 	e.stopDaemon = stopTrialDaemon
 	e.check = runLiveCheckCommand
 	e.git = runLiveGit
+	e.sleep = sleepContext
 	return e, nil
 }
 
-// cliVersion is `claude --version`'s leading token, or "unknown".
+// liveUnknownVersion is what cliVersion answers when the host does not say.
+const liveUnknownVersion = "unknown"
+
+// cliVersion is `claude --version`'s leading token, or liveUnknownVersion.
 func (e *liveEnv) cliVersion(ctx context.Context) string {
 	r := e.cli(ctx, "", "--version")
 	if f := strings.Fields(r.Stdout); r.Code == 0 && len(f) > 0 {
 		return f[0]
 	}
-	return "unknown"
+	return liveUnknownVersion
 }
 
 // ── the host process ─────────────────────────────────────────────────────────────────────────────
@@ -127,6 +139,7 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	cmd.Dir = spec.Dir
 	cmd.Env = liveProcessEnv(os.Environ(), spec)
 	cmd.WaitDelay = liveExitGrace
+	pinned, unpin, killErr := liveTreeCancel(cmd)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdin, err := cmd.StdinPipe()
@@ -143,12 +156,14 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 		res.Err, res.EndedAt = "starting the host: "+err.Error(), time.Now()
 		return res
 	}
+	pinned()
 	t0 := time.Now()
 
 	var mu sync.Mutex
 	var stream bytes.Buffer
 	var recv []int64
 	resultCount := 0
+	stopped := ""
 	// notify carries "a result line arrived" without ever blocking the reader: the count under mu
 	// is the truth, and the channel only wakes the writer to re-read it.
 	notify := make(chan struct{}, 1)
@@ -169,7 +184,18 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 				var head struct {
 					Type string `json:"type"`
 				}
-				if json.Unmarshal(trimmed, &head) == nil && head.Type == "result" {
+				ok := json.Unmarshal(trimmed, &head) == nil
+				if ok && head.Type == "rate_limit_event" && spec.StopOn != nil {
+					if why := spec.StopOn(trimmed); why != "" {
+						mu.Lock()
+						if stopped == "" {
+							stopped = why
+						}
+						mu.Unlock()
+						cancel() // our own child: CommandContext kills it
+					}
+				}
+				if ok && head.Type == "result" {
 					mu.Lock()
 					resultCount++
 					mu.Unlock()
@@ -214,6 +240,10 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	}
 	grace.Stop()
 	werr := cmd.Wait()
+	unpin()
+	if kerr := killErr(); kerr != nil {
+		res.Err = joinErr(res.Err, kerr.Error()) // Wait dropped it (re-review 4, F2)
+	}
 	var exitErr *exec.ExitError
 	switch {
 	case werr == nil:
@@ -225,10 +255,61 @@ func runLiveProcess(ctx context.Context, spec liveProcSpec) liveProcResult {
 	}
 	mu.Lock()
 	res.Stream, res.RecvMS = append([]byte(nil), stream.Bytes()...), append([]int64(nil), recv...)
+	res.Stopped = stopped
 	mu.Unlock()
+	if res.Stopped != "" {
+		// Joined, not replaced: a failed walk or the grace message stays in the record.
+		res.Err = joinErr("stopped by the driver: "+res.Stopped, res.Err)
+	}
 	res.Stderr = stderr.Bytes()
 	res.EndedAt = time.Now()
 	return res
+}
+
+// liveTreeCancel makes cmd's context cancellation end the whole process tree the harness started,
+// not only the direct child (re-review I1): the default host is npm's claude.cmd shim, whose claude.exe
+// a kill of cmd.exe alone leaves running.
+//
+// started must be called right after a successful Start, and done after Wait returns: between them
+// the process the harness started is pinned, so the kill never names a pid the harness no longer owns
+// and a kill that races a normal exit reports os.ErrProcessDone instead of an error (re-review N6).
+//
+// killErr is a failed or partial tree kill, to be reported after Wait: exec's Wait drops Cancel's
+// error once the killed process exits non-zero, which it always does after a kill (re-review 4, F2).
+func liveTreeCancel(cmd *exec.Cmd) (started, done func(), killErr func() error) {
+	liveSetProcessGroup(cmd)
+	pin := &liveProcPin{}
+	cmd.Cancel = func() error { return liveKillTree(cmd, pin) }
+	return func() { pin.pin(cmd) }, pin.release, pin.killError
+}
+
+// liveWalkPart is the part of liveRunPinned's joined error that is not the command's own exit: the
+// tree kill's failure, or nil.
+func liveWalkPart(err error) error {
+	var joined interface{ Unwrap() []error }
+	if !errors.As(err, &joined) {
+		return nil
+	}
+	var rest []error
+	for _, e := range joined.Unwrap() {
+		var exitErr *exec.ExitError
+		if e != nil && !errors.As(e, &exitErr) && !errors.Is(e, exec.ErrWaitDelay) {
+			rest = append(rest, e)
+		}
+	}
+	return errors.Join(rest...)
+}
+
+// liveRunPinned is cmd.Run with the tree kill and its pin (liveTreeCancel).
+func liveRunPinned(cmd *exec.Cmd) error {
+	started, done, killErr := liveTreeCancel(cmd)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	started()
+	err := cmd.Wait()
+	done()
+	return errors.Join(err, killErr())
 }
 
 // liveInheritedPrefix is the prefix of the environment variables Qompack reads its configuration
@@ -317,10 +398,17 @@ func runLiveCLI(ctx context.Context, bin, dir string, args ...string) liveCLIRes
 		cmd.Dir = dir
 	}
 	cmd.Stdin = bytes.NewReader(nil)
+	cmd.Env = liveCLIEnv(os.Environ())
 	cmd.WaitDelay = liveExitGrace
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
-	err := cmd.Run()
+	started, done, killErr := liveTreeCancel(cmd)
+	err := cmd.Start()
+	if err == nil {
+		started()
+		err = cmd.Wait()
+		done()
+	}
 	r := liveCLIResult{Stdout: out.String(), Stderr: errb.String()}
 	var exitErr *exec.ExitError
 	switch {
@@ -329,6 +417,13 @@ func runLiveCLI(ctx context.Context, bin, dir string, args ...string) liveCLIRes
 		r.Code = exitErr.ExitCode()
 	default:
 		r.Code, r.Stderr = -1, r.Stderr+"\n"+err.Error()
+	}
+	if kerr := killErr(); kerr != nil {
+		// The exit code alone would hide that the command's tree may still run (R53, H2).
+		r.Stderr = strings.TrimSpace(r.Stderr + "\n" + kerr.Error())
+		if r.Code == 0 {
+			r.Code = -1
+		}
 	}
 	return r
 }
@@ -359,8 +454,10 @@ func runLiveGit(ctx context.Context, dir string, args ...string) error {
 	cmd := exec.CommandContext(cctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Stdin = bytes.NewReader(nil)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := liveRunPinned(cmd); err != nil {
+		return fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(out.String()))
 	}
 	return nil
 }
@@ -370,15 +467,21 @@ func (e *liveEnv) runCheckCommand(project string, argv []string) eval.CommandOut
 	return e.check(project, argv)
 }
 
+// liveCheckCommandTimeout bounds one check command; a variable so a test can shorten it.
+var liveCheckCommandTimeout = liveCommandTimeout
+
 func runLiveCheckCommand(dir string, argv []string) eval.CommandOutcome {
-	ctx, cancel := context.WithTimeout(context.Background(), liveCommandTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), liveCheckCommandTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = dir
 	cmd.Stdin = bytes.NewReader(nil)
 	cmd.WaitDelay = liveExitGrace
 	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
-	out, err := cmd.CombinedOutput()
+	var buf bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &buf, &buf
+	err := liveRunPinned(cmd)
+	out := buf.Bytes()
 	if len(out) > liveCommandOutputKeep {
 		out = out[len(out)-liveCommandOutputKeep:]
 	}
@@ -386,7 +489,8 @@ func runLiveCheckCommand(dir string, argv []string) eval.CommandOutcome {
 	var exitErr *exec.ExitError
 	switch {
 	case ctx.Err() != nil:
-		co.Err = fmt.Errorf("timed out after %s", liveCommandTimeout)
+		// The timeout is the one time the tree kill runs, so its walk error is joined here (R53, H2).
+		co.Err = errors.Join(fmt.Errorf("timed out after %s", liveCheckCommandTimeout), liveWalkPart(err))
 		co.ExitCode = -1
 	case err == nil:
 	case errors.As(err, &exitErr):
@@ -424,12 +528,15 @@ func (e *liveEnv) marketplaceInstall(ctx context.Context, project, bundle, work 
 		return func() []string { return nil }, err
 	}
 	id := livePluginName + "@" + liveMarketplaceName
+	// The undo runs even after an interrupt cancelled ctx: the operator's configuration is restored
+	// whatever ended the trial. The add and install are cut by an interrupt (re-review F7).
+	undoCtx := context.WithoutCancel(ctx)
 	undo := func() []string {
 		var left []string
-		if r := e.cli(ctx, project, "plugin", "uninstall", id, "--scope", "local", "-y"); r.Code != 0 {
+		if r := e.cli(undoCtx, project, "plugin", "uninstall", id, "--scope", "local", "-y"); r.Code != 0 {
 			left = append(left, "plugin uninstall "+id+": "+r.combined())
 		}
-		if r := e.cli(ctx, project, "plugin", "marketplace", "remove", liveMarketplaceName); r.Code != 0 {
+		if r := e.cli(undoCtx, project, "plugin", "marketplace", "remove", liveMarketplaceName); r.Code != 0 {
 			left = append(left, "marketplace remove "+liveMarketplaceName+": "+r.combined())
 		}
 		return left

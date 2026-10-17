@@ -88,8 +88,112 @@ type LiveAnalysis struct {
 	// NonInferiorityMargin is how far below stock Qompack's task-success rate may sit and still be
 	// called non-inferior, as a proportion.
 	NonInferiorityMargin float64 `json:"non_inferiority_margin"`
-	// TrialsPerArm is the pre-registered number of trials per task per arm.
-	TrialsPerArm int `json:"trials_per_arm"`
+	// TrialsPerArm is the pre-registered number of trials per task per arm, one count for every arm.
+	// A four-arm set gives ArmTrialsPerTask instead; a set gives exactly one of the two.
+	TrialsPerArm int `json:"trials_per_arm,omitempty"`
+	// ArmTrialsPerTask is the pre-registered trials per task of each Stage A arm, by arm name. It
+	// lives here, in the hashed task file, so the counts cannot move after outcomes exist.
+	ArmTrialsPerTask map[string]int `json:"arm_trials_per_task,omitempty"`
+	// GenericCompactInstructions is text G: what the generic arm's CLAUDE.md carries under its
+	// `# Compact instructions` heading. It lives here so the task-set hash covers it.
+	GenericCompactInstructions string `json:"generic_compact_instructions,omitempty"`
+	// DeltaH1 and DeltaH2 are the pre-registered minimum intention-to-treat effects on recovery of H1
+	// (steer over classic) and H2 (steer over generic), and ICCInt the task-by-arm intraclass
+	// correlation the sizing inflates n by (plan §9.3 item 2; the sizing step, W6 item 2).
+	DeltaH1 float64 `json:"delta_h1,omitempty"`
+	DeltaH2 float64 `json:"delta_h2,omitempty"`
+	ICCInt  float64 `json:"icc_int,omitempty"`
+	// SFallback selects S's pre-registered fallback, the one-sided 80 % lower bound, used only if the
+	// owner declined the S-sized run (plan §9.3 item 3, §9.4).
+	SFallback bool `json:"s_fallback,omitempty"`
+	// Efficiency is amendment 4's pre-registered efficiency block; every four-arm set carries one.
+	Efficiency *LiveEfficiency `json:"efficiency,omitempty"`
+}
+
+// The efficiency metrics a block may decide (amendment 4).
+var liveEfficiencyMetrics = []string{LiveMetricCost, LiveMetricActiveTime}
+
+// LiveEfficiency is amendment 4's efficiency block (plan §9.4, ruling R43): the margin M, the metrics
+// decided (cost C and active time T), the guards — treated and comparator arms, gated or a label —,
+// whether H3 is a ship condition (an owner option at R2), the pinned step timeout a reached step with
+// no result counts as in T, and the pilot's brief redesign ratio.
+type LiveEfficiency struct {
+	Margin             float64               `json:"margin"`
+	Metrics            []string              `json:"metrics"`
+	Guards             []LiveEfficiencyGuard `json:"guards"`
+	H3ShipCondition    bool                  `json:"h3_ship_condition"`
+	StepTimeoutMS      int64                 `json:"step_timeout_ms"`
+	PilotRedesignRatio float64               `json:"pilot_redesign_ratio"`
+}
+
+// LiveEfficiencyGuard is one guard: "harm shown" when Treated's ratio over Comparator has its lower
+// bound above 1 + margin. A gated guard blocks shipping; an ungated one is a label for the docs.
+type LiveEfficiencyGuard struct {
+	Treated    string `json:"treated"`
+	Comparator string `json:"comparator"`
+	Gated      bool   `json:"gated"`
+}
+
+// LiveDefaultStepTimeoutMS is the harness's default --step-timeout (devtool takes it from here, review
+// TESTS-12) and the T cap of a run whose task set pins none.
+const LiveDefaultStepTimeoutMS = int64(10 * 60 * 1000)
+
+// stepTimeoutMS is the step timeout active time counts a reached step with no result as.
+func (a LiveAnalysis) stepTimeoutMS() int64 {
+	if a.Efficiency != nil && a.Efficiency.StepTimeoutMS > 0 {
+		return a.Efficiency.StepTimeoutMS
+	}
+	return LiveDefaultStepTimeoutMS
+}
+
+// efficiencyMargin is M, or the plan's M for reported rows when no block pins it.
+func (a LiveAnalysis) efficiencyMargin() float64 {
+	if a.Efficiency != nil && a.Efficiency.Margin > 0 {
+		return a.Efficiency.Margin
+	}
+	return liveDefaultEfficiencyMargin
+}
+
+func (e LiveEfficiency) validate() error {
+	if !(e.Margin > 0 && e.Margin < 1) {
+		return fmt.Errorf("eval: analysis.efficiency.margin %v must lie strictly between 0 and 1", e.Margin)
+	}
+	if len(e.Metrics) == 0 {
+		return fmt.Errorf("eval: analysis.efficiency.metrics names no metric (%v)", liveEfficiencyMetrics)
+	}
+	seen := map[string]bool{}
+	for _, m := range e.Metrics {
+		if !slices.Contains(liveEfficiencyMetrics, m) || seen[m] {
+			return fmt.Errorf("eval: analysis.efficiency.metrics: %q is not one of %v, or is named twice", m, liveEfficiencyMetrics)
+		}
+		seen[m] = true
+	}
+	if len(e.Guards) == 0 {
+		return fmt.Errorf("eval: analysis.efficiency.guards names no guard")
+	}
+	for _, g := range e.Guards {
+		_, okT := LiveArmSpec(g.Treated)
+		_, okC := LiveArmSpec(g.Comparator)
+		if !okT || !okC || g.Treated == g.Comparator {
+			return fmt.Errorf("eval: analysis.efficiency.guards: %s vs %s is not a pair of two Stage A arms", g.Treated, g.Comparator)
+		}
+	}
+	if e.StepTimeoutMS <= 0 {
+		return fmt.Errorf("eval: analysis.efficiency.step_timeout_ms must be positive")
+	}
+	if !(e.PilotRedesignRatio > 1) {
+		return fmt.Errorf("eval: analysis.efficiency.pilot_redesign_ratio %v must exceed 1", e.PilotRedesignRatio)
+	}
+	return nil
+}
+
+// TrialsFor is arm's pre-registered trials per task: its own count in a four-arm set, the one count
+// in a set that gives one, and 0 for an arm a four-arm set does not name.
+func (a LiveAnalysis) TrialsFor(arm string) int {
+	if a.ArmTrialsPerTask != nil {
+		return a.ArmTrialsPerTask[arm]
+	}
+	return a.TrialsPerArm
 }
 
 // LiveTask is one task.
@@ -100,6 +204,9 @@ type LiveTask struct {
 	Category string `json:"category"`
 	// Variant is "base" or "changing-requirement".
 	Variant string `json:"variant"`
+	// Domain labels the domain the task comes from (W6 item 6): the summary breaks outcomes down by
+	// it, reported and not decided. Every task of a four-arm set names one; the two-arm sets carry none.
+	Domain string `json:"domain,omitempty"`
 	// HeldOut marks a task reserved for the confirmatory run: it is never run while the harness or
 	// the product is being tuned.
 	HeldOut bool `json:"held_out"`
@@ -258,8 +365,25 @@ func (ts LiveTaskSet) Validate() error {
 		if err := t.validate(); err != nil {
 			return fmt.Errorf("eval: task %s: %w", t.ID, err)
 		}
+		if ts.Analysis.fourArm() && !t.hasRecoveryCheck() {
+			// Stage A decides on recovery, so every trial must carry a recovery verdict (W6 item 3).
+			return fmt.Errorf("eval: task %s declares no recovery check; every task of a four-arm set needs one", t.ID)
+		}
+		if ts.Analysis.fourArm() && t.Domain == "" {
+			return fmt.Errorf("eval: task %s declares no domain; every task of a four-arm set names one (W6 item 6)", t.ID)
+		}
 	}
 	return nil
+}
+
+// hasRecoveryCheck reports that the task declares at least one recovery check.
+func (t LiveTask) hasRecoveryCheck() bool {
+	for _, c := range t.Checks {
+		if c.Outcome == OutcomeRecovery {
+			return true
+		}
+	}
+	return false
 }
 
 func (a LiveAnalysis) validate() error {
@@ -272,11 +396,68 @@ func (a LiveAnalysis) validate() error {
 	if strings.TrimSpace(a.Model) == "" {
 		return fmt.Errorf("eval: analysis.model must name the pre-registered model")
 	}
-	if a.TrialsPerArm <= 0 {
+	switch {
+	case a.TrialsPerArm < 0:
 		return fmt.Errorf("eval: analysis.trials_per_arm must be positive")
+	case a.TrialsPerArm == 0 && len(a.ArmTrialsPerTask) == 0:
+		return fmt.Errorf("eval: analysis needs trials_per_arm or arm_trials_per_task")
+	case a.TrialsPerArm > 0 && a.ArmTrialsPerTask != nil:
+		return fmt.Errorf("eval: analysis gives trials_per_arm or arm_trials_per_task, not both")
+	}
+	for _, arm := range keysOfInt(a.ArmTrialsPerTask) {
+		if _, ok := LiveArmSpec(arm); !ok {
+			return fmt.Errorf("eval: analysis.arm_trials_per_task names %q, which is not one of %v", arm, LiveArms)
+		}
+		if a.ArmTrialsPerTask[arm] <= 0 {
+			return fmt.Errorf("eval: analysis.arm_trials_per_task[%s] must be positive", arm)
+		}
+	}
+	if a.ArmTrialsPerTask[ArmGeneric] > 0 && strings.TrimSpace(a.GenericCompactInstructions) == "" {
+		return fmt.Errorf("eval: the generic arm needs analysis.generic_compact_instructions (text G)")
+	}
+	for _, v := range []struct {
+		name string
+		val  float64
+	}{{"delta_h1", a.DeltaH1}, {"delta_h2", a.DeltaH2}} {
+		if v.val < 0 || v.val >= 1 {
+			return fmt.Errorf("eval: analysis.%s %v must lie in [0, 1)", v.name, v.val)
+		}
+	}
+	if a.ICCInt < 0 || a.ICCInt >= 1 {
+		return fmt.Errorf("eval: analysis.icc_int %v must lie in [0, 1)", a.ICCInt)
+	}
+	switch {
+	case a.Efficiency != nil:
+		if err := a.Efficiency.validate(); err != nil {
+			return err
+		}
+	case a.fourArm():
+		return fmt.Errorf("eval: a four-arm set pre-registers analysis.efficiency (amendment 4)")
+	}
+	if a.fourArm() && !a.Efficiency.decidesTheGate() {
+		// §9.4 gates F1 on steer vs classic on both cost C and active time T (review STATS-8).
+		return fmt.Errorf("eval: a four-arm set's analysis.efficiency decides cost and active_time with the gated " +
+			"steer vs classic guard (amendment 4)")
 	}
 	return nil
 }
+
+// decidesTheGate reports that the block carries §9.4's gate: the gated steer-vs-classic guard, on both
+// cost and active_time.
+func (e *LiveEfficiency) decidesTheGate() bool {
+	if e == nil || !slices.Contains(e.Metrics, LiveMetricCost) || !slices.Contains(e.Metrics, LiveMetricActiveTime) {
+		return false
+	}
+	for _, g := range e.Guards {
+		if g.Treated == ArmSteer && g.Comparator == ArmClassic && g.Gated {
+			return true
+		}
+	}
+	return false
+}
+
+// fourArm reports that the set is in the Stage A shape, with per-arm trials.
+func (a LiveAnalysis) fourArm() bool { return len(a.ArmTrialsPerTask) > 0 }
 
 func (t LiveTask) validate() error {
 	if !liveIDPattern.MatchString(t.ID) {
@@ -289,6 +470,9 @@ func (t LiveTask) validate() error {
 	}
 	if strings.TrimSpace(t.Category) == "" {
 		return fmt.Errorf("category is empty")
+	}
+	if t.Domain != "" && !liveIDPattern.MatchString(t.Domain) {
+		return fmt.Errorf("domain %q is not a plain identifier", t.Domain)
 	}
 	if err := cleanRelative(t.Fixture); err != nil {
 		return fmt.Errorf("fixture: %w", err)
@@ -439,3 +623,12 @@ func cleanRelative(p string) error {
 func keysOfBool(m map[string]bool) []string {
 	return slices.Sorted(maps.Keys(m))
 }
+
+// keysOfInt lists m's keys in sorted order.
+func keysOfInt(m map[string]int) []string {
+	return slices.Sorted(maps.Keys(m))
+}
+
+// liveDefaultEfficiencyMargin is the plan's margin M (amendment 4), used for the reported rows of a
+// run whose task set pins no efficiency block.
+const liveDefaultEfficiencyMargin = 0.10 //nomagic:allow amendment 4's M, not a config default

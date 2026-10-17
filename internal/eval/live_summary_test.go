@@ -299,3 +299,54 @@ func TestSummarizeLive_RecordsTheModelsTheHostsReported(t *testing.T) {
 	sum := eval.SummarizeLive("r", liveAnalysis(), append(s, q...))
 	require.Equal(t, []string{"claude-a", "claude-b"}, sum.HostModels)
 }
+
+// TestSummarizeLive_HelloIsATreatmentOutcome: a steer trial whose hello file is missing or wrong is
+// a treatment outcome (plan W6 item 4, intention to treat): it stays in every denominator, graded by
+// its checks, and the summary counts and reports it per arm, for every Stage A arm alike.
+func TestSummarizeLive_HelloIsATreatmentOutcome(t *testing.T) {
+	steer := trials(eval.ArmSteer, 4, 4)
+	steer[0].Hello = &eval.LiveHelloOutcome{OK: true, Files: 1, Steering: true}
+	steer[1].Hello = &eval.LiveHelloOutcome{Files: 0, Problem: "no state/mod-hello-*.json after the session"}
+	steer[2].Hello = &eval.LiveHelloOutcome{Files: 1, Problem: "steering false"}
+	steer[3].Hello = &eval.LiveHelloOutcome{OK: true, Files: 1, Steering: true}
+	classic := trials(eval.ArmClassic, 4, 2)
+	classic[0].HookProblems = []eval.HostHookProblem{{Event: "PreCompact", Kind: eval.HookProblemOutputRejected}}
+
+	sum := eval.SummarizeLive("r", liveAnalysis(), append(classic, steer...))
+	st := sum.Arms[eval.ArmSteer]
+	require.Equal(t, 4, st.Trials)
+	require.Equal(t, 2, st.HelloProblemTrials)
+	require.Equal(t, [2]int{4, 4}, [2]int{st.TaskSuccess.K, st.TaskSuccess.N}, "graded by its checks, never excluded")
+	require.Zero(t, sum.Arms[eval.ArmClassic].HelloProblemTrials)
+	notes := strings.Join(sum.Notes, "\n")
+	require.Contains(t, notes, "2 of 4 steer trial(s) have no valid hello file")
+	require.Contains(t, notes, "intention to treat")
+	require.Contains(t, notes, "1 of 4 classic trial(s) ran with a hook failure", "notes cover every arm, not only qompack and stock")
+}
+
+// TestSummarizeLive_ByDomain: the summary breaks each arm's outcomes down by the task's domain, the
+// way it does by variant (W6 item 6): reported, not decided. Trials of tasks with no domain (the
+// two-arm sets) make no breakdown.
+func TestSummarizeLive_ByDomain(t *testing.T) {
+	var ts []eval.LiveTrial
+	for i, domain := range []string{"exact-detail", "exact-detail", "constraint"} {
+		for _, arm := range []string{eval.ArmClassic, eval.ArmSteer} {
+			ts = append(ts, eval.LiveTrial{
+				TaskID: fmt.Sprintf("t%d", i), Arm: arm, Trial: 1, Domain: domain, Completed: true,
+				TaskSuccess: arm == eval.ArmSteer || i == 0, PreregisteredModel: true,
+			})
+		}
+	}
+	sum := eval.SummarizeLive("r", liveAnalysis(), ts)
+	require.Len(t, sum.ByDomain, 2)
+	exact := sum.ByDomain["exact-detail"]
+	require.Len(t, exact, 2)
+	require.Equal(t, eval.ArmClassic, exact[0].Arm)
+	require.Equal(t, 2, exact[0].Trials)
+	require.Equal(t, 1, exact[0].TaskSuccess.K)
+	require.Equal(t, 2, exact[1].TaskSuccess.K)
+	require.Equal(t, 0, sum.ByDomain["constraint"][0].TaskSuccess.K)
+
+	legacy := eval.SummarizeLive("r", liveAnalysis(), trials(eval.ArmStock, 4, 2))
+	require.Nil(t, legacy.ByDomain)
+}

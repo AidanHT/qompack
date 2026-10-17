@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/qompack/qompack/internal/eval"
+	"github.com/qompack/qompack/internal/modwire"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,9 +29,9 @@ const (
 )
 
 func TestParseLiveFlags(t *testing.T) {
-	o, err := parseLiveFlags([]string{"--arms", "qompack", "--install", "marketplace", "--only", "a, b", "--trials", "3"})
+	o, err := parseLiveTest([]string{"--arms", "classic", "--install", "marketplace", "--only", "a, b", "--trials", "3"})
 	require.NoError(t, err)
-	require.Equal(t, []string{"qompack"}, o.arms)
+	require.Equal(t, []string{"classic"}, o.arms)
 	require.Equal(t, map[string]bool{"a": true, "b": true}, o.only)
 	require.Equal(t, 3, o.trials)
 
@@ -44,7 +46,7 @@ func TestParseLiveFlags(t *testing.T) {
 		{"--known-open-defects", " , "},
 		{"--known-open-defects", "C1.12;rm"},
 	} {
-		_, err := parseLiveFlags(bad)
+		_, err := parseLiveTest(bad)
 		require.Error(t, err, "%v", bad)
 	}
 }
@@ -54,16 +56,16 @@ func TestParseLiveFlags(t *testing.T) {
 // operator states it: "none", or every known defect the bundle still carries. Not saying is
 // distinguishable from saying "none".
 func TestParseLiveFlags_KnownOpenDefects(t *testing.T) {
-	o, err := parseLiveFlags(nil)
+	o, err := parseLiveTest(nil)
 	require.NoError(t, err)
 	require.False(t, o.defectsAttested, "no flag is no attestation")
 
-	o, err = parseLiveFlags([]string{"--known-open-defects", "none"})
+	o, err = parseLiveTest([]string{"--known-open-defects", "none"})
 	require.NoError(t, err)
 	require.True(t, o.defectsAttested)
 	require.Empty(t, o.openDefects)
 
-	o, err = parseLiveFlags([]string{"--known-open-defects", "C1.12, C1.1"})
+	o, err = parseLiveTest([]string{"--known-open-defects", "C1.12, C1.1"})
 	require.NoError(t, err)
 	require.True(t, o.defectsAttested)
 	require.Equal(t, []string{"C1.12", "C1.1"}, o.openDefects)
@@ -77,7 +79,7 @@ func TestRunLiveEval_TheQompackArmNeedsADefectAttestation(t *testing.T) {
 	env := fakeLiveEnv(t, nil)
 	var out bytes.Buffer
 	o := liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: t.TempDir(),
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock", "classic"}, out: t.TempDir(),
 		install: liveInstallPluginDir, bundle: fakeBundle(t), dryRun: true,
 	}
 	err := runLiveEval(context.Background(), o, env, &out)
@@ -97,7 +99,7 @@ func TestRunLiveEval_TheQompackArmNeedsADefectAttestation(t *testing.T) {
 	env.run = scriptedPilotHost(t, home)
 	t.Setenv(liveEvalGateEnv, "1")
 	o = liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: t.TempDir(),
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic"}, out: t.TempDir(),
 		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	require.NoError(t, runLiveEval(context.Background(), o, env, &out), out.String())
@@ -134,7 +136,7 @@ func TestRunLiveEval_ASupersededTaskSetIsNeverPlanned(t *testing.T) {
 	require.NoError(t, runLiveEval(context.Background(), o, env, &out))
 	require.Contains(t, out.String(), "task set qompack-live-v2")
 
-	d, err := parseLiveFlags(nil)
+	d, err := parseLiveTest(nil)
 	require.NoError(t, err)
 	require.Equal(t, "testdata/eval/live/tasks-v2.json", d.tasksFile)
 	ts, _, err := eval.LoadLiveTaskSet(filepath.Join("..", "..", filepath.FromSlash(d.tasksFile)))
@@ -143,20 +145,24 @@ func TestRunLiveEval_ASupersededTaskSetIsNeverPlanned(t *testing.T) {
 	require.Empty(t, eval.LivePreregistrations[ts.ID].SupersededBy, "and current")
 }
 
-// TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign: a confirmatory run is 40 real
+// TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign: a confirmatory run is many real
 // sessions of a budget the owner capped, and whether it can be the confirmatory run is mostly fixed
-// when it is planned — the frozen materials, --plugin-dir, the pre-registered model, both arms, all
-// ten tasks with the held-out ones, two trials per arm, a clean bundle and the known-defect statement.
+// when it is planned — the frozen materials, --plugin-dir, the pre-registered model, the arms, all
+// the tasks with the held-out ones, the trials per arm, a clean bundle and the known-defect statement.
 // The driver says so before any session starts, dry run included, naming the bundle it would load;
 // with --confirmatory it refuses to plan a run that departs from the design, so a departure found by
 // `qompack eval` after the sessions cannot happen.
+//
+// The four Stage A arms replaced the two-arm design (plan W6 item 1), so no plan can meet
+// qompack-live-v2's stock-and-qompack design any more: a run of it names that departure, and every
+// other departure as before, until the pre-registration entry names its own arms (W6 item 14).
 func TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign(t *testing.T) {
 	env := fakeLiveEnv(t, nil)
 	confirmatory := func() liveOptions {
 		return liveOptions{
-			tasksFile: liveTestTasks, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: t.TempDir(),
+			tasksFile: liveTestTasks, rates: liveTestRates, arms: []string{"stock", "classic"}, out: t.TempDir(),
 			install: liveInstallPluginDir, bundle: fakeBundle(t), includeHeldOut: true, maxSessions: 40,
-			defectsAttested: true, openDefects: []string{}, dryRun: true, confirmatory: true,
+			defectsAttested: true, openDefects: []string{}, dryRun: true, idleExit: 1800,
 		}
 	}
 	var out bytes.Buffer
@@ -164,14 +170,19 @@ func TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign(t *testing.T) {
 	pre := eval.LivePreregistrations["qompack-live-v2"]
 	for _, want := range []string{
 		"40 trial(s) of task set qompack-live-v2 (" + pre.TaskSetSHA256[:12] + ", fixture tree " + pre.FixtureTreeSHA256[:12] +
-			") on claude-sonnet-5, arms stock,qompack, install plugin-dir",
-		"live-eval: bundle 9.9.9-test at commit deadbeef (dirty=false)",
-		"live-eval: confirmatory preconditions at plan time: met",
-		"plan: seed-recall/qompack/2",
+			") on claude-sonnet-5, arms stock,classic, install plugin-dir",
+		"live-eval: bundle (classic) 9.9.9-test at commit deadbeef (dirty=false)",
+		"live-eval: not the confirmatory design: it did not run both arms (arms: stock, classic)",
+		"plan: seed-recall/classic/2",
 		"--model claude-sonnet-5",
 	} {
 		require.Contains(t, out.String(), want)
 	}
+	require.NotContains(t, out.String(), "confirmatory preconditions at plan time: met")
+	o := confirmatory()
+	o.confirmatory = true
+	out.Reset()
+	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &out), "did not run both arms")
 
 	for name, c := range map[string]struct {
 		mutate func(*liveOptions)
@@ -179,13 +190,12 @@ func TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign(t *testing.T) {
 	}{
 		"held-out excluded": {func(o *liveOptions) { o.includeHeldOut = false }, "it excluded the held-out tasks"},
 		"an open defect":    {func(o *liveOptions) { o.openDefects = []string{"C1.15"} }, "known open defect(s) C1.15"},
-		"one trial per arm": {func(o *liveOptions) { o.trials = 1 }, "ran 1 trials per arm per task, not the pre-registered 2"},
+		"one trial per arm": {func(o *liveOptions) { o.trials = 1 }, "ran 1 trials per task on the classic arm, not the pre-registered 2"},
 		"marketplace":       {func(o *liveOptions) { o.install = liveInstallMarketplace }, "not the pre-registered --plugin-dir"},
 		"another model":     {func(o *liveOptions) { o.model = "opus" }, "not the pre-registered model claude-sonnet-5"},
 		"the pilot":         {func(o *liveOptions) { o.tasksFile = liveTestPilot }, "has no pre-registration"},
 	} {
 		o := confirmatory()
-		o.confirmatory = false
 		c.mutate(&o)
 		out.Reset()
 		require.NoError(t, runLiveEval(context.Background(), o, env, &out), name)
@@ -200,23 +210,9 @@ func TestRunLiveEval_ThePlanSaysWhetherItIsTheConfirmatoryDesign(t *testing.T) {
 		require.NotContains(t, out.String(), "plan: ", "%s: nothing is planned", name)
 	}
 
-	o, err := parseLiveFlags([]string{"--confirmatory"})
+	o, err := parseLiveTest([]string{"--confirmatory"})
 	require.NoError(t, err)
 	require.True(t, o.confirmatory)
-}
-
-// TestPlanLiveTrials_AlternatesArmOrder: across tasks and trials each arm goes first half the time.
-func TestPlanLiveTrials_AlternatesArmOrder(t *testing.T) {
-	tasks := []eval.LiveTask{{ID: "a"}, {ID: "b"}}
-	plan := planLiveTrials(tasks, []string{"stock", "qompack"}, 2)
-	require.Len(t, plan, 8)
-	first := map[string]int{}
-	for i := 0; i < len(plan); i += 2 {
-		first[plan[i].Arm]++
-		require.Equal(t, plan[i].Task, plan[i+1].Task)
-		require.NotEqual(t, plan[i].Arm, plan[i+1].Arm)
-	}
-	require.Equal(t, map[string]int{"stock": 2, "qompack": 2}, first)
 }
 
 func TestSelectLiveTasks_HeldOutNeedsTheConfirmatoryFlag(t *testing.T) {
@@ -253,7 +249,8 @@ func TestLiveSessionArgs_IdenticalAcrossArmsButThePlugin(t *testing.T) {
 	} {
 		require.Contains(t, joined, want)
 	}
-	require.Contains(t, liveSessionEnv(120), "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120")
+	stockArm, _ := eval.LiveArmSpec(eval.ArmStock)
+	require.Contains(t, liveSessionEnv(stockArm, 120), "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120")
 	require.Equal(t, []string{
 		"Run go run ./cmd/code and tell me the code word it prints, in one line.", "/compact",
 		task.Steps[2].Prompt,
@@ -270,8 +267,8 @@ func TestRunLiveEval_DryRunAndTheGate(t *testing.T) {
 	require.Contains(t, out.String(), "install none", "a run with no plugin arm installs nothing")
 	require.Contains(t, out.String(), "no session started")
 
-	o.arms = []string{"stock", "qompack"}
-	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &out), "--bundle", "the qompack arm needs a bundle")
+	o.arms = []string{"stock", "classic"}
+	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &out), "--bundle", "the classic arm needs a bundle")
 
 	o.arms, o.dryRun = []string{"stock"}, false
 	t.Setenv(liveEvalGateEnv, "")
@@ -313,13 +310,13 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 	}
 
 	o := liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock", "qompack"}, out: out,
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"stock", "classic"}, out: out,
 		install: liveInstallMarketplace, bundle: bundle, idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
 
-	for _, arm := range []string{"stock", "qompack"} {
+	for _, arm := range []string{"stock", "classic"} {
 		var rec eval.LiveTrial
 		readJSON(t, filepath.Join(out, "trials", "pilot-codeword", arm, "01", "trial.json"), &rec)
 		require.Empty(t, rec.HarnessError, arm)
@@ -335,7 +332,7 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 		require.Positive(t, rec.Estimate.Micros)
 		require.Equal(t, "2026-09-22", rec.RateTableDate)
 		require.NotEmpty(t, rec.TranscriptHookMS, "the host-measured hook durations come from the transcript")
-		require.Equal(t, arm == "qompack", rec.PluginLoaded)
+		require.Equal(t, arm == "classic", rec.PluginLoaded)
 		require.False(t, rec.PreregisteredModel == false && rec.Model == "claude-haiku-4-5-20251001")
 		require.Equal(t, "claude-haiku-4-5-20251001", rec.HostModel, "the model the host reported at start-up")
 		for _, f := range []string{"stream.jsonl", "stderr.txt", "ledger.json", "estimate.json", "transcript-facts.json", "invocation.json"} {
@@ -343,7 +340,7 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 		}
 		require.NoFileExists(t, filepath.Join(out, "trials", "pilot-codeword", arm, "01", "transcript.raw.jsonl"),
 			"the raw transcript is copied only on request")
-		if arm == "qompack" {
+		if arm == "classic" {
 			require.NotNil(t, rec.Qompack)
 			require.Equal(t, "connected", rec.Qompack.MCPServerStatus)
 			require.Equal(t, liveInstallMarketplace, rec.Install)
@@ -364,7 +361,7 @@ func TestRunLiveEval_OfflineTrialsBothArms(t *testing.T) {
 
 	var sum eval.LiveSummary
 	readJSON(t, filepath.Join(out, "summary.json"), &sum)
-	require.Equal(t, 1, sum.Arms["qompack"].HookProblemTrials)
+	require.Equal(t, 1, sum.Arms["classic"].HookProblemTrials)
 	require.FileExists(t, filepath.Join(out, "summary.md"))
 	require.FileExists(t, filepath.Join(out, "plan.json"))
 }
@@ -376,18 +373,19 @@ func TestRunLiveEval_GuardFailsClosed(t *testing.T) {
 	env := fakeLiveEnv(t, nil)
 	env.home = home
 	env.run = scriptedPilotHost(t, home)
-	env.cli = func(_ context.Context, _ string, args ...string) liveCLIResult {
+	env.cli = pinnedCLI(func(_ context.Context, _ string, args ...string) liveCLIResult {
 		if len(args) > 1 && args[1] == "install" {
 			require.NoError(t, os.MkdirAll(filepath.Join(home, "plugins"), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(home, "plugins", "installed_plugins.json"), []byte(`{"leaked":true}`), 0o600))
 		}
 		return liveCLIResult{}
-	}
+	})
 	out := t.TempDir()
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic", "stock"}, out: out,
 		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
+		orderSeed: seedPuttingFirst(t, "classic", []string{"classic", "stock"}),
 	}
 	var log bytes.Buffer
 	err := runLiveEval(context.Background(), o, env, &log)
@@ -395,7 +393,7 @@ func TestRunLiveEval_GuardFailsClosed(t *testing.T) {
 	require.Contains(t, log.String(), "STOPPING")
 
 	var rec eval.LiveTrial
-	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "trial.json"), &rec)
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "trial.json"), &rec)
 	require.False(t, rec.HomeGuard.Unchanged)
 	require.Contains(t, strings.Join(rec.HomeGuard.After, "\n"), "plugins/installed_plugins.json")
 	require.NoDirExists(t, filepath.Join(out, "trials", "pilot-codeword", "stock"), "no trial runs after the guard fails")
@@ -658,8 +656,12 @@ func fakeLiveEnv(t *testing.T, cliCalls *[]string) *liveEnv {
 			return liveCLIResult{}
 		},
 		stopDaemon: func(string, string) (string, error) { return "no daemon lock after the session", nil },
-		check:      runLiveCheckCommand,
-		git:        runLiveGit,
+		sleep: func(context.Context, time.Duration) error {
+			t.Fatal("no pacing wait may happen in this test")
+			return nil
+		},
+		check: runLiveCheckCommand,
+		git:   runLiveGit,
 	}
 }
 
@@ -694,6 +696,14 @@ type pilotHostOpts struct {
 	source string
 	// extra are further plugin objects (JSON) the host lists as loaded.
 	extra []string
+	// noHello keeps a steering session from writing its hello file, as a mod that never ran would.
+	noHello bool
+	// streamExtra are further stream lines (rate_limit_event lines, say) the host prints right after
+	// its init line; streamTail replaces the stream's last line (the final result) when set.
+	streamExtra []string
+	streamTail  string
+	// wrongCode makes the session write a wrong code word, so the trial fails its task check.
+	wrongCode bool
 }
 
 // scriptedPilotHost plays the pilot task the way a real host would: it prints a stream shaped like
@@ -739,7 +749,17 @@ func scriptedPilotHostWith(t *testing.T, home string, opts pilotHostOpts) func(c
 		}
 		plugins = append(plugins, `{"name":"agents-md","path":"builtin","source":"agents-md@builtin"}`)
 		plugins = append(plugins, opts.extra...)
-		require.NoError(t, os.WriteFile(filepath.Join(spec.Dir, "CODE.txt"), []byte(pilotCodeWord+"\n"), 0o600))
+		code := pilotCodeWord
+		if opts.wrongCode {
+			code = "0000000000"
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(spec.Dir, "CODE.txt"), []byte(code+"\n"), 0o600))
+		if loaded && !opts.noHello && slices.Contains(spec.Env, "QOMPACK_RUNTIME__MOD__STEERING=true") {
+			// The mod's session.start hello, served with both switches on by a new-enough host.
+			writeTestHello(t, spec.Dir, modwire.HelloFile{
+				V: modwire.Version, SessionID: sid, HostVersion: modwire.MinHostVersion, Enabled: true, Steering: true, TS: 1,
+			})
+		}
 
 		transcript, err := os.ReadFile("../../internal/eval/testdata/live/smoke2-plugin.transcript.redacted.jsonl")
 		require.NoError(t, err)
@@ -758,14 +778,27 @@ func scriptedPilotHostWith(t *testing.T, home string, opts pilotHostOpts) func(c
 		require.NoError(t, os.WriteFile(filepath.Join(tdir, sid+".jsonl"), transcript, 0o600))
 
 		stream := pilotStream(sid, loaded, plugins)
+		if len(opts.streamExtra) > 0 || opts.streamTail != "" {
+			lines := strings.Split(strings.TrimSuffix(stream, "\n"), "\n")
+			if opts.streamTail != "" {
+				lines[len(lines)-1] = opts.streamTail
+			}
+			lines = slices.Insert(lines, 1, opts.streamExtra...)
+			stream = strings.Join(lines, "\n") + "\n"
+		}
+		stream, stopped := honourStopOn(spec, stream)
 		recv := make([]int64, 0)
 		for i := range strings.Count(stream, "\n") {
 			recv = append(recv, int64(100*(i+1)))
 		}
-		return liveProcResult{
+		res := liveProcResult{
 			Stream: []byte(stream), RecvMS: recv, StepsCompleted: len(spec.Messages),
 			StartedAt: time.Unix(0, 0), EndedAt: time.Unix(3, 0),
 		}
+		if stopped != "" {
+			res.Stopped, res.Err = stopped, "stopped by the driver: "+stopped
+		}
+		return res
 	}
 }
 
@@ -787,7 +820,7 @@ func pilotStream(sid string, plugin bool, pluginList []string) string {
 		`{"type":"system","subtype":"hook_response","hook_id":"h1","hook_name":"SessionStart:startup","hook_event":"SessionStart","output":"{}","exit_code":0,"outcome":"success"}`,
 		`{"type":"assistant","message":{"id":"m1","model":"claude-haiku-4-5-20251001","content":[{"type":"tool_use","id":"tu1","name":"Bash","input":{"command":"go run ./cmd/code"}}],"usage":` + usage(10, 1, 100, 50) + `},"parent_tool_use_id":null}`,
 		`{"type":"assistant","message":{"id":"m2","model":"claude-haiku-4-5-20251001","content":[{"type":"text","text":"The code word is ` + pilotCodeWord + `."}],"usage":` + usage(8, 1, 150, 20) + `},"parent_tool_use_id":null}`,
-		`{"type":"result","subtype":"success","is_error":false,"num_turns":2,"result":"The code word is ` + pilotCodeWord + `.","total_cost_usd":0.001,"usage":` + usage(18, 40, 250, 70) + `,"modelUsage":` + model(18, 40, 250, 70, 0.001) + `,"permission_denials":[]}`,
+		`{"type":"result","subtype":"success","is_error":false,"duration_ms":12000,"duration_api_ms":9000,"num_turns":2,"result":"The code word is ` + pilotCodeWord + `.","total_cost_usd":0.001,"usage":` + usage(18, 40, 250, 70) + `,"modelUsage":` + model(18, 40, 250, 70, 0.001) + `,"permission_denials":[]}`,
 		`{"type":"system","subtype":"status","status":"compacting"}`,
 		`{"type":"system","subtype":"status","status":null,"compact_result":"success"}`,
 		`{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"manual","pre_tokens":5000,"post_tokens":900,"duration_ms":4000}}`,
@@ -798,10 +831,10 @@ func pilotStream(sid string, plugin bool, pluginList []string) string {
 	}
 	lines = append(lines,
 		`{"type":"user","message":{"role":"user","content":"<local-command-stdout>`+local+`</local-command-stdout>"}}`,
-		`{"type":"result","subtype":"success","is_error":false,"num_turns":0,"local_command":"compact","result":"","total_cost_usd":0.002,"usage":`+usage(0, 0, 0, 0)+`,"modelUsage":`+model(1018, 240, 250, 90, 0.002)+`,"permission_denials":[]}`,
+		`{"type":"result","subtype":"success","is_error":false,"duration_ms":30000,"duration_api_ms":29000,"num_turns":0,"local_command":"compact","result":"","total_cost_usd":0.002,"usage":`+usage(0, 0, 0, 0)+`,"modelUsage":`+model(1018, 240, 250, 90, 0.002)+`,"permission_denials":[]}`,
 		`{"type":"assistant","message":{"id":"m3","model":"claude-haiku-4-5-20251001","content":[{"type":"tool_use","id":"tu2","name":"Write","input":{"file_path":"CODE.txt"}}],"usage":`+usage(5, 1, 300, 10)+`},"parent_tool_use_id":null}`,
 		`{"type":"assistant","message":{"id":"m4","model":"claude-haiku-4-5-20251001","content":[{"type":"text","text":"Wrote `+pilotCodeWord+` to CODE.txt."}],"usage":`+usage(5, 1, 310, 5)+`},"parent_tool_use_id":null}`,
-		`{"type":"result","subtype":"success","is_error":false,"num_turns":2,"result":"Wrote `+pilotCodeWord+` to CODE.txt.","total_cost_usd":0.003,"usage":`+usage(10, 30, 610, 15)+`,"modelUsage":`+model(1028, 270, 860, 105, 0.003)+`,"permission_denials":[]}`,
+		`{"type":"result","subtype":"success","is_error":false,"duration_ms":8000,"duration_api_ms":6000,"num_turns":2,"result":"Wrote `+pilotCodeWord+` to CODE.txt.","total_cost_usd":0.003,"usage":`+usage(10, 30, 610, 15)+`,"modelUsage":`+model(1028, 270, 860, 105, 0.003)+`,"permission_denials":[]}`,
 	)
 	return strings.Join(lines, "\n") + "\n"
 }
@@ -1008,16 +1041,32 @@ func TestRunLiveEval_PluginMustComeFromTheArmsInstall(t *testing.T) {
 		return rec, sum
 	}
 
-	rec, _ := run(t, []string{"qompack"}, pilotHostOpts{})
+	rec, _ := run(t, []string{"classic"}, pilotHostOpts{})
 	require.True(t, rec.PluginLoaded, "loaded from the disposable marketplace: the arm's own install")
 	require.Equal(t, "qompack@"+liveMarketplaceName, rec.Plugin.HostSource)
 	require.Empty(t, rec.ForeignPlugins)
 
-	rec, sum := run(t, []string{"qompack"}, pilotHostOpts{source: "qompack@inline"})
-	require.False(t, rec.PluginLoaded, "Qompack from another source is not this arm's plugin")
-	require.Contains(t, strings.Join(rec.Notes, "\n"), "qompack@inline")
-	require.Equal(t, "not-applicable", sum.Decision.Verdict)
+	// Qompack from another source is not this arm's plugin: a configuration error, set aside and run
+	// again in its slot, until the third stops the run (W6 item 4). The whole-run void is retired.
+	home := t.TempDir()
+	env := fakeLiveEnv(t, nil)
+	env.home = home
+	env.run = scriptedPilotHostWith(t, home, pilotHostOpts{source: "qompack@inline"})
+	out := t.TempDir()
+	o := liveOptions{
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic"}, out: out,
+		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
+	}
+	var log bytes.Buffer
+	require.ErrorContains(t, runLiveEval(context.Background(), o, env, &log), "three configuration errors")
+	var discarded eval.LiveTrial
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "trial.discarded-1.json"), &discarded)
+	require.False(t, discarded.PluginLoaded, "Qompack from another source is not this arm's plugin")
+	require.Contains(t, strings.Join(discarded.Notes, "\n"), "qompack@inline")
+	require.Contains(t, discarded.ConfigurationError, "qompack@inline")
+	require.NoFileExists(t, filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "trial.json"))
 
+	var sum eval.LiveSummary
 	rec, sum = run(t, []string{"stock"}, pilotHostOpts{extra: []string{
 		`{"name":"superpowers","path":"p","source":"superpowers@claude-plugins-official"}`,
 	}})
@@ -1063,7 +1112,7 @@ func TestRunLiveEval_RelativeBundleReachesTheHostWhole(t *testing.T) {
 	}
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: t.TempDir(),
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic"}, out: t.TempDir(),
 		install: liveInstallPluginDir, bundle: rel, idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
@@ -1084,7 +1133,7 @@ func TestRunLiveEval_RelativeBundleReachesTheHostWhole(t *testing.T) {
 	o.dryRun, o.out = true, t.TempDir()
 	log.Reset()
 	require.NoError(t, runLiveEval(context.Background(), o, env, &log))
-	require.Contains(t, log.String(), "host (qompack, task pilot-codeword): claude-fake -p ")
+	require.Contains(t, log.String(), "host (classic, task pilot-codeword): claude-fake -p ")
 	require.Contains(t, log.String(), "--plugin-dir "+bundle)
 }
 
@@ -1136,29 +1185,31 @@ func TestRunLiveEval_InstallFailureIsAHarnessFailureNotAMismatch(t *testing.T) {
 	env := fakeLiveEnv(t, nil)
 	env.home = home
 	env.run = scriptedPilotHost(t, home)
-	env.cli = func(_ context.Context, _ string, args ...string) liveCLIResult {
+	env.cli = pinnedCLI(func(_ context.Context, _ string, args ...string) liveCLIResult {
 		if len(args) > 1 && args[0] == "plugin" && args[1] == "install" {
 			return liveCLIResult{Code: 1, Stderr: "install failed"}
 		}
 		return liveCLIResult{}
-	}
+	})
 	out := t.TempDir()
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic", "stock"}, out: out,
 		install: liveInstallMarketplace, bundle: fakeBundle(t), idleExit: 1, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
 	require.NoError(t, runLiveEval(context.Background(), o, env, &log), log.String())
 	var rec eval.LiveTrial
-	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "trial.json"), &rec)
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "trial.json"), &rec)
 	require.Contains(t, rec.HarnessError, "marketplace install")
 	require.False(t, rec.HostReportedPlugins)
 	require.False(t, rec.TaskSuccess)
 	var sum eval.LiveSummary
 	readJSON(t, filepath.Join(out, "summary.json"), &sum)
-	require.Zero(t, sum.Arms[eval.ArmQompack].PluginMismatch)
-	require.NotEqual(t, "not-applicable", sum.Decision.Verdict, sum.Decision.Reason)
+	require.Zero(t, sum.Arms[eval.ArmClassic].PluginMismatch)
+	require.Empty(t, rec.ConfigurationError, "a harness failure is scored, not set aside")
+	require.NoFileExists(t, filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "trial.discarded-1.json"))
+	require.NotContains(t, sum.Decision.Reason, "wrong plugin state")
 	require.Len(t, sum.Failed, 1)
 }
 
@@ -1185,7 +1236,7 @@ func TestRunLiveEval_StoppedRunReachesNoVerdict(t *testing.T) {
 	out := t.TempDir()
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack", "stock"}, out: out,
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic", "stock"}, out: out,
 		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 1, trials: 2, defectsAttested: true,
 	}
 	var log bytes.Buffer
@@ -1194,7 +1245,7 @@ func TestRunLiveEval_StoppedRunReachesNoVerdict(t *testing.T) {
 	var sum eval.LiveSummary
 	readJSON(t, filepath.Join(out, "summary.json"), &sum)
 	require.Contains(t, sum.Arms, eval.ArmStock)
-	require.Contains(t, sum.Arms, eval.ArmQompack, "both arms ran before the stop")
+	require.Contains(t, sum.Arms, eval.ArmClassic, "both arms ran before the stop")
 	require.Equal(t, "not-applicable", sum.Decision.Verdict, sum.Decision.Reason)
 	require.Contains(t, sum.Decision.Reason, "3 of the 4 planned trials")
 	md, err := os.ReadFile(filepath.Join(out, "summary.md"))
@@ -1238,7 +1289,7 @@ func TestRunLiveEval_SessionsRunAtThePluginsDefaults(t *testing.T) {
 	out := t.TempDir()
 	t.Setenv(liveEvalGateEnv, "1")
 	o := liveOptions{
-		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"qompack"}, out: out,
+		tasksFile: liveTestPilot, rates: liveTestRates, arms: []string{"classic"}, out: out,
 		install: liveInstallPluginDir, bundle: fakeBundle(t), idleExit: 7, trials: 1, defectsAttested: true,
 	}
 	var log bytes.Buffer
@@ -1251,16 +1302,17 @@ func TestRunLiveEval_SessionsRunAtThePluginsDefaults(t *testing.T) {
 			qompack = append(qompack, kv)
 		}
 	}
-	require.Equal(t, []string{"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=7"}, qompack,
-		"only the driver's own setting reaches the session")
+	require.ElementsMatch(t, []string{
+		"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=7", "QOMPACK_RUNTIME__MOD__ENABLED=false", "QOMPACK_RUNTIME__MOD__STEERING=false",
+	}, qompack, "only the driver's own settings reach the session")
 	require.Contains(t, spec.Unset, "QOMPACK_RUNTIME__MODE")
 
-	raw, err := os.ReadFile(filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "invocation.json"))
+	raw, err := os.ReadFile(filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "invocation.json"))
 	require.NoError(t, err)
 	require.Contains(t, string(raw), "QOMPACK_RUNTIME__MODE")
 	require.NotContains(t, string(raw), "999999", "a removed variable's value is never recorded")
 	var rec eval.LiveTrial
-	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "qompack", "01", "trial.json"), &rec)
+	readJSON(t, filepath.Join(out, "trials", "pilot-codeword", "classic", "01", "trial.json"), &rec)
 	require.Contains(t, strings.Join(rec.Notes, "\n"), "QOMPACK_RUNTIME__MODE")
 }
 
@@ -1308,4 +1360,36 @@ func TestLiveRunsPreregisteredModel(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, liveRunsPreregisteredModel(pilot, pilot.Analysis.Model))
 	require.False(t, liveRunsPreregisteredModel(pilot, pre.ModelContingency))
+}
+
+// honourStopOn plays the driver's StopOn the way runLiveProcess does: the stream ends at the first
+// line StopOn objects to, and the reason is returned.
+func honourStopOn(spec liveProcSpec, stream string) (string, string) {
+	if spec.StopOn == nil {
+		return stream, ""
+	}
+	lines := strings.SplitAfter(stream, "\n")
+	for i, l := range lines {
+		if why := spec.StopOn([]byte(strings.TrimSpace(l))); why != "" {
+			return strings.Join(lines[:i+1], ""), why
+		}
+	}
+	return stream, ""
+}
+
+// parseLiveTest is parseLiveFlags with --night-window none added when args name no night window, so a
+// flag test fails for its own reason and not for the window every real run must name (review I3).
+func parseLiveTest(args []string) (liveOptions, error) {
+	if !slices.Contains(args, "--night-window") {
+		args = append(slices.Clone(args), "--night-window", liveNoNightWindow)
+	}
+	return parseLiveFlags(args)
+}
+
+// parseLiveCheckTest is parseLiveCheckFlags with --night-window none added the same way.
+func parseLiveCheckTest(args []string) (liveCheckOptions, error) {
+	if !slices.Contains(args, "--night-window") {
+		args = append(slices.Clone(args), "--night-window", liveNoNightWindow)
+	}
+	return parseLiveCheckFlags(args)
 }

@@ -17,12 +17,14 @@ import (
 // of its task set's pre-registered design: the frozen materials and install path (preregistration
 // sections 2 and 3, amendments A1 and A7) and a set that was not superseded, the operator's
 // known-defect statement (section 9, amendment A5), the pre-registered model or its one contingency
-// alias (section 3, amendment A6), both arms (section 3), every task including the held-out ones and
-// the pre-registered trials per arm (sections 4 and 7), and a bundle built from a clean tree.
-// trialsPerArm is the task set's pre-registered trials per arm. An empty result is not a
+// alias (section 3, amendment A6), every arm of the design (both arms of the two-arm design, the
+// entry's arms of a Stage A one, W6 item 14), every task including the held-out ones, the
+// pre-registered trials per task of each arm (sections 4 and 7; the entry's per-arm n when it names
+// them), the pinned step timeout (amendment 4), and every bundle the design loads, built from one
+// commit and a clean tree. a is the task set's analysis block. An empty result is not a
 // confirmatory run yet: what only the trials can show — every planned trial ran, no foreign plugin
-// loaded on either arm, an alias resolved to one model — is judged from the run's summary.
-func LivePlanDepartures(p LivePlan, trialsPerArm int) []string {
+// loaded on any arm, an alias resolved to one model — is judged from the run's summary.
+func LivePlanDepartures(p LivePlan, a LiveAnalysis) []string {
 	var out []string
 	pre, ok := LivePreregistrations[p.TaskSet]
 	if !ok {
@@ -35,9 +37,7 @@ func LivePlanDepartures(p LivePlan, trialsPerArm int) []string {
 		out = append(out, fmt.Sprintf("it ran on %s, not the pre-registered model %s",
 			orUnknownText(p.Model), orUnknownText(p.PreregisteredModel)))
 	}
-	if !(containsText(p.Arms, ArmStock) && containsText(p.Arms, ArmQompack)) {
-		out = append(out, fmt.Sprintf("it did not run both arms (arms: %s)", orUnknownText(strings.Join(p.Arms, ", "))))
-	}
+	out = append(out, armDepartures(p, a, pre, ok)...)
 	if !p.HeldOutIncluded {
 		out = append(out, "it excluded the held-out tasks")
 	}
@@ -51,15 +51,87 @@ func LivePlanDepartures(p LivePlan, trialsPerArm int) []string {
 	case len(tasks) != p.TaskSetTasks:
 		out = append(out, fmt.Sprintf("it planned %d of the task set's %d tasks", len(tasks), p.TaskSetTasks))
 	}
-	if trialsPerArm > 0 && p.TrialsPerArm != trialsPerArm {
-		out = append(out, fmt.Sprintf("it ran %d trials per arm per task, not the pre-registered %d",
-			p.TrialsPerArm, trialsPerArm))
+	// A plan that records no step timeout (0) departs too: T's cap cannot be shown to be the pinned one
+	// (review WIRING-5).
+	if e := a.Efficiency; e != nil && p.StepTimeoutMS != e.StepTimeoutMS {
+		out = append(out, fmt.Sprintf("it ran with a step timeout of %d ms, not the pre-registered %d ms at which active "+
+			"time counts a step with no result (amendment 4)", p.StepTimeoutMS, e.StepTimeoutMS))
+	}
+	if pre.ArmTrialsPerTask != nil {
+		a.TrialsPerArm, a.ArmTrialsPerTask = 0, pre.ArmTrialsPerTask
+	}
+	out = append(out, trialDepartures(p, a)...)
+	switch {
+	case p.Plugin == nil && p.PluginMods == nil:
+		out = append(out, "its plan names no plugin bundle")
+	case p.Plugin != nil && p.Plugin.Dirty:
+		out = append(out, "its bundle was assembled from a worktree with uncommitted changes, not a frozen candidate")
+	}
+	if p.PluginMods != nil && p.PluginMods.Dirty {
+		out = append(out, "its --bundle-mods was assembled from a worktree with uncommitted changes, not a frozen candidate")
+	}
+	return append(out, bundleDepartures(p, pre)...)
+}
+
+// armDepartures names how the plan's arms fall short of its design's: the pre-registration's arms
+// when it names them, the four Stage A arms for a four-arm task set with no pre-registration, and the
+// two-arm design's stock and qompack otherwise.
+func armDepartures(p LivePlan, a LiveAnalysis, pre LivePreregistration, registered bool) []string {
+	want := pre.DesignArms()
+	if !registered && a.fourArm() {
+		want = LiveArms
+	}
+	var missing []string
+	for _, arm := range want {
+		if !containsText(p.Arms, arm) {
+			missing = append(missing, arm)
+		}
 	}
 	switch {
-	case p.Plugin == nil:
-		out = append(out, "its plan names no plugin bundle")
-	case p.Plugin.Dirty:
-		out = append(out, "its bundle was assembled from a worktree with uncommitted changes, not a frozen candidate")
+	case len(missing) == 0:
+		return nil
+	case len(want) == 2:
+		return []string{fmt.Sprintf("it did not run both arms (arms: %s)", orUnknownText(strings.Join(p.Arms, ", ")))}
+	}
+	return []string{fmt.Sprintf("it did not run every arm of the design (%s; arms: %s, missing %s)",
+		strings.Join(want, ", "), orUnknownText(strings.Join(p.Arms, ", ")), strings.Join(missing, ", "))}
+}
+
+// bundleDepartures names every bundle the pre-registered design loads that the plan does not record,
+// and a pair of bundles built from different commits (W6 item 14).
+func bundleDepartures(p LivePlan, pre LivePreregistration) []string {
+	var out []string
+	for _, b := range pre.Bundles {
+		switch {
+		case b == LiveBundleClassic && p.Plugin == nil:
+			out = append(out, "its plan names no --bundle, which the pre-registered design's classic arms load")
+		case b == LiveBundleMods && p.PluginMods == nil:
+			out = append(out, "its plan names no --bundle-mods, which the pre-registered design's steer arm loads")
+		}
+	}
+	if c, m := p.Plugin, p.PluginMods; c != nil && m != nil && (c.Commit != m.Commit || c.Version != m.Version) {
+		out = append(out, fmt.Sprintf("its --bundle (%s at %s) and --bundle-mods (%s at %s) are not built from one commit",
+			c.Version, c.Commit, m.Version, m.Commit))
+	}
+	return out
+}
+
+// trialDepartures names every arm whose planned trials per task differ from a's. A plan that records
+// per-arm counts is compared arm by arm; an older plan has one count for every arm.
+func trialDepartures(p LivePlan, a LiveAnalysis) []string {
+	if p.ArmTrials == nil {
+		if a.TrialsPerArm > 0 && p.TrialsPerArm != a.TrialsPerArm {
+			return []string{fmt.Sprintf("it ran %d trials per arm per task, not the pre-registered %d",
+				p.TrialsPerArm, a.TrialsPerArm)}
+		}
+		return nil
+	}
+	var out []string
+	for _, arm := range p.Arms {
+		if got, want := p.ArmTrials[arm], a.TrialsFor(arm); got != want {
+			out = append(out, fmt.Sprintf("it ran %d trials per task on the %s arm, not the pre-registered %d",
+				got, arm, want))
+		}
 	}
 	return out
 }

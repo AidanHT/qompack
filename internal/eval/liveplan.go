@@ -43,6 +43,24 @@ type LivePreregistration struct {
 	SupersededBy string
 	// SupersededWhy says why, and where the replacement was recorded.
 	SupersededWhy string
+	// Arms is the design's arms, every one of which a confirmatory run plans; nil for the two-arm
+	// design of qompack-live-v1 and -v2 (stock and qompack). A Stage A entry names the four LiveArms.
+	Arms []string
+	// ArmTrialsPerTask is the design's trials per task of each arm (W6 item 14); nil when the task
+	// set's one trials_per_arm is the design's.
+	ArmTrialsPerTask map[string]int
+	// Bundles names the bundles the design loads, by the live-eval flag that supplies each
+	// (LiveBundleClassic, LiveBundleMods); nil means the one --bundle of the two-arm design. A
+	// confirmatory plan records every one, built from one commit and a clean tree.
+	Bundles []string
+}
+
+// DesignArms is the arms a confirmatory run of p's design plans: p.Arms, or the two-arm design's.
+func (p LivePreregistration) DesignArms() []string {
+	if p.Arms != nil {
+		return p.Arms
+	}
+	return []string{ArmStock, ArmQompack}
 }
 
 // LivePreregistrations maps each pre-registered task set's id to what its pre-registration froze.
@@ -142,14 +160,34 @@ type LivePlan struct {
 	// FixtureTreeSHA256 is TreeManifestSHA256 over FixtureTreeDirs, the top-level directories
 	// (beside the task file) the task set's fixtures and hidden tests live in: the identity of every
 	// byte a trial starts from or is graded against, which the task-set hash alone does not cover.
-	FixtureTreeSHA256  string              `json:"fixture_tree_sha256"`
-	FixtureTreeDirs    []string            `json:"fixture_tree_dirs"`
-	Model              string              `json:"model"`
-	PreregisteredModel string              `json:"preregistered_model"`
-	Arms               []string            `json:"arms"`
-	TrialsPerArm       int                 `json:"trials_per_arm"`
-	Install            string              `json:"install"`
-	Plugin             *LivePluginIdentity `json:"plugin,omitempty"`
+	FixtureTreeSHA256  string   `json:"fixture_tree_sha256"`
+	FixtureTreeDirs    []string `json:"fixture_tree_dirs"`
+	Model              string   `json:"model"`
+	PreregisteredModel string   `json:"preregistered_model"`
+	Arms               []string `json:"arms"`
+	// TrialsPerArm is the trials per task of every arm when all arms run the same number; 0 when
+	// they differ, and ArmTrials then holds each arm's.
+	TrialsPerArm int `json:"trials_per_arm"`
+	// ArmTrials is each arm's trials per task (W6 item 1); nil in a plan written before it existed.
+	ArmTrials map[string]int `json:"arm_trials_per_task,omitempty"`
+	// ArmStates is each arm's declared state, in Arms order: what every trial of it was set up with
+	// and checked against.
+	ArmStates []LiveArmState `json:"arm_states,omitempty"`
+	// OrderSeed seeds the shuffle of each block of rounds in Trials, so the order can be re-derived.
+	OrderSeed int64 `json:"order_seed,omitempty"`
+	// StepTimeoutMS is the --step-timeout the run's sessions use: the cap active time T counts a reached
+	// step with no result at, which a task set's efficiency block pins (amendment 4). 0 in a plan
+	// written before it was recorded.
+	StepTimeoutMS int64 `json:"step_timeout_ms,omitempty"`
+	// DaemonIdleExitSeconds is the idle exit every Qompack arm's daemon ran with.
+	DaemonIdleExitSeconds int    `json:"daemon_idle_exit_seconds,omitempty"`
+	Install               string `json:"install"`
+	// Plugin is the --bundle build (the classic shape, for classic and generic) and PluginMods the
+	// --bundle-mods build (for steer); both are built from one commit. ArmPlugins names which one
+	// each Qompack arm loads.
+	Plugin     *LivePluginIdentity            `json:"plugin,omitempty"`
+	PluginMods *LivePluginIdentity            `json:"plugin_mods,omitempty"`
+	ArmPlugins map[string]*LivePluginIdentity `json:"arm_plugins,omitempty"`
 	// KnownDefects is the operator's statement of which known defects Plugin still carries; nil
 	// when the run was planned without one (a stock-only run, or a plan written before it existed).
 	KnownDefects     *LiveDefectAttestation `json:"known_defects,omitempty"`

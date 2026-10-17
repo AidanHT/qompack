@@ -61,6 +61,9 @@ type HostStream struct {
 	// Other counts every line kind this parser does not interpret, keyed "type" or "type/subtype",
 	// so a new host event is visible in the record instead of silently dropped.
 	Other map[string]int `json:"other,omitempty"`
+	// RateLimits is every rate_limit_event line in order (V7 W6 item 8): the subscription windows'
+	// state as the host reported it, which the harness paces on.
+	RateLimits []HostRateLimit `json:"rate_limits,omitempty"`
 }
 
 // HostInit is the session metadata the host reports at start-up.
@@ -232,16 +235,20 @@ type HostResult struct {
 	IsError bool   `json:"is_error"`
 	// LocalCommand names the built-in command this turn ran instead of a model turn, e.g.
 	// "compact".
-	LocalCommand   string                    `json:"local_command,omitempty"`
-	DurationMS     int64                     `json:"duration_ms"`
-	DurationAPIMS  int64                     `json:"duration_api_ms"`
-	NumTurns       int                       `json:"num_turns"`
-	TotalCostUSD   float64                   `json:"total_cost_usd"`
-	Usage          HostUsage                 `json:"usage"`
-	ModelUsage     map[string]HostModelUsage `json:"model_usage"`
-	Result         string                    `json:"result"`
-	TerminalReason string                    `json:"terminal_reason,omitempty"`
-	StopReason     string                    `json:"stop_reason,omitempty"`
+	LocalCommand  string  `json:"local_command,omitempty"`
+	DurationMS    int64   `json:"duration_ms"`
+	DurationAPIMS int64   `json:"duration_api_ms"`
+	NumTurns      int     `json:"num_turns"`
+	TotalCostUSD  float64 `json:"total_cost_usd"`
+	// DurationMissing and CostMissing say the line carried no duration_ms or total_cost_usd: an
+	// absent value is unknown, never zero (amendment 4).
+	DurationMissing bool                      `json:"duration_missing,omitempty"`
+	CostMissing     bool                      `json:"cost_missing,omitempty"`
+	Usage           HostUsage                 `json:"usage"`
+	ModelUsage      map[string]HostModelUsage `json:"model_usage"`
+	Result          string                    `json:"result"`
+	TerminalReason  string                    `json:"terminal_reason,omitempty"`
+	StopReason      string                    `json:"stop_reason,omitempty"`
 	// PermissionDenials is how many tool calls the host denied during the turn.
 	PermissionDenials int      `json:"permission_denials"`
 	Errors            []string `json:"errors,omitempty"`
@@ -391,10 +398,10 @@ type rawResult struct {
 	Subtype           string                   `json:"subtype"`
 	IsError           bool                     `json:"is_error"`
 	LocalCommand      string                   `json:"local_command"`
-	DurationMS        int64                    `json:"duration_ms"`
+	DurationMS        *int64                   `json:"duration_ms"`
 	DurationAPIMS     int64                    `json:"duration_api_ms"`
 	NumTurns          int                      `json:"num_turns"`
-	TotalCostUSD      float64                  `json:"total_cost_usd"`
+	TotalCostUSD      *float64                 `json:"total_cost_usd"`
 	Usage             rawUsage                 `json:"usage"`
 	ModelUsage        map[string]rawModelUsage `json:"modelUsage"`
 	Result            string                   `json:"result"`
@@ -511,7 +518,9 @@ func (p *streamParser) line(line []byte, at int64) error {
 		return p.result(line, at)
 	case "user":
 		return p.user(line, at)
-	case "rate_limit_event", "stream_event":
+	case "rate_limit_event":
+		return p.rateLimit(line, at)
+	case "stream_event":
 		p.turn(at)
 		return nil
 	default:
@@ -671,10 +680,12 @@ func (p *streamParser) result(line []byte, at int64) error {
 		Subtype:           rr.Subtype,
 		IsError:           rr.IsError,
 		LocalCommand:      rr.LocalCommand,
-		DurationMS:        rr.DurationMS,
+		DurationMS:        derefInt64(rr.DurationMS),
+		DurationMissing:   rr.DurationMS == nil,
 		DurationAPIMS:     rr.DurationAPIMS,
 		NumTurns:          rr.NumTurns,
-		TotalCostUSD:      rr.TotalCostUSD,
+		TotalCostUSD:      derefFloat64(rr.TotalCostUSD),
+		CostMissing:       rr.TotalCostUSD == nil,
 		Usage:             rr.Usage.typed(),
 		Result:            rr.Result,
 		TerminalReason:    rr.TerminalReason,
@@ -860,4 +871,20 @@ func boundRunes(s string, n int) string {
 		return s
 	}
 	return string(r[:n]) + "…"
+}
+
+// derefInt64 is *p, or 0 for nil.
+func derefInt64(p *int64) int64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// derefFloat64 is *p, or 0 for nil.
+func derefFloat64(p *float64) float64 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
